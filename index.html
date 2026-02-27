@@ -397,14 +397,11 @@ const TAREFAS = [
   { id:5, titulo:'Coleta docs Roberto Santos', prioridade:'normal', prazo:'15/03/2025', status:'pendente', cliente:'Roberto Silva Santos', responsavel:'Fernanda Costa' },
 ];
 
-const FINANCEIRO = [
-  { mes:'Set', receita:12400, despesa:4200 },
-  { mes:'Out', receita:15800, despesa:5100 },
-  { mes:'Nov', receita:11200, despesa:3800 },
-  { mes:'Dez', receita:18600, despesa:6200 },
-  { mes:'Jan', receita:16400, despesa:5400 },
-  { mes:'Fev', receita:21200, despesa:7100 },
-];
+// FINANCEIRO — dinâmico (gerado a partir dos clientes cadastrados)
+// Mantido como array para compatibilidade visual; recalculado em renderFinanceiro
+const MESES_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+let lancamentos = []; // { id, tipo:'receita'|'despesa', valor, mes, ano, descricao, cliente }
+let _lancId = 1;
 
 const AGENDAMENTOS_DEFAULT = [
   { id:1, data:'27/02/2025', hora:'09:00', cliente:'Ana Cristina Souza', tipo:'Consulta Inicial', colaborador:'Fernanda Costa', obs:'' },
@@ -487,9 +484,9 @@ function showToast(msg, type='success') {
 // ── Payload atual ────────────────────────────────────────────────
 function getPayload() {
   return { clientes, tarefas, colaboradores, agendamentos,
-           indeferimentos, propostas, parceiros,
+           indeferimentos, propostas, parceiros, lancamentos, parcelasData,
            configEmpresa, configNotif,
-           _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId };
+           _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId, _lancId, _parcelasId };
 }
 
 // ── Aplicar dados carregados ─────────────────────────────────────
@@ -502,6 +499,8 @@ function applyData(d) {
   if (d.indeferimentos) indeferimentos = d.indeferimentos;
   if (d.propostas)      propostas      = d.propostas;
   if (d.parceiros)      parceiros      = d.parceiros;
+  if (d.lancamentos)    lancamentos    = d.lancamentos;
+  if (d.parcelasData)   parcelasData   = d.parcelasData;
   if (d.configEmpresa)  configEmpresa  = d.configEmpresa;
   if (d.configNotif)    configNotif    = d.configNotif;
   if (d._clienteId)     _clienteId     = d._clienteId;
@@ -510,6 +509,8 @@ function applyData(d) {
   if (d._indId)         _indId         = d._indId;
   if (d._propId)        _propId        = d._propId;
   if (d._parceiroId)    _parceiroId    = d._parceiroId;
+  if (d._lancId)        _lancId        = d._lancId;
+  if (d._parcelasId)    _parcelasId    = d._parcelasId;
 }
 
 // ── Salvar (POST no-cors + localStorage) ─────────────────────────
@@ -607,32 +608,32 @@ async function initData() {
 
 // ── Reset completo ────────────────────────────────────────────────
 function resetData() {
-  if (!confirm('⚠️ Isso irá apagar TODOS os clientes, tarefas, agendamentos e demais dados cadastrados. Confirma?')) return;
+  if (!confirm('⚠️ Isso irá apagar TODOS os dados — clientes, tarefas, agendamentos, financeiro, parcelas, prazos e demais registros. Esta ação não pode ser desfeita. Confirma?')) return;
 
-  // Zera tudo — arrays vazios, mantém só o Renato como colaborador
+  // Zera absolutamente tudo
   clientes       = [];
   tarefas        = [];
   agendamentos   = [];
   indeferimentos = [];
   propostas      = [];
   parceiros      = [];
+  lancamentos    = [];
+  parcelasData   = [];
   colaboradores  = [
     { id:1, nome:'Renato Caires', cargo:'CEO / Diretor', email:'wbassessoria.contato@gmail.com', tel:'', acesso:'ceo', av:'RC', processos:0, status:'ativo', dataCadastro: new Date().toLocaleDateString('pt-BR') },
   ];
   configEmpresa = { razao:'WB Assessoria Migratória', cnpj:'', tel:'', email:'wbassessoria.contato@gmail.com', endereco:'' };
   configNotif   = { novoCliente:true, docPendente:true, relSemanal:false, smsAgend:true };
-  _clienteId=1; _colaborId=2; _agendId=1; _indId=1; _propId=1; _parceiroId=1;
+  _clienteId=1; _colaborId=2; _agendId=1; _indId=1; _propId=1; _parceiroId=1; _lancId=1; _parcelasId=1;
 
-  // Salva no localStorage
-  try { localStorage.setItem(LS_KEY, JSON.stringify(getPayload())); } catch(e) {}
+  // Limpa e regrava o localStorage
+  try { localStorage.removeItem(LS_KEY); localStorage.setItem(LS_KEY, JSON.stringify(getPayload())); } catch(e) {}
 
   // Salva no Sheets e recarrega
   if (SHEETS_URL) {
     showToast('🔄 Limpando dados no Google Sheets...', 'info');
-    const payload  = getPayload();
-    const json64   = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-    fetch(SHEETS_URL, { method:'POST', mode:'no-cors', body: JSON.stringify(payload) })
-      .finally(() => setTimeout(() => location.reload(), 1500));
+    fetch(SHEETS_URL, { method:'POST', mode:'no-cors', body: JSON.stringify(getPayload()) })
+      .finally(() => setTimeout(() => location.reload(), 1800));
   } else {
     location.reload();
   }
@@ -947,11 +948,24 @@ function renderPage(page) {
 
 // ─── DASHBOARD ───
 function renderDashboard() {
-  const total = clientes.length;
-  const ativos = clientes.filter(c => c.status === 'Em andamento').length;
-  const concluidos = clientes.filter(c => c.status === 'Concluído').length;
-  const receitaTotal = clientes.filter(c=>c.pago).reduce((a,b)=>a+b.valor,0);
-  const maxReceita = Math.max(...FINANCEIRO.map(f=>f.receita));
+  const total       = clientes.length;
+  const ativos      = clientes.filter(c => c.status === 'Em andamento').length;
+  const concluidos  = clientes.filter(c => c.status === 'Concluído').length;
+  const receitaTotal= clientes.filter(c=>c.pago).reduce((a,b)=>a+b.valor,0);
+
+  // Gráfico de receita mensal dinâmico (últimos 6 meses com clientes pagos)
+  const porMes = {};
+  clientes.forEach(c => {
+    if (!c.pago || !c.dataCadastro) return;
+    const p = c.dataCadastro.split('/');
+    if (p.length < 3) return;
+    const key = `${p[2]}${p[1].padStart(2,'0')}`;
+    const label = MESES_PT[parseInt(p[1])-1];
+    if (!porMes[key]) porMes[key] = { mes: label, receita: 0 };
+    porMes[key].receita += c.valor || 0;
+  });
+  const grafico  = Object.entries(porMes).sort((a,b)=>a[0]>b[0]?1:-1).slice(-6).map(e=>e[1]);
+  const maxR     = grafico.length ? Math.max(...grafico.map(f=>f.receita), 1) : 1;
 
   return `
     <div class="stat-grid">
@@ -987,13 +1001,14 @@ function renderDashboard() {
         <div class="panel">
           <div class="panel-header"><span class="panel-title">Receita Mensal</span></div>
           <div class="panel-body">
+            ${grafico.length > 0 ? `
             <div class="chart-bar-group">
-              ${FINANCEIRO.map(f=>`
+              ${grafico.map(f=>`
                 <div class="chart-bar-wrap">
-                  <div class="chart-bar" style="height:${Math.round(f.receita/maxReceita*100)}px" title="R$${f.receita.toLocaleString('pt-BR')}"></div>
+                  <div class="chart-bar" style="height:${Math.round(f.receita/maxR*100)}px" title="R$${f.receita.toLocaleString('pt-BR')}"></div>
                   <div class="chart-bar-label">${f.mes}</div>
                 </div>`).join('')}
-            </div>
+            </div>` : `<div style="text-align:center;color:var(--text3);padding:20px;font-size:0.82rem">Nenhuma receita ainda.</div>`}
           </div>
         </div>
 
@@ -1158,60 +1173,85 @@ function renderTarefas() {
 
 // ─── FINANCEIRO ───
 function renderFinanceiro() {
-  const totalReceita = FINANCEIRO.reduce((a,b)=>a+b.receita,0);
-  const totalDespesa = FINANCEIRO.reduce((a,b)=>a+b.despesa,0);
-  const lucro = totalReceita - totalDespesa;
-  const maxR = Math.max(...FINANCEIRO.map(f=>f.receita));
-  const pagos = clientes.filter(c=>c.pago).reduce((a,b)=>a+b.valor,0);
-  const apagar = clientes.filter(c=>!c.pago).reduce((a,b)=>a+b.valor,0);
+  const totalReceita = clientes.reduce((a,c)=>a+(c.pago?c.valor:0),0);
+  const totalPendente= clientes.reduce((a,c)=>a+(!c.pago?c.valor:0),0);
+  const totalGeral   = clientes.reduce((a,c)=>a+(c.valor||0),0);
+  const pagos        = clientes.filter(c=>c.pago).length;
+
+  // Agrupa receitas por mês a partir dos clientes pagos
+  const porMes = {};
+  clientes.forEach(c => {
+    if (!c.pago || !c.dataCadastro) return;
+    const partes = c.dataCadastro.split('/');
+    if (partes.length < 3) return;
+    const key = `${partes[1]}/${partes[2]}`; // MM/AAAA
+    const mes = MESES_PT[parseInt(partes[1])-1] + ' ' + partes[2].slice(2);
+    if (!porMes[key]) porMes[key] = { mes, receita:0, ordem: parseInt(partes[2])*100+parseInt(partes[1]) };
+    porMes[key].receita += c.valor||0;
+  });
+  const grafico = Object.values(porMes).sort((a,b)=>a.ordem-b.ordem).slice(-6);
+  const maxR = grafico.length ? Math.max(...grafico.map(f=>f.receita), 1) : 1;
 
   return `
     <div class="stat-grid">
-      <div class="stat-card gold"><div class="stat-icon">📈</div><div class="stat-label">Receita Total (6m)</div><div class="stat-value">R$${(totalReceita/1000).toFixed(0)}k</div><div class="stat-sub">Últimos 6 meses</div></div>
-      <div class="stat-card red"><div class="stat-icon">📉</div><div class="stat-label">Despesas (6m)</div><div class="stat-value">R$${(totalDespesa/1000).toFixed(0)}k</div><div class="stat-sub">Últimos 6 meses</div></div>
-      <div class="stat-card green"><div class="stat-icon">💎</div><div class="stat-label">Lucro Líquido</div><div class="stat-value">R$${(lucro/1000).toFixed(0)}k</div><div class="stat-sub">6 meses</div></div>
-      <div class="stat-card blue"><div class="stat-icon">⏳</div><div class="stat-label">A Receber</div><div class="stat-value">R$${(apagar/1000).toFixed(1)}k</div><div class="stat-sub">Pendente de clientes</div></div>
+      <div class="stat-card gold"><div class="stat-icon">💰</div><div class="stat-label">Total Recebido</div><div class="stat-value">R$${totalReceita.toLocaleString('pt-BR')}</div><div class="stat-sub">${pagos} cliente${pagos!==1?'s':''} pagos</div></div>
+      <div class="stat-card red"><div class="stat-icon">⏳</div><div class="stat-label">A Receber</div><div class="stat-value">R$${totalPendente.toLocaleString('pt-BR')}</div><div class="stat-sub">${clientes.filter(c=>!c.pago).length} cliente${clientes.filter(c=>!c.pago).length!==1?'s':''} pendentes</div></div>
+      <div class="stat-card green"><div class="stat-icon">📋</div><div class="stat-label">Volume Total Contratos</div><div class="stat-value">R$${totalGeral.toLocaleString('pt-BR')}</div><div class="stat-sub">${clientes.length} processo${clientes.length!==1?'s':''}</div></div>
+      <div class="stat-card blue"><div class="stat-icon">📊</div><div class="stat-label">Taxa de Recebimento</div><div class="stat-value">${totalGeral>0?Math.round(totalReceita/totalGeral*100):0}%</div><div class="stat-sub">do total contratado</div></div>
     </div>
 
-    <div class="grid-2">
-      <div class="panel">
-        <div class="panel-header"><span class="panel-title">Receita vs Despesa</span></div>
-        <div class="panel-body">
-          <div style="display:flex;gap:12px;align-items:flex-end;height:160px">
-            ${FINANCEIRO.map(f=>`
-              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;justify-content:flex-end">
-                <div style="display:flex;gap:3px;align-items:flex-end;width:100%">
-                  <div style="flex:1;background:linear-gradient(180deg,var(--gold),rgba(201,168,76,0.4));border-radius:4px 4px 0 0;height:${Math.round(f.receita/maxR*130)}px"></div>
-                  <div style="flex:1;background:linear-gradient(180deg,#ef4444,rgba(239,68,68,0.3));border-radius:4px 4px 0 0;height:${Math.round(f.despesa/maxR*130)}px"></div>
-                </div>
-                <div style="font-size:0.65rem;color:var(--text3)">${f.mes}</div>
-              </div>`).join('')}
-          </div>
-          <div style="display:flex;gap:16px;margin-top:14px;font-size:0.75rem">
-            <span style="color:var(--gold)">■ Receita</span>
-            <span style="color:#f87171">■ Despesa</span>
-          </div>
+    ${grafico.length > 0 ? `
+    <div class="panel" style="margin-bottom:24px">
+      <div class="panel-header"><span class="panel-title">Receitas por Mês</span></div>
+      <div class="panel-body">
+        <div style="display:flex;gap:12px;align-items:flex-end;height:160px">
+          ${grafico.map(f=>`
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;justify-content:flex-end">
+              <div style="font-size:0.65rem;color:var(--gold)">R$${(f.receita/1000).toFixed(1)}k</div>
+              <div style="width:100%;background:linear-gradient(180deg,var(--gold),rgba(201,168,76,0.4));border-radius:4px 4px 0 0;height:${Math.round(f.receita/maxR*130)}px"></div>
+              <div style="font-size:0.65rem;color:var(--text3)">${f.mes}</div>
+            </div>`).join('')}
         </div>
       </div>
+    </div>` : `
+    <div class="panel" style="margin-bottom:24px">
+      <div class="panel-body" style="text-align:center;padding:40px;color:var(--text3)">
+        <div style="font-size:2rem;margin-bottom:12px">📊</div>
+        <div>Nenhum dado financeiro ainda. Cadastre clientes com pagamentos para ver o gráfico.</div>
+      </div>
+    </div>`}
 
-      <div class="panel">
-        <div class="panel-header"><span class="panel-title">Pagamentos Clientes</span></div>
-        <div class="panel-body" style="padding:0">
-          <table class="tbl">
-            <thead><tr><th>Cliente</th><th>Valor</th><th>Status</th></tr></thead>
-            <tbody>
-              ${clientes.map(c=>`
-                <tr>
-                  <td style="font-size:0.8rem">${c.nome.split(' ').slice(0,2).join(' ')}</td>
-                  <td style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--gold)">R$ ${c.valor.toLocaleString('pt-BR')}</td>
-                  <td>${c.pago ? '<span class="badge badge-green">Pago</span>' : '<span class="badge badge-red">Pendente</span>'}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Situação de Pagamentos</span></div>
+      <div class="panel-body" style="padding:0">
+        ${clientes.length === 0
+          ? `<div style="text-align:center;padding:32px;color:var(--text3)">Nenhum cliente cadastrado.</div>`
+          : `<table class="tbl">
+          <thead><tr><th>Cliente</th><th>Serviço</th><th>Valor</th><th>Status</th><th>Ação</th></tr></thead>
+          <tbody>
+            ${clientes.map(c=>`
+              <tr>
+                <td style="font-size:0.8rem;font-weight:500">${c.nome.split(' ').slice(0,2).join(' ')}</td>
+                <td style="font-size:0.75rem">${servicoBadge(c.servico)}</td>
+                <td style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--gold)">R$ ${(c.valor||0).toLocaleString('pt-BR')}</td>
+                <td>${c.pago ? '<span class="badge badge-green">✅ Pago</span>' : '<span class="badge badge-red">⚠️ Pendente</span>'}</td>
+                <td>${!c.pago ? `<button class="btn btn-sm btn-gold" onclick="marcarClientePago(${c.id})">Marcar Pago</button>` : ''}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`}
       </div>
     </div>
   `;
+}
+
+function marcarClientePago(id) {
+  const c = clientes.find(x=>x.id===id);
+  if (!c) return;
+  if (!confirm(`Confirmar pagamento de R$ ${(c.valor||0).toLocaleString('pt-BR')} do cliente "${c.nome}"?`)) return;
+  c.pago = true;
+  saveData();
+  navigateTo('financeiro');
+  showToast(`✅ Pagamento de ${c.nome.split(' ')[0]} confirmado!`);
 }
 
 // ─── RELATÓRIOS ───
@@ -2683,50 +2723,87 @@ function calcUpdate() {
 // ⏰ PRAZOS & ALERTAS DE VENCIMENTO
 // ══════════════════════════════════════
 function renderPrazos() {
-  const hoje = new Date('2025-02-26');
-  const alertas = [
-    { cliente:'Ana Cristina Souza', tipo:'Documento Pendente', item:'Comprovante de Residência (5 anos)', prazo:'10/03/2025', dias:12, nivel:'alto' },
-    { cliente:'João Pedro Ferreira', tipo:'Início de Processo', item:'Documentação Inicial ainda não entregue', prazo:'05/03/2025', dias:7, nivel:'alto' },
-    { cliente:'Maria Fernanda Oliveira', tipo:'Agendamento Consular', item:'DS-160 aguardando confirmação para entrevista EUA', prazo:'15/03/2025', dias:17, nivel:'medio' },
-    { cliente:'Roberto Silva Santos', tipo:'Coleta de Docs', item:'Comprovante de Endereço BR + Reg. Policial pendente', prazo:'20/03/2025', dias:22, nivel:'medio' },
-    { cliente:'Carlos Eduardo Lima', tipo:'CRNM Vencimento', item:'Autorização de Residência vence em 90 dias', prazo:'28/05/2025', dias:91, nivel:'baixo' },
-    { cliente:'Lucia Aparecida Mendes', tipo:'Visto EUA', item:'Visto B-2 vence em 180 dias — planejar nova solicitação?', prazo:'25/08/2025', dias:180, nivel:'baixo' },
-  ];
-  const corNivel = { alto:'var(--red)', medio:'var(--orange)', baixo:'var(--gold)' };
-  const bgNivel = { alto:'rgba(239,68,68,0.08)', medio:'rgba(245,158,11,0.08)', baixo:'rgba(201,168,76,0.06)' };
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+
+  // Gera alertas automaticamente dos clientes reais
+  const alertas = [];
+  clientes.forEach(c => {
+    // Docs pendentes
+    (c.docsPendentes || []).forEach(doc => {
+      alertas.push({ cliente:c.nome, tipo:'Documento Pendente', item:doc, prazo:null, dias:null, nivel:'alto', clienteId:c.id });
+    });
+    // Status pendente há mais de 30 dias
+    if (c.status === 'Pendente Documentação') {
+      alertas.push({ cliente:c.nome, tipo:'Processo Parado', item:'Processo aguardando documentação', prazo:null, dias:null, nivel:'medio', clienteId:c.id });
+    }
+    // Pagamento pendente
+    if (!c.pago && c.valor > 0) {
+      alertas.push({ cliente:c.nome, tipo:'Pagamento Pendente', item:`R$ ${(c.valor||0).toLocaleString('pt-BR')} em aberto`, prazo:null, dias:null, nivel:'alto', clienteId:c.id });
+    }
+  });
+
+  // Parcelas vencidas ou próximas do vencimento
+  parcelasData.forEach(contrato => {
+    contrato.parcelas.forEach(p => {
+      if (p.status === 'pago') return;
+      const [d,m,a] = p.venc.split('/');
+      const venc = new Date(a, m-1, d);
+      const diff = Math.round((venc - hoje) / 86400000);
+      const nivel = diff < 0 ? 'alto' : diff <= 7 ? 'alto' : diff <= 30 ? 'medio' : 'baixo';
+      alertas.push({
+        cliente: contrato.cliente,
+        tipo: diff < 0 ? 'Parcela Vencida' : 'Parcela a Vencer',
+        item: `Parcela ${p.num}/${contrato.parcelas.length} — R$ ${p.valor.toLocaleString('pt-BR')} · vence ${p.venc}`,
+        prazo: p.venc,
+        dias: diff,
+        nivel,
+      });
+    });
+  });
+
+  const urgentes = alertas.filter(a=>a.nivel==='alto').length;
+  const atencao  = alertas.filter(a=>a.nivel==='medio').length;
+  const monitor  = alertas.filter(a=>a.nivel==='baixo').length;
+  const corNivel   = { alto:'var(--red)', medio:'var(--orange)', baixo:'var(--gold)' };
+  const bgNivel    = { alto:'rgba(239,68,68,0.08)', medio:'rgba(245,158,11,0.08)', baixo:'rgba(201,168,76,0.06)' };
   const labelNivel = { alto:'🔴 URGENTE', medio:'🟡 ATENÇÃO', baixo:'🟢 MONITORAR' };
 
   return `
     <div class="stat-grid" style="margin-bottom:28px">
-      <div class="stat-card red"><div class="stat-icon">🚨</div><div class="stat-label">Urgentes (≤7 dias)</div><div class="stat-value">${alertas.filter(a=>a.dias<=7).length}</div></div>
-      <div class="stat-card gold"><div class="stat-icon">⚠️</div><div class="stat-label">Atenção (8–30 dias)</div><div class="stat-value">${alertas.filter(a=>a.dias>7&&a.dias<=30).length}</div></div>
-      <div class="stat-card green"><div class="stat-icon">📅</div><div class="stat-label">Monitorar (+30 dias)</div><div class="stat-value">${alertas.filter(a=>a.dias>30).length}</div></div>
+      <div class="stat-card red"><div class="stat-icon">🚨</div><div class="stat-label">Urgentes</div><div class="stat-value">${urgentes}</div></div>
+      <div class="stat-card gold"><div class="stat-icon">⚠️</div><div class="stat-label">Atenção</div><div class="stat-value">${atencao}</div></div>
+      <div class="stat-card green"><div class="stat-icon">📅</div><div class="stat-label">Monitorar</div><div class="stat-value">${monitor}</div></div>
       <div class="stat-card blue"><div class="stat-icon">📋</div><div class="stat-label">Total de Alertas</div><div class="stat-value">${alertas.length}</div></div>
     </div>
 
     <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">Todos os Prazos & Alertas</span>
-        <button class="btn btn-outline btn-sm" onclick="showToast('📄 Exportando relatório... (em breve)','info')">📄 Exportar</button>
-      </div>
+      <div class="panel-header"><span class="panel-title">Prazos & Alertas (${alertas.length})</span></div>
       <div class="panel-body" style="display:flex;flex-direction:column;gap:10px">
-        ${alertas.sort((a,b)=>a.dias-b.dias).map(a=>`
-          <div style="background:${bgNivel[a.nivel]};border:1px solid ${corNivel[a.nivel]}33;border-left:4px solid ${corNivel[a.nivel]};border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-            <div style="flex-shrink:0;min-width:100px">
-              <div style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${corNivel[a.nivel]}">${labelNivel[a.nivel]}</div>
-              <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:${corNivel[a.nivel]};margin-top:2px">${a.dias}d</div>
-            </div>
-            <div style="flex:1">
-              <div style="font-weight:600;color:var(--text);font-size:0.88rem">${a.cliente}</div>
-              <div style="font-size:0.78rem;color:var(--text3);margin-top:2px"><span class="badge badge-gray">${a.tipo}</span></div>
-              <div style="font-size:0.8rem;color:var(--text2);margin-top:6px">${a.item}</div>
-            </div>
-            <div style="text-align:right;flex-shrink:0">
-              <div style="font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Prazo</div>
-              <div style="font-family:'DM Mono',monospace;font-size:0.85rem;color:var(--text);margin-top:2px">${a.prazo}</div>
-              <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="showToast('📧 Notificação enviada para ' + a.cliente,'info')">📧 Notificar</button>
-            </div>
-          </div>`).join('')}
+        ${alertas.length === 0
+          ? `<div style="text-align:center;padding:40px;color:var(--text3)">
+               <div style="font-size:2rem;margin-bottom:12px">✅</div>
+               <div>Nenhum alerta no momento. Tudo em dia!</div>
+             </div>`
+          : alertas.sort((a,b)=>{
+              const p = {alto:0,medio:1,baixo:2};
+              return p[a.nivel]-p[b.nivel];
+            }).map(a=>`
+            <div style="background:${bgNivel[a.nivel]};border:1px solid ${corNivel[a.nivel]}33;border-left:4px solid ${corNivel[a.nivel]};border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+              <div style="flex-shrink:0;min-width:90px">
+                <div style="font-size:0.65rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${corNivel[a.nivel]}">${labelNivel[a.nivel]}</div>
+                ${a.dias !== null ? `<div style="font-family:'DM Mono',monospace;font-size:1rem;font-weight:700;color:${corNivel[a.nivel]};margin-top:2px">${a.dias < 0 ? Math.abs(a.dias)+'d atr.' : a.dias+'d'}</div>` : ''}
+              </div>
+              <div style="flex:1">
+                <div style="font-weight:600;color:var(--text);font-size:0.88rem">${a.cliente}</div>
+                <div style="font-size:0.78rem;color:var(--text3);margin-top:2px"><span class="badge badge-gray">${a.tipo}</span></div>
+                <div style="font-size:0.8rem;color:var(--text2);margin-top:6px">${a.item}</div>
+              </div>
+              ${a.prazo ? `<div style="text-align:right;flex-shrink:0">
+                <div style="font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Vencimento</div>
+                <div style="font-family:'DM Mono',monospace;font-size:0.85rem;color:var(--text);margin-top:2px">${a.prazo}</div>
+              </div>` : ''}
+            </div>`).join('')}
       </div>
     </div>
   `;
@@ -3268,73 +3345,28 @@ function renderFaq() {
 // ══════════════════════════════════════
 // 💳 FINANCEIRO AVANÇADO
 // ══════════════════════════════════════
-const PARCELAS_DATA = [
-  { id:1, cliente:'Ana Cristina Souza', servico:'Naturalização Brasileira', valorTotal:4500, parcelas:[
-    { num:1, valor:1500, venc:'10/01/2025', status:'pago', dtPgto:'10/01/2025' },
-    { num:2, valor:1500, venc:'10/02/2025', status:'pago', dtPgto:'09/02/2025' },
-    { num:3, valor:1500, venc:'10/03/2025', status:'pendente', dtPgto:null },
-  ]},
-  { id:2, cliente:'João Pedro Ferreira', servico:'Naturalização Brasileira', valorTotal:4500, parcelas:[
-    { num:1, valor:2250, venc:'20/01/2025', status:'atrasado', dtPgto:null },
-    { num:2, valor:2250, venc:'20/02/2025', status:'atrasado', dtPgto:null },
-  ]},
-  { id:3, cliente:'Maria Fernanda Oliveira', servico:'Visto de Turismo (EUA)', valorTotal:2800, parcelas:[
-    { num:1, valor:2800, venc:'15/01/2025', status:'pago', dtPgto:'15/01/2025' },
-  ]},
-  { id:4, cliente:'Roberto Silva Santos', servico:'Autorização de Residência (RNM)', valorTotal:3800, parcelas:[
-    { num:1, valor:1900, venc:'08/02/2025', status:'atrasado', dtPgto:null },
-    { num:2, valor:1900, venc:'08/03/2025', status:'pendente', dtPgto:null },
-  ]},
-  { id:5, cliente:'Carlos Eduardo Lima', servico:'Autorização de Residência (RNM)', valorTotal:3800, parcelas:[
-    { num:1, valor:1900, venc:'05/12/2024', status:'pago', dtPgto:'05/12/2024' },
-    { num:2, valor:1900, venc:'05/01/2025', status:'pago', dtPgto:'04/01/2025' },
-  ]},
-  { id:6, cliente:'Lucia Aparecida Mendes', servico:'Visto de Turismo (EUA)', valorTotal:2800, parcelas:[
-    { num:1, valor:2800, venc:'02/11/2024', status:'pago', dtPgto:'02/11/2024' },
-  ]},
-];
+// PARCELAS — dinâmico
+let parcelasData = [];
+let _parcelasId  = 1;
 
 function renderFinanceiroAvancado() {
-  const todasParcelas = PARCELAS_DATA.flatMap(c => c.parcelas.map(p => ({...p, cliente: c.cliente, servico: c.servico, totalContrato: c.valorTotal})));
-  const totalRecebido  = todasParcelas.filter(p=>p.status==='pago').reduce((a,p)=>a+p.valor,0);
-  const totalPendente  = todasParcelas.filter(p=>p.status==='pendente').reduce((a,p)=>a+p.valor,0);
-  const totalAtrasado  = todasParcelas.filter(p=>p.status==='atrasado').reduce((a,p)=>a+p.valor,0);
-  const totalGeral     = todasParcelas.reduce((a,p)=>a+p.valor,0);
-  const inadimplentes  = [...new Set(todasParcelas.filter(p=>p.status==='atrasado').map(p=>p.cliente))];
-
+  const todasParcelas = parcelasData.flatMap(c => c.parcelas.map(p => ({...p, cliente: c.cliente, servico: c.servico, totalContrato: c.valorTotal})));
+  const totalRecebido = todasParcelas.filter(p=>p.status==='pago').reduce((a,p)=>a+p.valor,0);
+  const totalPendente = todasParcelas.filter(p=>p.status==='pendente').reduce((a,p)=>a+p.valor,0);
+  const totalAtrasado = todasParcelas.filter(p=>p.status==='atrasado').reduce((a,p)=>a+p.valor,0);
+  const totalGeral    = todasParcelas.reduce((a,p)=>a+p.valor,0) || 1;
+  const inadimplentes = [...new Set(todasParcelas.filter(p=>p.status==='atrasado').map(p=>p.cliente))];
   const stColor = { pago:'badge-green', pendente:'badge-gold', atrasado:'badge-red' };
   const stLabel = { pago:'✓ Pago', pendente:'⏳ Pendente', atrasado:'🚨 Atrasado' };
 
   return `
-    <!-- KPIs -->
     <div class="stat-grid" style="margin-bottom:28px">
-      <div class="stat-card green">
-        <div class="stat-icon">💚</div>
-        <div class="stat-label">Total Recebido</div>
-        <div class="stat-value">R$${(totalRecebido/1000).toFixed(1)}k</div>
-        <div class="stat-sub">${todasParcelas.filter(p=>p.status==='pago').length} parcela(s) quitada(s)</div>
-      </div>
-      <div class="stat-card gold">
-        <div class="stat-icon">⏳</div>
-        <div class="stat-label">A Receber</div>
-        <div class="stat-value">R$${(totalPendente/1000).toFixed(1)}k</div>
-        <div class="stat-sub">${todasParcelas.filter(p=>p.status==='pendente').length} parcela(s) a vencer</div>
-      </div>
-      <div class="stat-card red">
-        <div class="stat-icon">🚨</div>
-        <div class="stat-label">Em Atraso</div>
-        <div class="stat-value">R$${(totalAtrasado/1000).toFixed(1)}k</div>
-        <div class="stat-sub">${inadimplentes.length} cliente(s) inadimplente(s)</div>
-      </div>
-      <div class="stat-card blue">
-        <div class="stat-icon">📊</div>
-        <div class="stat-label">Volume Contratado</div>
-        <div class="stat-value">R$${(totalGeral/1000).toFixed(1)}k</div>
-        <div class="stat-sub">${PARCELAS_DATA.length} contratos ativos</div>
-      </div>
+      <div class="stat-card green"><div class="stat-icon">💚</div><div class="stat-label">Total Recebido</div><div class="stat-value">R$${(totalRecebido/1000).toFixed(1)}k</div><div class="stat-sub">${todasParcelas.filter(p=>p.status==='pago').length} parcela(s) quitada(s)</div></div>
+      <div class="stat-card gold"><div class="stat-icon">⏳</div><div class="stat-label">A Receber</div><div class="stat-value">R$${(totalPendente/1000).toFixed(1)}k</div><div class="stat-sub">${todasParcelas.filter(p=>p.status==='pendente').length} parcela(s) a vencer</div></div>
+      <div class="stat-card red"><div class="stat-icon">🚨</div><div class="stat-label">Em Atraso</div><div class="stat-value">R$${(totalAtrasado/1000).toFixed(1)}k</div><div class="stat-sub">${inadimplentes.length} cliente(s) inadimplente(s)</div></div>
+      <div class="stat-card blue"><div class="stat-icon">📊</div><div class="stat-label">Volume Contratado</div><div class="stat-value">R$${((totalRecebido+totalPendente+totalAtrasado)/1000).toFixed(1)}k</div><div class="stat-sub">${parcelasData.length} contratos</div></div>
     </div>
 
-    <!-- INADIMPLÊNCIA DESTAQUE -->
     ${inadimplentes.length > 0 ? `
     <div style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.25);border-radius:16px;padding:20px 24px;margin-bottom:24px">
       <div style="font-size:0.75rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#f87171;margin-bottom:12px">🚨 Clientes Inadimplentes</div>
@@ -3352,19 +3384,18 @@ function renderFinanceiroAvancado() {
       </div>
     </div>` : ''}
 
-    <div class="grid-2" style="margin-bottom:24px">
-      <!-- PARCELAS POR CLIENTE -->
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">Parcelas por Cliente</span>
-          <button class="btn btn-gold btn-sm" onclick="openNovaCobranca()">+ Novo Lançamento</button>
-        </div>
-        <div class="panel-body" style="padding:0">
-          ${PARCELAS_DATA.map(c => {
+    <div class="panel" style="margin-bottom:24px">
+      <div class="panel-header">
+        <span class="panel-title">Parcelas por Cliente (${parcelasData.length})</span>
+        <button class="btn btn-gold btn-sm" onclick="openNovoContratoParcelas()">+ Novo Contrato</button>
+      </div>
+      <div class="panel-body" style="padding:0">
+        ${parcelasData.length === 0
+          ? `<div style="text-align:center;padding:40px;color:var(--text3)"><div style="font-size:2rem;margin-bottom:12px">💳</div><div>Nenhum contrato com parcelas cadastrado.</div><div style="margin-top:12px"><button class="btn btn-gold btn-sm" onclick="openNovoContratoParcelas()">+ Cadastrar primeiro contrato</button></div></div>`
+          : parcelasData.map(c => {
             const pago = c.parcelas.filter(p=>p.status==='pago').reduce((a,p)=>a+p.valor,0);
             const pct  = Math.round(pago / c.valorTotal * 100);
-            return `
-            <div style="padding:14px 18px;border-bottom:1px solid var(--border2)">
+            return `<div style="padding:14px 18px;border-bottom:1px solid var(--border2)">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                 <div>
                   <div style="font-size:0.85rem;font-weight:600;color:var(--text)">${c.cliente.split(' ').slice(0,2).join(' ')}</div>
@@ -3383,72 +3414,23 @@ function renderFinanceiroAvancado() {
                     <div style="font-size:0.78rem;font-weight:600;color:var(--text);font-family:'DM Mono',monospace">R$${(p.valor/1000).toFixed(1)}k</div>
                     <div style="margin-top:4px"><span class="badge ${stColor[p.status]}" style="font-size:0.6rem;padding:2px 6px">${stLabel[p.status]}</span></div>
                     <div style="font-size:0.62rem;color:var(--text3);margin-top:3px">${p.venc}</div>
+                    ${p.status!=='pago'?`<button class="btn btn-sm btn-gold" style="margin-top:6px;padding:3px 8px;font-size:0.6rem" onclick="marcarPago('${c.cliente}',${p.num})">✓ Pago</button>`:''}
                   </div>`).join('')}
               </div>
             </div>`;
           }).join('')}
-        </div>
-      </div>
-
-      <!-- PAINEL DIREITO: recibos + gráfico -->
-      <div style="display:flex;flex-direction:column;gap:20px">
-
-        <!-- GRÁFICO RECEBIMENTOS -->
-        <div class="panel">
-          <div class="panel-header"><span class="panel-title">Recebimentos vs. Inadimplência</span></div>
-          <div class="panel-body">
-            <div style="display:flex;gap:16px;margin-bottom:16px">
-              ${[['Recebido','var(--green)',totalRecebido,totalGeral],['Pendente','var(--gold)',totalPendente,totalGeral],['Atrasado','var(--red)',totalAtrasado,totalGeral]].map(([label,cor,val,tot])=>`
-                <div style="flex:1;text-align:center">
-                  <div style="width:60px;height:60px;border-radius:50%;background:conic-gradient(${cor} ${Math.round(val/tot*360)}deg, var(--navy4) 0deg);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
-                    <div style="width:40px;height:40px;border-radius:50%;background:var(--navy3);display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;color:${cor}">${Math.round(val/tot*100)}%</div>
-                  </div>
-                  <div style="font-size:0.72rem;color:var(--text3)">${label}</div>
-                  <div style="font-size:0.8rem;font-weight:600;color:${cor};font-family:'DM Mono',monospace">R$${(val/1000).toFixed(1)}k</div>
-                </div>`).join('')}
-            </div>
-          </div>
-        </div>
-
-        <!-- RECIBOS -->
-        <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">Recibos Emitidos</span>
-            <button class="btn btn-outline btn-sm" onclick="openGerarRecibo()">+ Emitir Recibo</button>
-          </div>
-          <div class="panel-body" style="padding:0">
-            <table class="tbl">
-              <thead><tr><th>#</th><th>Cliente</th><th>Valor</th><th>Data</th><th></th></tr></thead>
-              <tbody>
-                ${todasParcelas.filter(p=>p.status==='pago').slice(0,5).map((p,i)=>`
-                  <tr>
-                    <td style="font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--text3)">REC-${String(i+1).padStart(3,'0')}</td>
-                    <td style="font-size:0.8rem">${p.cliente.split(' ').slice(0,2).join(' ')}</td>
-                    <td style="font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--gold)">R$ ${p.valor.toLocaleString('pt-BR')}</td>
-                    <td style="font-size:0.72rem;color:var(--text3)">${p.dtPgto}</td>
-                    <td><button class="btn btn-sm btn-outline" onclick="showToast('⬇️ Baixando recibo...','info')">⬇</button></td>
-                  </tr>`).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
       </div>
     </div>
 
-    <!-- TODAS AS PARCELAS (tabela completa) -->
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title">Todas as Parcelas</span>
-        <div style="display:flex;gap:8px">
-          <select id="filtro-status-parcela" onchange="filtrarParcelasStatus(this.value)" style="background:var(--navy2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.78rem;outline:none">
-            <option value="">Todos</option>
-            <option value="atrasado">Atrasados</option>
-            <option value="pendente">Pendentes</option>
-            <option value="pago">Pagos</option>
-          </select>
-          <button class="btn btn-outline btn-sm" onclick="showToast('📄 Exportando relatório financeiro... (em breve)','info')">📄 Exportar</button>
-        </div>
+        <select id="filtro-status-parcela" onchange="filtrarParcelasStatus(this.value)" style="background:var(--navy2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.78rem;outline:none">
+          <option value="">Todos</option>
+          <option value="atrasado">Atrasados</option>
+          <option value="pendente">Pendentes</option>
+          <option value="pago">Pagos</option>
+        </select>
       </div>
       <div id="tabela-parcelas-body" class="panel-body" style="padding:0">
         ${tabelaParcelasHTML(todasParcelas)}
@@ -3483,14 +3465,14 @@ function tabelaParcelasHTML(lista) {
 }
 
 function filtrarParcelasStatus(st) {
-  const todasParcelas = PARCELAS_DATA.flatMap(c => c.parcelas.map(p => ({...p, cliente: c.cliente, servico: c.servico})));
+  const todasParcelas = parcelasData.flatMap(c => c.parcelas.map(p => ({...p, cliente: c.cliente, servico: c.servico})));
   const lista = st ? todasParcelas.filter(p=>p.status===st) : todasParcelas;
   const el = document.getElementById('tabela-parcelas-body');
   if (el) el.innerHTML = tabelaParcelasHTML(lista);
 }
 
 function marcarPago(clienteNome, numParcela) {
-  const contrato = PARCELAS_DATA.find(c=>c.cliente===clienteNome);
+  const contrato = parcelasData.find(c=>c.cliente===clienteNome);
   if (contrato) {
     const parc = contrato.parcelas.find(p=>p.num===numParcela);
     if (parc) {
@@ -3498,8 +3480,73 @@ function marcarPago(clienteNome, numParcela) {
       parc.dtPgto = new Date().toLocaleDateString('pt-BR');
       saveData();
       navigateTo('financeiro-avancado');
+      showToast('✅ Parcela marcada como paga!');
     }
   }
+}
+
+function openNovoContratoParcelas() {
+  const clienteOptions = clientes.map(c=>`<option>${c.nome}</option>`).join('');
+  openModal(`
+    <div class="modal-title">💳 Novo Contrato com Parcelas</div>
+    <div class="form-grid">
+      <div class="form-field form-full"><label>Cliente <span style="color:var(--red)">*</span></label>
+        <input id="ncp_cliente" list="ncp_cl_list" placeholder="Nome do cliente">
+        <datalist id="ncp_cl_list">${clienteOptions}</datalist>
+      </div>
+      <div class="form-field"><label>Serviço</label>
+        <select id="ncp_servico"><option>Naturalização Brasileira</option><option>Autorização de Residência (RNM)</option><option>Visto de Turismo (EUA)</option></select>
+      </div>
+      <div class="form-field"><label>Valor Total (R$) <span style="color:var(--red)">*</span></label>
+        <input id="ncp_valor" data-mask="moeda" inputmode="numeric" placeholder="0,00">
+      </div>
+      <div class="form-field"><label>Número de Parcelas</label>
+        <select id="ncp_nparcelas"><option value="1">1x (à vista)</option><option value="2">2x</option><option value="3">3x</option><option value="4">4x</option><option value="6">6x</option><option value="12">12x</option></select>
+      </div>
+      <div class="form-field"><label>Vencimento 1ª Parcela</label>
+        <input id="ncp_venc1" type="date">
+      </div>
+    </div>
+    <div id="ncp_erro" style="color:var(--red);font-size:0.8rem;margin-top:8px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="salvarNovoContratoParcelas()">✅ Criar Contrato</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+function salvarNovoContratoParcelas() {
+  const cliente = document.getElementById('ncp_cliente').value.trim();
+  const valorRaw = document.getElementById('ncp_valor').value.replace(/\./g,'').replace(',','.');
+  const valor    = parseFloat(valorRaw) || 0;
+  const erro     = document.getElementById('ncp_erro');
+  if (!cliente) { erro.textContent='⚠️ Cliente é obrigatório.'; erro.style.display='block'; return; }
+  if (!valor)   { erro.textContent='⚠️ Valor é obrigatório.';  erro.style.display='block'; return; }
+
+  const nParcelas = parseInt(document.getElementById('ncp_nparcelas').value);
+  const servico   = document.getElementById('ncp_servico').value;
+  const venc1Raw  = document.getElementById('ncp_venc1').value;
+  const venc1     = venc1Raw ? new Date(venc1Raw) : new Date();
+  const valParcela = Math.round(valor / nParcelas * 100) / 100;
+
+  const parcelas = [];
+  for (let i = 0; i < nParcelas; i++) {
+    const vDate = new Date(venc1);
+    vDate.setMonth(vDate.getMonth() + i);
+    parcelas.push({
+      num: i+1,
+      valor: i < nParcelas-1 ? valParcela : Math.round((valor - valParcela*(nParcelas-1))*100)/100,
+      venc: vDate.toLocaleDateString('pt-BR'),
+      status: 'pendente',
+      dtPgto: null,
+    });
+  }
+
+  parcelasData.push({ id: _parcelasId++, cliente, servico, valorTotal: valor, parcelas });
+  saveData();
+  closeModal();
+  navigateTo('financeiro-avancado');
+  showToast(`✅ Contrato de ${nParcelas}x para "${cliente.split(' ')[0]}" criado!`);
 }
 
 function openCobrancaModal(cliente, valor) {
