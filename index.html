@@ -308,14 +308,15 @@
     </div>
     <div class="form-group">
       <label>E-mail</label>
-      <input type="email" id="login-email" placeholder="seu@email.com" value="ceo@wbassessoria.com.br">
+      <input type="email" id="login-email" placeholder="seu@email.com" value="wbassessoria.contato@gmail.com">
     </div>
     <div class="form-group">
       <label>Senha</label>
-      <input type="password" id="login-pass" placeholder="••••••••" value="••••••">
+      <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
+    <div id="login-erro" style="color:#ef4444;font-size:0.78rem;text-align:center;margin:-8px 0 4px;display:none">E-mail ou senha incorretos.</div>
     <button class="login-btn" onclick="doLogin()">Acessar Sistema</button>
-    <div class="demo-hint">Demo: <span>ceo</span> / <span>colaborador</span> / <span>cliente</span></div>
+    <div class="demo-hint" style="opacity:0.4;font-size:0.65rem">v3.0 — WB Assessoria Migratória</div>
   </div>
 </div>
 
@@ -331,7 +332,7 @@
     <div class="sidebar-user">
       <div class="user-avatar" id="user-avatar">CEO</div>
       <div class="user-info">
-        <div class="name" id="user-name">William Borges</div>
+        <div class="name" id="user-name">Renato Caires</div>
         <div class="role-badge" id="user-role">Diretor</div>
       </div>
     </div>
@@ -374,9 +375,9 @@
 // DATA
 // ══════════════════════════════════════
 const USERS = {
-  ceo: { name:'William Borges', role:'ceo', roleLabel:'Diretor / CEO', avatar:'WB', email:'ceo@wbassessoria.com.br' },
-  colaborador: { name:'Fernanda Costa', role:'colaborador', roleLabel:'Colaborador(a)', avatar:'FC', email:'fernanda@wbassessoria.com.br' },
-  cliente: { name:'Ana Cristina Souza', role:'cliente', roleLabel:'Cliente', avatar:'AS', email:'ana.souza@email.com' }
+  ceo: { name:'Renato Caires', role:'ceo', roleLabel:'Diretor / CEO', avatar:'RC', email:'wbassessoria.contato@gmail.com', senha:'986469804Re.' },
+  colaborador: { name:'Colaborador', role:'colaborador', roleLabel:'Colaborador(a)', avatar:'CO', email:'colaborador@wbassessoria.com.br', senha:'wb2025' },
+  cliente: { name:'Cliente', role:'cliente', roleLabel:'Cliente', avatar:'CL', email:'cliente@wbassessoria.com.br', senha:'wb2025' }
 };
 
 const CLIENTES = [
@@ -422,7 +423,7 @@ const PROPOSTAS_DEFAULT = [
   { id:1, cliente:'Ana Cristina Souza', servico:'Naturalização Brasileira', valor:4500, forma:'À vista', emissao:'10/01/2025', status:'Assinado', venc:'—', responsavel:'Fernanda Costa', obs:'' },
   { id:2, cliente:'João Pedro Ferreira', servico:'Naturalização Brasileira', valor:4500, forma:'2x sem juros', emissao:'20/01/2025', status:'Aguardando Assinatura', venc:'05/03/2025', responsavel:'Fernanda Costa', obs:'' },
   { id:3, cliente:'Maria Fernanda Oliveira', servico:'Visto de Turismo (EUA)', valor:2800, forma:'À vista', emissao:'15/01/2025', status:'Assinado', venc:'—', responsavel:'Fernanda Costa', obs:'' },
-  { id:4, cliente:'Roberto Silva Santos', servico:'Autorização de Residência (RNM)', valor:3800, forma:'Entrada + restante', emissao:'08/02/2025', status:'Em elaboração', venc:'—', responsavel:'William Borges', obs:'' },
+  { id:4, cliente:'Roberto Silva Santos', servico:'Autorização de Residência (RNM)', valor:3800, forma:'Entrada + restante', emissao:'08/02/2025', status:'Em elaboração', venc:'—', responsavel:'Renato Caires', obs:'' },
 ];
 
 const PARCEIROS_DEFAULT = [
@@ -447,7 +448,7 @@ let tarefas = [...TAREFAS];
 let colaboradores = [
   { id:1, nome:'Fernanda Costa', cargo:'Analista de Processos', email:'fernanda@wbassessoria.com.br', tel:'(11) 9 9000-1111', acesso:'colaborador', av:'FC', processos:6, status:'ativo', dataCadastro:'01/01/2024' },
   { id:2, nome:'Ricardo Nunes',  cargo:'Consultor Jurídico',    email:'ricardo@wbassessoria.com.br',  tel:'(11) 9 8000-2222', acesso:'colaborador', av:'RN', processos:0, status:'ativo', dataCadastro:'01/01/2024' },
-  { id:3, nome:'William Borges', cargo:'CEO / Diretor',         email:'ceo@wbassessoria.com.br',       tel:'(11) 9 7000-3333', acesso:'ceo',          av:'WB', processos:0, status:'ativo', dataCadastro:'01/01/2023' },
+  { id:3, nome:'Renato Caires', cargo:'CEO / Diretor', email:'wbassessoria.contato@gmail.com', tel:'', acesso:'ceo', av:'RC', processos:0, status:'ativo', dataCadastro:'01/01/2025' },
 ];
 
 let agendamentos      = [...AGENDAMENTOS_DEFAULT];
@@ -614,7 +615,7 @@ function resetData() {
     colaboradores = [
       { id:1, nome:'Fernanda Costa', cargo:'Analista de Processos', email:'fernanda@wbassessoria.com.br', tel:'(11) 9 9000-1111', acesso:'colaborador', av:'FC', processos:6, status:'ativo', dataCadastro:'01/01/2024' },
       { id:2, nome:'Ricardo Nunes',  cargo:'Consultor Jurídico',    email:'ricardo@wbassessoria.com.br',  tel:'(11) 9 8000-2222', acesso:'colaborador', av:'RN', processos:0, status:'ativo', dataCadastro:'01/01/2024' },
-      { id:3, nome:'William Borges', cargo:'CEO / Diretor',         email:'ceo@wbassessoria.com.br',       tel:'(11) 9 7000-3333', acesso:'ceo',          av:'WB', processos:0, status:'ativo', dataCadastro:'01/01/2023' },
+      { id:3, nome:'Renato Caires', cargo:'CEO / Diretor', email:'wbassessoria.contato@gmail.com', tel:'', acesso:'ceo', av:'RC', processos:0, status:'ativo', dataCadastro:'01/01/2025' },
     ];
     agendamentos = [...AGENDAMENTOS_DEFAULT];
     indeferimentos = [...INDEFERIMENTOS_DEFAULT];
@@ -658,6 +659,86 @@ function salvarSheetsUrl() {
 initData();
 
 // ══════════════════════════════════════
+// 🎭 MÁSCARAS DE ENTRADA
+// ══════════════════════════════════════
+
+// Aplica máscara a um input pelo padrão
+function mascara(el, fn) {
+  if (!el) return;
+  el.addEventListener('input', function(e) {
+    const pos  = this.selectionStart;
+    const prev = this.value.length;
+    this.value = fn(this.value);
+    const diff = this.value.length - prev;
+    this.setSelectionRange(pos + diff, pos + diff);
+  });
+}
+
+// Funções de formatação
+const fmt = {
+  tel: v => {
+    v = v.replace(/\D/g,'').slice(0,11);
+    if (v.length <= 2)  return `(${v}`;
+    if (v.length <= 6)  return `(${v.slice(0,2)}) ${v.slice(2)}`;
+    if (v.length <= 10) return `(${v.slice(0,2)}) ${v.slice(2,6)}-${v.slice(6)}`;
+    return `(${v.slice(0,2)}) ${v.slice(2,3)} ${v.slice(3,7)}-${v.slice(7)}`;
+  },
+  cpf: v => {
+    v = v.replace(/\D/g,'').slice(0,11);
+    if (v.length <= 3)  return v;
+    if (v.length <= 6)  return `${v.slice(0,3)}.${v.slice(3)}`;
+    if (v.length <= 9)  return `${v.slice(0,3)}.${v.slice(3,6)}.${v.slice(6)}`;
+    return `${v.slice(0,3)}.${v.slice(3,6)}.${v.slice(6,9)}-${v.slice(9)}`;
+  },
+  cnpj: v => {
+    v = v.replace(/\D/g,'').slice(0,14);
+    if (v.length <= 2)  return v;
+    if (v.length <= 5)  return `${v.slice(0,2)}.${v.slice(2)}`;
+    if (v.length <= 8)  return `${v.slice(0,2)}.${v.slice(2,5)}.${v.slice(5)}`;
+    if (v.length <= 12) return `${v.slice(0,2)}.${v.slice(2,5)}.${v.slice(5,8)}/${v.slice(8)}`;
+    return `${v.slice(0,2)}.${v.slice(2,5)}.${v.slice(5,8)}/${v.slice(8,12)}-${v.slice(12)}`;
+  },
+  cep: v => {
+    v = v.replace(/\D/g,'').slice(0,8);
+    if (v.length <= 5) return v;
+    return `${v.slice(0,5)}-${v.slice(5)}`;
+  },
+  data: v => {
+    v = v.replace(/\D/g,'').slice(0,8);
+    if (v.length <= 2)  return v;
+    if (v.length <= 4)  return `${v.slice(0,2)}/${v.slice(2)}`;
+    return `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4)}`;
+  },
+  moeda: v => {
+    v = v.replace(/\D/g,'');
+    if (!v) return '';
+    const n = parseInt(v, 10) / 100;
+    return n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  },
+  passaporte: v => v.replace(/[^A-Za-z0-9]/g,'').toUpperCase().slice(0,9),
+};
+
+// Aplica máscaras em todos os campos via data-mask attribute
+function aplicarMascaras(ctx) {
+  const root = ctx || document;
+  root.querySelectorAll('[data-mask]').forEach(el => {
+    const tipo = el.dataset.mask;
+    if (fmt[tipo]) mascara(el, fmt[tipo]);
+  });
+}
+
+// Observer: aplica máscaras em novos elementos adicionados ao DOM (modais)
+const _maskObserver = new MutationObserver(muts => {
+  muts.forEach(m => m.addedNodes.forEach(n => {
+    if (n.nodeType === 1) {
+      aplicarMascaras(n);
+      n.querySelectorAll && aplicarMascaras(n);
+    }
+  }));
+});
+_maskObserver.observe(document.body, { childList: true, subtree: true });
+
+// ══════════════════════════════════════
 // LOGIN
 // ══════════════════════════════════════
 function setRole(r) {
@@ -666,17 +747,33 @@ function setRole(r) {
     const roles = ['ceo','colaborador','cliente'];
     t.classList.toggle('active', roles[i] === r);
   });
-  const emails = { ceo:'ceo@wbassessoria.com.br', colaborador:'fernanda@wbassessoria.com.br', cliente:'ana.souza@email.com' };
-  document.getElementById('login-email').value = emails[r];
+  // Limpa campos ao trocar de perfil
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pass').value  = '';
+  document.getElementById('login-erro').style.display = 'none';
 }
 
 function doLogin() {
-  currentUser = USERS[currentRole];
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const senha = document.getElementById('login-pass').value;
+  const erro  = document.getElementById('login-erro');
+  const user  = USERS[currentRole];
+
+  // Verifica credenciais
+  if (email !== user.email.toLowerCase() || senha !== user.senha) {
+    erro.style.display = 'block';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+    return;
+  }
+
+  erro.style.display = 'none';
+  currentUser = user;
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').classList.add('active');
   document.getElementById('user-avatar').textContent = currentUser.avatar;
-  document.getElementById('user-name').textContent = currentUser.name;
-  document.getElementById('user-role').textContent = currentUser.roleLabel;
+  document.getElementById('user-name').textContent   = currentUser.name;
+  document.getElementById('user-role').textContent   = currentUser.roleLabel;
   buildNav();
   setDate();
   navigateTo(getDefaultPage());
@@ -1630,8 +1727,8 @@ function renderConfiguracoes() {
         <div class="panel-body">
           <div class="form-grid">
             <div class="form-field form-full"><label>Razão Social</label><input id="cfg_razao" value="${configEmpresa.razao}"></div>
-            <div class="form-field"><label>CNPJ</label><input id="cfg_cnpj" value="${configEmpresa.cnpj}"></div>
-            <div class="form-field"><label>Telefone</label><input id="cfg_tel" value="${configEmpresa.tel}"></div>
+            <div class="form-field"><label>CNPJ</label><input id="cfg_cnpj" data-mask="cnpj" placeholder="XX.XXX.XXX/0001-XX" value="${configEmpresa.cnpj}"></div>
+            <div class="form-field"><label>Telefone</label><input id="cfg_tel" data-mask="tel" placeholder="(XX) 9 XXXX-XXXX" value="${configEmpresa.tel}"></div>
             <div class="form-field form-full"><label>E-mail Comercial</label><input id="cfg_email" value="${configEmpresa.email}"></div>
             <div class="form-field form-full"><label>Endereço</label><input id="cfg_end" value="${configEmpresa.endereco}"></div>
           </div>
@@ -1918,8 +2015,8 @@ function openEditarCliente(id) {
     <div class="form-grid">
       <div class="form-field form-full"><label>Nome Completo</label><input id="ec2_nome" value="${c.nome}"></div>
       <div class="form-field"><label>E-mail</label><input id="ec2_email" type="email" value="${c.email}"></div>
-      <div class="form-field"><label>Telefone</label><input id="ec2_tel" value="${c.tel==='—'?'':c.tel}"></div>
-      <div class="form-field"><label>CPF / Passaporte</label><input id="ec2_cpf" value="${c.cpf==='—'?'':c.cpf}"></div>
+      <div class="form-field"><label>Telefone</label><input id="ec2_tel" data-mask="tel" value="${c.tel==='—'?'':c.tel}"></div>
+      <div class="form-field"><label>CPF / Passaporte</label><input id="ec2_cpf" data-mask="cpf" value="${c.cpf==='—'?'':c.cpf}"></div>
       <div class="form-field"><label>País de Origem</label><input id="ec2_pais" value="${c.pais==='—'?'':c.pais}"></div>
       <div class="form-field"><label>Serviço</label>
         <select id="ec2_servico">
@@ -2016,11 +2113,11 @@ function openNovoCliente(prefillServico) {
       </div>
       <div class="form-field">
         <label>Telefone</label>
-        <input id="nc_tel" placeholder="(XX) 9 XXXX-XXXX">
+        <input id="nc_tel" data-mask="tel" placeholder="(XX) 9 XXXX-XXXX">
       </div>
       <div class="form-field">
         <label>CPF / Passaporte</label>
-        <input id="nc_cpf" placeholder="Documento de Identificação">
+        <input id="nc_cpf" data-mask="cpf" placeholder="Documento de Identificação">
       </div>
       <div class="form-field">
         <label>País de Origem</label>
@@ -2040,7 +2137,7 @@ function openNovoCliente(prefillServico) {
       </div>
       <div class="form-field">
         <label>Valor Contratado (R$)</label>
-        <input id="nc_valor" type="number" placeholder="0" min="0">
+        <input id="nc_valor" data-mask="moeda" inputmode="numeric" placeholder="0" min="0">
       </div>
       <div class="form-field">
         <label>Pagamento</label>
@@ -2255,7 +2352,7 @@ function openNovoColaborador(tipo) {
       </div>
       <div class="form-field">
         <label>Telefone</label>
-        <input id="ncol_tel" placeholder="(XX) 9 XXXX-XXXX">
+        <input id="ncol_tel" data-mask="tel" placeholder="(XX) 9 XXXX-XXXX">
       </div>
       <div class="form-field">
         <label>Cargo / Função <span style="color:var(--red)">*</span></label>
@@ -2328,7 +2425,7 @@ function openEditarColaborador(id) {
     <div class="form-grid">
       <div class="form-field form-full"><label>Nome Completo</label><input id="ec_nome" value="${c.nome}"></div>
       <div class="form-field"><label>E-mail</label><input id="ec_email" type="email" value="${c.email}"></div>
-      <div class="form-field"><label>Telefone</label><input id="ec_tel" value="${c.tel==='—'?'':c.tel}"></div>
+      <div class="form-field"><label>Telefone</label><input id="ec_tel" data-mask="tel" value="${c.tel==='—'?'':c.tel}"></div>
       <div class="form-field"><label>Cargo</label><input id="ec_cargo" value="${c.cargo}"></div>
       <div class="form-field"><label>Nível de Acesso</label>
         <select id="ec_acesso">
@@ -2731,7 +2828,7 @@ function openNovaPropostaModal() {
       <div class="form-field"><label>Serviço</label>
         <select id="np2_servico"><option>Naturalização Brasileira</option><option>Autorização de Residência (RNM)</option><option>Visto de Turismo (EUA)</option></select>
       </div>
-      <div class="form-field"><label>Valor (R$)</label><input id="np2_valor" type="number" placeholder="0"></div>
+      <div class="form-field"><label>Valor (R$)</label><input id="np2_valor" data-mask="moeda" inputmode="numeric" placeholder="0,00"></div>
       <div class="form-field"><label>Forma de Pagamento</label>
         <select id="np2_forma"><option>À vista</option><option>2x sem juros</option><option>3x sem juros</option><option>Entrada + restante</option></select>
       </div>
@@ -2785,7 +2882,7 @@ function openEditarProposta(id) {
       <div class="form-field"><label>Serviço</label>
         <select id="ep2_servico">${['Naturalização Brasileira','Autorização de Residência (RNM)','Visto de Turismo (EUA)'].map(s=>`<option ${s===p.servico?'selected':''}>${s}</option>`).join('')}</select>
       </div>
-      <div class="form-field"><label>Valor (R$)</label><input id="ep2_valor" type="number" value="${p.valor}"></div>
+      <div class="form-field"><label>Valor (R$)</label><input id="ep2_valor" data-mask="moeda" inputmode="numeric" value="${p.valor}"></div>
       <div class="form-field"><label>Status</label>
         <select id="ep2_status">${['Em elaboração','Aguardando Assinatura','Assinado','Cancelado'].map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select>
       </div>
@@ -3023,7 +3120,7 @@ function openNovoParceiro() {
         <select id="np_tipo"><option>Tradução Juramentada</option><option>Tabelionato / Cartório</option><option>Advogado Migratório</option><option>Despachante PF</option><option>Agendamento Consular</option><option>Outro</option></select>
       </div>
       <div class="form-field"><label>Cidade / Estado</label><input id="np_cidade" placeholder="Ex: São Paulo – SP"></div>
-      <div class="form-field"><label>Contato</label><input id="np_contato" placeholder="Telefone ou e-mail"></div>
+      <div class="form-field"><label>Contato</label><input id="np_contato" data-mask="tel" placeholder="Telefone ou e-mail"></div>
       <div class="form-field form-full"><label>Especialidade</label><input id="np_esp" placeholder="Ex: Inglês, Espanhol, Apostila..."></div>
       <div class="form-field"><label>Registro Profissional</label><input id="np_reg" placeholder="OAB, JUCESP, etc."></div>
       <div class="form-field"><label>Avaliação</label>
@@ -3070,7 +3167,7 @@ function openEditarParceiro(id) {
         <select id="ep_tipo">${['Tradução Juramentada','Tabelionato / Cartório','Advogado Migratório','Despachante PF','Agendamento Consular','Outro'].map(t=>`<option ${t===p.tipo?'selected':''}>${t}</option>`).join('')}</select>
       </div>
       <div class="form-field"><label>Cidade</label><input id="ep_cidade" value="${p.cidade}"></div>
-      <div class="form-field"><label>Contato</label><input id="ep_contato" value="${p.contato}"></div>
+      <div class="form-field"><label>Contato</label><input id="ep_contato" data-mask="tel" value="${p.contato}"></div>
       <div class="form-field form-full"><label>Especialidade</label><input id="ep_esp" value="${p.especialidade}"></div>
       <div class="form-field"><label>Registro</label><input id="ep_reg" value="${p.registro}"></div>
       <div class="form-field"><label>Avaliação</label>
