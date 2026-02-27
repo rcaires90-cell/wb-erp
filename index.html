@@ -347,6 +347,7 @@
       <div class="topbar-title" id="page-title">Dashboard</div>
       <div class="topbar-right">
         <div style="font-size:0.75rem;color:var(--text3);font-family:'DM Mono',monospace" id="topbar-date"></div>
+        <div id="sync-status" title="Status da sincronização" style="font-size:1.1rem;cursor:default;transition:color 0.3s" onclick="navigateTo('configuracoes')">💾</div>
         <div style="position:relative">
           <div class="notif-btn" onclick="toggleNotif()">🔔 <div class="notif-dot"></div></div>
           <div class="notif-panel" id="notif-panel">
@@ -463,59 +464,205 @@ let _indId      = INDEFERIMENTOS_DEFAULT.length + 1;
 let _propId     = PROPOSTAS_DEFAULT.length + 1;
 let _parceiroId = PARCEIROS_DEFAULT.length + 1;
 
-// ── LOCALSTORAGE ──────────────────────────────────────────────────────────────
-const LS_KEY = 'wb_erp_v2';
+// ══════════════════════════════════════════════════════════════════
+//  BANCO DE DADOS — Google Sheets + localStorage como cache
+// ══════════════════════════════════════════════════════════════════
+const LS_KEY   = 'wb_erp_v3';
+const LS_URL   = 'wb_sheets_url';
+let   SHEETS_URL = localStorage.getItem(LS_URL) || '';
+let   _saving  = false;
+let   _saveQueue = false;
 
-function saveData() {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify({
-      clientes, tarefas, colaboradores, agendamentos,
-      indeferimentos, propostas, parceiros,
-      configEmpresa, configNotif,
-      _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId
-    }));
-  } catch(e) { console.warn('localStorage save error:', e); }
+// ── Toast ─────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const colors = { success:'#10b981', error:'#ef4444', info:'#c9a84c', warn:'#f59e0b' };
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;top:80px;right:32px;background:${colors[type]||colors.success};color:#fff;padding:14px 22px;border-radius:12px;font-weight:600;font-size:0.85rem;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.4);transition:opacity 0.4s;max-width:340px;line-height:1.4`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; setTimeout(() => t.remove(), 400); }, 3500);
 }
 
-function loadData() {
+// ── Payload atual ────────────────────────────────────────────────
+function getPayload() {
+  return { clientes, tarefas, colaboradores, agendamentos,
+           indeferimentos, propostas, parceiros,
+           configEmpresa, configNotif,
+           _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId };
+}
+
+// ── Aplicar dados carregados ─────────────────────────────────────
+function applyData(d) {
+  if (!d) return;
+  if (d.clientes)       clientes       = d.clientes;
+  if (d.tarefas)        tarefas        = d.tarefas;
+  if (d.colaboradores)  colaboradores  = d.colaboradores;
+  if (d.agendamentos)   agendamentos   = d.agendamentos;
+  if (d.indeferimentos) indeferimentos = d.indeferimentos;
+  if (d.propostas)      propostas      = d.propostas;
+  if (d.parceiros)      parceiros      = d.parceiros;
+  if (d.configEmpresa)  configEmpresa  = d.configEmpresa;
+  if (d.configNotif)    configNotif    = d.configNotif;
+  if (d._clienteId)     _clienteId     = d._clienteId;
+  if (d._colaborId)     _colaborId     = d._colaborId;
+  if (d._agendId)       _agendId       = d._agendId;
+  if (d._indId)         _indId         = d._indId;
+  if (d._propId)        _propId        = d._propId;
+  if (d._parceiroId)    _parceiroId    = d._parceiroId;
+}
+
+// ── Salvar (Sheets + localStorage) ───────────────────────────────
+async function saveData() {
+  const payload = getPayload();
+
+  // Sempre salva no localStorage como cache
+  try { localStorage.setItem(LS_KEY, JSON.stringify(payload)); } catch(e) {}
+
+  // Se não tem URL configurada, só localStorage
+  if (!SHEETS_URL) return;
+
+  // Se já está salvando, agenda o próximo
+  if (_saving) { _saveQueue = true; return; }
+  _saving = true;
+  setSyncStatus('saving');
+
+  try {
+    const resp = await fetch(SHEETS_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'text/plain' }  // text/plain evita CORS preflight
+    });
+    const json = await resp.json();
+    if (json.ok) {
+      setSyncStatus('ok');
+      try { localStorage.setItem(LS_KEY, JSON.stringify(payload)); } catch(e) {}
+    } else {
+      setSyncStatus('error');
+      console.warn('Sheets error:', json.error);
+    }
+  } catch(e) {
+    setSyncStatus('error');
+    console.warn('Sheets fetch error:', e);
+  } finally {
+    _saving = false;
+    if (_saveQueue) { _saveQueue = false; saveData(); }
+  }
+}
+
+// ── Carregar do Sheets (na abertura) ─────────────────────────────
+async function loadFromSheets() {
+  if (!SHEETS_URL) return false;
+  setSyncStatus('loading');
+  try {
+    const resp = await fetch(SHEETS_URL + '?t=' + Date.now());
+    const json = await resp.json();
+    if (json.ok && json.data) {
+      applyData(json.data);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(json.data)); } catch(e) {}
+      setSyncStatus('ok');
+      return true;
+    }
+  } catch(e) {
+    console.warn('Sheets load error:', e);
+    setSyncStatus('error');
+  }
+  return false;
+}
+
+// ── Carregar localStorage como fallback ───────────────────────────
+function loadFromLocalStorage() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return;
-    const d = JSON.parse(raw);
-    if (d.clientes)        clientes        = d.clientes;
-    if (d.tarefas)         tarefas         = d.tarefas;
-    if (d.colaboradores)   colaboradores   = d.colaboradores;
-    if (d.agendamentos)    agendamentos    = d.agendamentos;
-    if (d.indeferimentos)  indeferimentos  = d.indeferimentos;
-    if (d.propostas)       propostas       = d.propostas;
-    if (d.parceiros)       parceiros       = d.parceiros;
-    if (d.configEmpresa)   configEmpresa   = d.configEmpresa;
-    if (d.configNotif)     configNotif     = d.configNotif;
-    if (d._clienteId)      _clienteId      = d._clienteId;
-    if (d._colaborId)      _colaborId      = d._colaborId;
-    if (d._agendId)        _agendId        = d._agendId;
-    if (d._indId)          _indId          = d._indId;
-    if (d._propId)         _propId         = d._propId;
-    if (d._parceiroId)     _parceiroId     = d._parceiroId;
-  } catch(e) { console.warn('localStorage load error:', e); }
+    if (raw) { applyData(JSON.parse(raw)); return true; }
+  } catch(e) {}
+  return false;
 }
 
+// ── Indicador de sync na topbar ───────────────────────────────────
+function setSyncStatus(s) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  const map = {
+    ok:      { icon:'☁️', tip:'Sincronizado com Google Sheets',   color:'var(--green)' },
+    saving:  { icon:'🔄', tip:'Salvando...',                       color:'var(--gold)'  },
+    loading: { icon:'⏳', tip:'Carregando dados...',               color:'var(--gold)'  },
+    error:   { icon:'⚠️', tip:'Erro de sincronização (cache local)', color:'var(--orange)'},
+    local:   { icon:'💾', tip:'Modo local (sem Google Sheets)',    color:'var(--text3)' },
+  };
+  const st = map[s] || map.local;
+  el.textContent = st.icon;
+  el.title = st.tip;
+  el.style.color = st.color;
+}
+
+// ── Inicialização ─────────────────────────────────────────────────
+async function initData() {
+  // 1. Carrega localStorage imediatamente (dados em cache)
+  loadFromLocalStorage();
+
+  // 2. Se tem URL configurada, busca do Sheets em background
+  if (SHEETS_URL) {
+    const fromSheets = await loadFromSheets();
+    if (!fromSheets) {
+      showToast('⚠️ Usando dados locais — Google Sheets inacessível', 'warn');
+    }
+  } else {
+    setSyncStatus('local');
+  }
+}
+
+// ── Reset completo ────────────────────────────────────────────────
 function resetData() {
   if (!confirm('⚠️ Isso irá apagar TODOS os dados cadastrados e restaurar os dados de demonstração. Confirma?')) return;
   localStorage.removeItem(LS_KEY);
-  location.reload();
+  if (SHEETS_URL) {
+    // Salva defaults no Sheets
+    clientes = [...CLIENTES]; tarefas = [...TAREFAS];
+    colaboradores = [
+      { id:1, nome:'Fernanda Costa', cargo:'Analista de Processos', email:'fernanda@wbassessoria.com.br', tel:'(11) 9 9000-1111', acesso:'colaborador', av:'FC', processos:6, status:'ativo', dataCadastro:'01/01/2024' },
+      { id:2, nome:'Ricardo Nunes',  cargo:'Consultor Jurídico',    email:'ricardo@wbassessoria.com.br',  tel:'(11) 9 8000-2222', acesso:'colaborador', av:'RN', processos:0, status:'ativo', dataCadastro:'01/01/2024' },
+      { id:3, nome:'William Borges', cargo:'CEO / Diretor',         email:'ceo@wbassessoria.com.br',       tel:'(11) 9 7000-3333', acesso:'ceo',          av:'WB', processos:0, status:'ativo', dataCadastro:'01/01/2023' },
+    ];
+    agendamentos = [...AGENDAMENTOS_DEFAULT];
+    indeferimentos = [...INDEFERIMENTOS_DEFAULT];
+    propostas = [...PROPOSTAS_DEFAULT];
+    parceiros = [...PARCEIROS_DEFAULT];
+    _clienteId=CLIENTES.length+1; _colaborId=4; _agendId=AGENDAMENTOS_DEFAULT.length+1;
+    _indId=INDEFERIMENTOS_DEFAULT.length+1; _propId=PROPOSTAS_DEFAULT.length+1; _parceiroId=PARCEIROS_DEFAULT.length+1;
+    saveData().then(() => location.reload());
+  } else {
+    location.reload();
+  }
 }
 
-function showToast(msg, type='success') {
-  const colors = { success:'#10b981', error:'#ef4444', info:'var(--gold)' };
-  const t = document.createElement('div');
-  t.style.cssText = `position:fixed;top:80px;right:32px;background:${colors[type]};color:#fff;padding:14px 22px;border-radius:12px;font-weight:600;font-size:0.85rem;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.4);animation:fadeIn 0.25s ease`;
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
+// ── Configurar URL do Sheets ──────────────────────────────────────
+function salvarSheetsUrl() {
+  const url = document.getElementById('cfg_sheets_url').value.trim();
+  if (!url) {
+    SHEETS_URL = '';
+    localStorage.removeItem(LS_URL);
+    setSyncStatus('local');
+    showToast('🔌 Google Sheets desconectado. Usando armazenamento local.', 'warn');
+    return;
+  }
+  if (!url.includes('script.google.com/macros')) {
+    showToast('⚠️ URL inválida. Cole a URL gerada no Google Apps Script.', 'error');
+    return;
+  }
+  SHEETS_URL = url;
+  localStorage.setItem(LS_URL, url);
+  showToast('🔄 Testando conexão com Google Sheets...', 'info');
+  loadFromSheets().then(ok => {
+    if (ok) {
+      showToast('✅ Google Sheets conectado! Dados carregados.', 'success');
+      if (currentUser) navigateTo(currentPage);
+    } else {
+      showToast('❌ Não foi possível conectar. Verifique a URL e as permissões.', 'error');
+    }
+  });
 }
 
-loadData();
+initData();
 
 // ══════════════════════════════════════
 // LOGIN
@@ -1418,7 +1565,69 @@ function renderServico(tipo) {
 
 // ─── CONFIGURAÇÕES ───
 function renderConfiguracoes() {
+  const urlAtual = SHEETS_URL || '';
   return `
+    <!-- ── GOOGLE SHEETS ── -->
+    <div class="panel" style="margin-bottom:24px;border-color:rgba(201,168,76,0.3)">
+      <div class="panel-header" style="background:rgba(201,168,76,0.05)">
+        <span class="panel-title" style="color:var(--gold)">☁️ Banco de Dados — Google Sheets</span>
+        <span id="sheets-badge" style="font-size:0.72rem;padding:3px 10px;border-radius:20px;background:${urlAtual?'rgba(16,185,129,0.15)':'rgba(255,255,255,0.05)'};color:${urlAtual?'var(--green)':'var(--text3)'};border:1px solid ${urlAtual?'var(--green)':'var(--border)'}">
+          ${urlAtual ? '✅ Conectado' : '🔌 Não configurado'}
+        </span>
+      </div>
+      <div class="panel-body">
+        ${urlAtual ? `
+          <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:0.8rem;color:var(--text2)">
+            ✅ <strong>Conectado ao Google Sheets.</strong> Todos os dados são salvos automaticamente na nuvem e ficam acessíveis de qualquer dispositivo.
+          </div>` : `
+          <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:0.8rem;color:var(--text2);line-height:1.6">
+            ℹ️ <strong>Sem Google Sheets configurado.</strong> Os dados ficam salvos apenas neste navegador. Configure abaixo para salvar na nuvem e acessar de qualquer dispositivo.
+          </div>`}
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <!-- Instruções passo a passo -->
+          <details style="background:var(--navy4);border-radius:10px;border:1px solid var(--border2)">
+            <summary style="padding:14px 16px;cursor:pointer;font-size:0.83rem;font-weight:600;color:var(--text);list-style:none;display:flex;justify-content:space-between;align-items:center">
+              📋 Como configurar (passo a passo) <span style="color:var(--text3)">▼</span>
+            </summary>
+            <div style="padding:0 16px 16px;font-size:0.8rem;color:var(--text2);line-height:1.8;border-top:1px solid var(--border2);margin-top:0;padding-top:14px">
+              <strong style="color:var(--gold)">1.</strong> Acesse <a href="https://sheets.google.com" target="_blank" style="color:var(--accent)">sheets.google.com</a> e crie uma planilha em branco.<br>
+              <strong style="color:var(--gold)">2.</strong> No menu superior clique em <strong>Extensões → Apps Script</strong>.<br>
+              <strong style="color:var(--gold)">3.</strong> Apague todo o código que aparecer e cole o conteúdo do arquivo <code style="background:var(--navy3);padding:2px 6px;border-radius:4px">Code.gs</code> que você baixou.<br>
+              <strong style="color:var(--gold)">4.</strong> Clique em <strong>Implantar → Nova implantação</strong>.<br>
+              <strong style="color:var(--gold)">5.</strong> Tipo: <strong>Aplicativo da Web</strong> → Executar como: <strong>Eu</strong> → Quem tem acesso: <strong>Qualquer pessoa</strong>.<br>
+              <strong style="color:var(--gold)">6.</strong> Clique <strong>Implantar</strong>, autorize e copie a <strong>URL do app da web</strong>.<br>
+              <strong style="color:var(--gold)">7.</strong> Cole a URL abaixo e clique em <strong>Conectar</strong>.
+            </div>
+          </details>
+
+          <!-- Input da URL -->
+          <div class="form-grid">
+            <div class="form-field form-full">
+              <label>URL do Google Apps Script (Web App)</label>
+              <input id="cfg_sheets_url"
+                placeholder="https://script.google.com/macros/s/..."
+                value="${urlAtual}"
+                style="font-family:'DM Mono',monospace;font-size:0.78rem">
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button class="btn btn-gold" onclick="salvarSheetsUrl()">
+              ${urlAtual ? '🔄 Atualizar URL' : '☁️ Conectar ao Google Sheets'}
+            </button>
+            ${urlAtual ? `
+              <button class="btn btn-outline" onclick="loadFromSheets().then(ok=>{ if(ok){showToast('✅ Dados recarregados do Sheets!');if(currentUser)navigateTo(currentPage);}else{showToast('❌ Falha ao recarregar','error')}})">
+                ⬇️ Forçar sincronização
+              </button>
+              <button class="btn btn-danger" onclick="if(confirm('Desconectar Google Sheets? Os dados locais serão mantidos.')){SHEETS_URL='';localStorage.removeItem('wb_sheets_url');setSyncStatus('local');showToast('🔌 Google Sheets desconectado','warn');navigateTo('configuracoes')}">
+                🔌 Desconectar
+              </button>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="grid-2">
       <div class="panel">
         <div class="panel-header"><span class="panel-title">Dados da Empresa</span></div>
@@ -1460,7 +1669,7 @@ function renderConfiguracoes() {
       <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
         <div>
           <div style="font-size:0.85rem;font-weight:600;color:var(--text)">Restaurar Dados de Demonstração</div>
-          <div style="font-size:0.78rem;color:var(--text3);margin-top:4px">Apaga todos os dados cadastrados e restaura o sistema ao estado inicial de demonstração.</div>
+          <div style="font-size:0.78rem;color:var(--text3);margin-top:4px">Apaga todos os dados cadastrados e restaura o sistema ao estado inicial de demonstração.${SHEETS_URL?' Também apaga no Google Sheets.':''}</div>
         </div>
         <button class="btn btn-danger" onclick="resetData()">🗑️ Resetar Dados</button>
       </div>
