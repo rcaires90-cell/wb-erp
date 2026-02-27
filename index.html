@@ -266,16 +266,35 @@
   .page.active { animation:fadeIn 0.3s ease; }
 
   /* RESPONSIVE */
+  .hamburger { display:none; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; background:var(--navy3); border:1px solid var(--border2); cursor:pointer; flex-direction:column; gap:5px; flex-shrink:0; }
+  .hamburger span { display:block; width:18px; height:2px; background:var(--text2); border-radius:2px; transition:all 0.2s; }
+
   @media(max-width:900px) {
     .stat-grid { grid-template-columns:1fr 1fr; }
     .grid-2, .grid-3 { grid-template-columns:1fr; }
     .kanban { grid-template-columns:1fr 1fr; }
   }
   @media(max-width:600px) {
-    .sidebar { transform:translateX(-100%); }
-    .main { margin-left:0; }
-    .stat-grid { grid-template-columns:1fr; }
+    .sidebar { transform:translateX(-100%); transition:transform 0.3s ease; z-index:300; }
+    .sidebar.open { transform:translateX(0); }
+    .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:299; }
+    .sidebar-overlay.open { display:block; }
+    .main { margin-left:0 !important; }
+    .stat-grid { grid-template-columns:1fr 1fr; }
     .kanban { grid-template-columns:1fr; }
+    .hamburger { display:flex !important; }
+    .topbar { padding:12px 16px; }
+    .topbar-title { font-size:0.9rem; }
+    .content { padding:16px !important; }
+    .panel-body { padding:12px !important; }
+    .tbl th, .tbl td { padding:8px 10px; font-size:0.75rem; }
+    .modal-box { width:95vw !important; max-height:90vh; overflow-y:auto; }
+    .form-grid { grid-template-columns:1fr !important; }
+    .form-full { grid-column:1 !important; }
+    .stat-grid { grid-template-columns:1fr 1fr; gap:10px; }
+    .stat-value { font-size:1.4rem; }
+    .btn { font-size:0.78rem; padding:8px 14px; }
+    #topbar-date { display:none; }
   }
 
   /* Divider with text */
@@ -323,6 +342,9 @@
 <!-- ════════════ APP ════════════ -->
 <div id="app">
 
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
@@ -345,7 +367,10 @@
   <!-- MAIN -->
   <main class="main">
     <div class="topbar">
-      <div class="topbar-title" id="page-title">Dashboard</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></div>
+        <div class="topbar-title" id="page-title">Dashboard</div>
+      </div>
       <div class="topbar-right">
         <div style="font-size:0.75rem;color:var(--text3);font-family:'DM Mono',monospace" id="topbar-date"></div>
         <div id="sync-status" title="Status da sincronização" style="font-size:1.1rem;cursor:default;transition:color 0.3s" onclick="navigateTo('configuracoes')">💾</div>
@@ -374,11 +399,30 @@
 // ══════════════════════════════════════
 // DATA
 // ══════════════════════════════════════
+// AUTH — login dinâmico via colaboradores
+// ══════════════════════════════════════
 const USERS = {
   ceo: { name:'Renato Caires', role:'ceo', roleLabel:'Diretor / CEO', avatar:'RC', email:'wbassessoria.contato@gmail.com', senha:'986469804Re.' },
   colaborador: { name:'Colaborador', role:'colaborador', roleLabel:'Colaborador(a)', avatar:'CO', email:'colaborador@wbassessoria.com.br', senha:'wb2025' },
   cliente: { name:'Cliente', role:'cliente', roleLabel:'Cliente', avatar:'CL', email:'cliente@wbassessoria.com.br', senha:'wb2025' }
 };
+
+// Autentica qualquer colaborador cadastrado no array
+function autenticar(email, senha, role) {
+  // Tenta colaboradores dinâmicos primeiro
+  const colab = colaboradores.find(c =>
+    c.email.toLowerCase() === email.toLowerCase() &&
+    c.senha === senha &&
+    c.status === 'ativo'
+  );
+  if (colab) {
+    const av = colab.nome.split(' ').filter(Boolean).map(w=>w[0].toUpperCase()).slice(0,2).join('');
+    return { name: colab.nome, role: colab.acesso, roleLabel: colab.acesso==='ceo'?'Diretor / CEO':'Colaborador(a)', avatar: av, email: colab.email, colaboradorId: colab.id };
+  }
+  // Fallback: usuário estático (cliente)
+  const u = Object.values(USERS).find(u => u.email.toLowerCase()===email.toLowerCase() && u.senha===senha);
+  return u || null;
+}
 
 const CLIENTES = [
   { id:1, nome:'Ana Cristina Souza', email:'ana.souza@email.com', tel:'(11) 9 9876-5432', cpf:'123.456.789-00', pais:'Brasil', servico:'Naturalização Brasileira', status:'Em andamento', etapa:3, totalEtapas:6, responsavel:'Fernanda Costa', prioridade:'alta', dataCadastro:'10/01/2025', valor:4500, pago:true, docs:['RG','CPF','Certidão de Nascimento'], docsPendentes:['Comprovante de Residência 5 anos','Certidão de Antecedentes'], obs:'Cliente aguarda regularização de certidões.' },
@@ -452,6 +496,7 @@ let agendamentos      = [...AGENDAMENTOS_DEFAULT];
 let indeferimentos    = [...INDEFERIMENTOS_DEFAULT];
 let propostas         = [...PROPOSTAS_DEFAULT];
 let parceiros         = [...PARCEIROS_DEFAULT];
+let modelosPersonalizados = []; // { id, cat, nome, desc, tags:[], corpo }
 let configEmpresa     = { razao:'WB Assessoria Migratória LTDA', cnpj:'XX.XXX.XXX/0001-XX', tel:'(11) 9 9999-9999', email:'contato@wbassessoria.com.br', endereco:'Av. Paulista, 1000 - São Paulo, SP' };
 let configNotif       = { novoCliente:true, docPendente:true, relSemanal:false, smsAgend:true };
 
@@ -461,6 +506,7 @@ let _agendId    = AGENDAMENTOS_DEFAULT.length + 1;
 let _indId      = INDEFERIMENTOS_DEFAULT.length + 1;
 let _propId     = PROPOSTAS_DEFAULT.length + 1;
 let _parceiroId = PARCEIROS_DEFAULT.length + 1;
+let _modeloId   = 1;
 
 // ══════════════════════════════════════════════════════════════════
 //  BANCO DE DADOS — Google Sheets + localStorage como cache
@@ -485,32 +531,35 @@ function showToast(msg, type='success') {
 function getPayload() {
   return { clientes, tarefas, colaboradores, agendamentos,
            indeferimentos, propostas, parceiros, lancamentos, parcelasData,
+           modelosPersonalizados,
            configEmpresa, configNotif,
-           _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId, _lancId, _parcelasId };
+           _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId, _lancId, _parcelasId, _modeloId };
 }
 
 // ── Aplicar dados carregados ─────────────────────────────────────
 function applyData(d) {
   if (!d) return;
-  if (d.clientes)       clientes       = d.clientes;
-  if (d.tarefas)        tarefas        = d.tarefas;
-  if (d.colaboradores)  colaboradores  = d.colaboradores;
-  if (d.agendamentos)   agendamentos   = d.agendamentos;
-  if (d.indeferimentos) indeferimentos = d.indeferimentos;
-  if (d.propostas)      propostas      = d.propostas;
-  if (d.parceiros)      parceiros      = d.parceiros;
-  if (d.lancamentos)    lancamentos    = d.lancamentos;
-  if (d.parcelasData)   parcelasData   = d.parcelasData;
-  if (d.configEmpresa)  configEmpresa  = d.configEmpresa;
-  if (d.configNotif)    configNotif    = d.configNotif;
-  if (d._clienteId)     _clienteId     = d._clienteId;
-  if (d._colaborId)     _colaborId     = d._colaborId;
-  if (d._agendId)       _agendId       = d._agendId;
-  if (d._indId)         _indId         = d._indId;
-  if (d._propId)        _propId        = d._propId;
-  if (d._parceiroId)    _parceiroId    = d._parceiroId;
-  if (d._lancId)        _lancId        = d._lancId;
-  if (d._parcelasId)    _parcelasId    = d._parcelasId;
+  if (d.clientes)                clientes                = d.clientes;
+  if (d.tarefas)                 tarefas                 = d.tarefas;
+  if (d.colaboradores)           colaboradores           = d.colaboradores;
+  if (d.agendamentos)            agendamentos            = d.agendamentos;
+  if (d.indeferimentos)          indeferimentos          = d.indeferimentos;
+  if (d.propostas)               propostas               = d.propostas;
+  if (d.parceiros)               parceiros               = d.parceiros;
+  if (d.lancamentos)             lancamentos             = d.lancamentos;
+  if (d.parcelasData)            parcelasData            = d.parcelasData;
+  if (d.modelosPersonalizados)   modelosPersonalizados   = d.modelosPersonalizados;
+  if (d.configEmpresa)           configEmpresa           = d.configEmpresa;
+  if (d.configNotif)             configNotif             = d.configNotif;
+  if (d._clienteId)              _clienteId              = d._clienteId;
+  if (d._colaborId)              _colaborId              = d._colaborId;
+  if (d._agendId)                _agendId                = d._agendId;
+  if (d._indId)                  _indId                  = d._indId;
+  if (d._propId)                 _propId                 = d._propId;
+  if (d._parceiroId)             _parceiroId             = d._parceiroId;
+  if (d._lancId)                 _lancId                 = d._lancId;
+  if (d._parcelasId)             _parcelasId             = d._parcelasId;
+  if (d._modeloId)               _modeloId               = d._modeloId;
 }
 
 // ── Salvar (POST no-cors + localStorage) ─────────────────────────
@@ -619,6 +668,7 @@ function resetData() {
   parceiros      = [];
   lancamentos    = [];
   parcelasData   = [];
+  modelosPersonalizados = [];
   colaboradores  = [
     { id:1, nome:'Renato Caires', cargo:'CEO / Diretor', email:'wbassessoria.contato@gmail.com', tel:'', acesso:'ceo', av:'RC', processos:0, status:'ativo', dataCadastro: new Date().toLocaleDateString('pt-BR') },
   ];
@@ -764,21 +814,32 @@ function setRole(r) {
 }
 
 function doLogin() {
-  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const email = document.getElementById('login-email').value.trim();
   const senha = document.getElementById('login-pass').value;
   const erro  = document.getElementById('login-erro');
-  const user  = USERS[currentRole];
 
-  // Verifica credenciais
-  if (email !== user.email.toLowerCase() || senha !== user.senha) {
+  const user = autenticar(email, senha, currentRole);
+
+  if (!user) {
     erro.style.display = 'block';
     document.getElementById('login-pass').value = '';
     document.getElementById('login-pass').focus();
     return;
   }
 
+  // Bloqueia acesso por role incorreta (colaborador tentando entrar como Diretor)
+  if (currentRole === 'ceo' && user.role !== 'ceo') {
+    erro.textContent = 'Acesso negado para este perfil.';
+    erro.style.display = 'block';
+    return;
+  }
+  if (currentRole === 'colaborador' && user.role === 'ceo') {
+    // CEO pode entrar pela aba colaborador também — libera
+  }
+
   erro.style.display = 'none';
   currentUser = user;
+  currentRole = user.role;
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').classList.add('active');
   document.getElementById('user-avatar').textContent = currentUser.avatar;
@@ -793,6 +854,59 @@ function doLogout() {
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app').classList.remove('active');
   currentUser = null;
+  // Fecha sidebar no mobile
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+function toggleSidebar() {
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('sidebar-overlay');
+  const open = sb.classList.toggle('open');
+  ov.classList.toggle('open', open);
+}
+
+// ── WhatsApp ──────────────────────────────────────────────────────
+function abrirWhatsApp(tel, msg) {
+  const num = tel.replace(/\D/g,'');
+  const txt = encodeURIComponent(msg || '');
+  window.open(`https://wa.me/55${num}?text=${txt}`, '_blank');
+}
+
+function whatsAppCliente(clienteId) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  const msg = `Olá ${c.nome.split(' ')[0]}, tudo bem? Aqui é a equipe WB Assessoria Migratória. Gostaríamos de atualizar você sobre o seu processo de ${c.servico}. Como podemos ajudar?`;
+  abrirWhatsApp(c.tel, msg);
+}
+
+// ── E-mail via EmailJS ────────────────────────────────────────────
+// Configure sua conta em emailjs.com (gratuito até 200 emails/mês)
+const EMAILJS_SERVICE  = '';  // Ex: 'service_abc123'
+const EMAILJS_TEMPLATE = '';  // Ex: 'template_xyz456'
+const EMAILJS_PUBLIC   = '';  // Sua Public Key do EmailJS
+
+async function enviarEmailCliente(para, nomeCliente, assunto, mensagem) {
+  if (!EMAILJS_SERVICE) {
+    showToast('⚠️ Configure o EmailJS em Configurações para enviar e-mails.', 'warn');
+    return false;
+  }
+  try {
+    const resp = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service_id: EMAILJS_SERVICE,
+        template_id: EMAILJS_TEMPLATE,
+        user_id: EMAILJS_PUBLIC,
+        template_params: { to_email: para, to_name: nomeCliente, subject: assunto, message: mensagem, from_name: 'WB Assessoria Migratória' }
+      })
+    });
+    if (resp.ok) { showToast(`📧 E-mail enviado para ${nomeCliente}!`); return true; }
+    else         { showToast('❌ Falha ao enviar e-mail.', 'error'); return false; }
+  } catch(e) {
+    showToast('❌ Erro ao enviar e-mail.', 'error'); return false;
+  }
 }
 
 function getDefaultPage() {
@@ -887,6 +1001,9 @@ function navigateTo(page) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const el = document.getElementById('nav-'+page);
   if (el) el.classList.add('active');
+  // Fecha sidebar no mobile ao navegar
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
   const titles = {
     'dashboard':'Dashboard', 'clientes':'Clientes', 'processos':'Processos',
     'tarefas':'Minhas Tarefas', 'financeiro':'Financeiro', 'relatorios':'Relatórios',
@@ -1096,7 +1213,10 @@ function tabelaClientes(lista) {
           <td style="font-size:0.8rem">${c.responsavel}</td>
           <td style="font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--gold)">R$ ${c.valor.toLocaleString('pt-BR')}</td>
           <td>${c.pago ? '<span class="badge badge-green">✓ Pago</span>' : '<span class="badge badge-red">Pendente</span>'}</td>
-          <td><button class="btn btn-outline btn-sm" onclick="openClienteModal(${c.id})">Detalhes</button></td>
+          <td style="display:flex;gap:5px">
+            <button class="btn btn-outline btn-sm" onclick="openClienteModal(${c.id})">Detalhes</button>
+            ${c.tel && c.tel !== '—' ? `<button class="btn btn-sm" style="background:#25d366;color:#fff;border:none" title="WhatsApp" onclick="whatsAppCliente(${c.id})">💬</button>` : ''}
+          </td>
         </tr>`).join('')}
     </tbody>
   </table>`;
@@ -2400,6 +2520,10 @@ function openNovoColaborador(tipo) {
         <input id="ncol_email" type="email" placeholder="nome@wbassessoria.com.br">
       </div>
       <div class="form-field">
+        <label>Senha de Acesso <span style="color:var(--red)">*</span></label>
+        <input id="ncol_senha" type="password" placeholder="Senha para login no sistema">
+      </div>
+      <div class="form-field">
         <label>Telefone</label>
         <input id="ncol_tel" data-mask="tel" placeholder="(XX) 9 XXXX-XXXX">
       </div>
@@ -2440,6 +2564,12 @@ function salvarNovoColaborador(isCeo) {
   if (!nome)  { erro.textContent='⚠️ Nome é obrigatório.';  erro.style.display='block'; return; }
   if (!email) { erro.textContent='⚠️ E-mail é obrigatório.'; erro.style.display='block'; return; }
   if (!cargo) { erro.textContent='⚠️ Cargo é obrigatório.';  erro.style.display='block'; return; }
+  const senhaEl = document.getElementById('ncol_senha');
+  const senha = senhaEl ? senhaEl.value.trim() : '';
+  if (!senha) { erro.textContent='⚠️ Senha é obrigatória.'; erro.style.display='block'; return; }
+  if (colaboradores.find(c=>c.email.toLowerCase()===email.toLowerCase())) {
+    erro.textContent='⚠️ Já existe um colaborador com este e-mail.'; erro.style.display='block'; return;
+  }
 
   const acesso = isCeo ? 'ceo' : (document.getElementById('ncol_acesso').value || 'colaborador');
   const initials = nome.split(' ').filter(Boolean).map(w=>w[0].toUpperCase()).slice(0,2).join('');
@@ -2450,6 +2580,7 @@ function salvarNovoColaborador(isCeo) {
     nome        : nome,
     cargo       : cargo,
     email       : email,
+    senha       : senha,
     tel         : document.getElementById('ncol_tel').value.trim() || '—',
     acesso      : acesso,
     av          : initials,
@@ -2474,6 +2605,7 @@ function openEditarColaborador(id) {
     <div class="form-grid">
       <div class="form-field form-full"><label>Nome Completo</label><input id="ec_nome" value="${c.nome}"></div>
       <div class="form-field"><label>E-mail</label><input id="ec_email" type="email" value="${c.email}"></div>
+      <div class="form-field"><label>Nova Senha <span style="font-size:0.72rem;color:var(--text3)">(deixe em branco para manter)</span></label><input id="ec_senha" type="password" placeholder="Nova senha..."></div>
       <div class="form-field"><label>Telefone</label><input id="ec_tel" data-mask="tel" value="${c.tel==='—'?'':c.tel}"></div>
       <div class="form-field"><label>Cargo</label><input id="ec_cargo" value="${c.cargo}"></div>
       <div class="form-field"><label>Nível de Acesso</label>
@@ -2509,6 +2641,8 @@ function atualizarColaborador(id) {
   c.status = document.getElementById('ec_status').value;
   c.obs    = document.getElementById('ec_obs').value.trim();
   c.av     = c.nome.split(' ').filter(Boolean).map(w=>w[0].toUpperCase()).slice(0,2).join('');
+  const novaSenha = document.getElementById('ec_senha').value.trim();
+  if (novaSenha) c.senha = novaSenha;
   saveData();
   closeModal();
   navigateTo('colaboradores');
@@ -2813,32 +2947,407 @@ function renderPrazos() {
 // 📄 MODELOS DE DOCUMENTOS
 // ══════════════════════════════════════
 function renderModelos() {
+  const hoje = new Date().toLocaleDateString('pt-BR');
   const modelos = [
-    { cat:'Naturalização', nome:'Carta de Apresentação ao MJ', desc:'Modelo padrão de carta de apresentação para protocolo de naturalização ordinária', tags:['MJ','Naturalização','Portaria 623/2020'] },
-    { cat:'Naturalização', nome:'Declaração de Residência Ininterrupta', desc:'Declaração pessoal do requerente atestando residência contínua no Brasil pelo prazo legal exigido', tags:['Art. 65','Lei 13.445/2017'] },
-    { cat:'Naturalização', nome:'Requerimento de Naturalização (Modelo)', desc:'Formulário de requerimento formatado conforme o Anexo I da Portaria MJ nº 623/2020', tags:['Portaria 623/2020','Anexo I'] },
-    { cat:'Naturalização', nome:'Procuração para Ato Migratório', desc:'Outorga de poderes específicos à WB Assessoria para representar o cliente perante o MJSP/PF', tags:['Procuração','MJSP'] },
-    { cat:'RNM / Residência', nome:'Carta de Vínculo Familiar', desc:'Declaração de cônjuge/filho(a) brasileiro(a) para fins de reunião familiar (RNM)', tags:['Art. 30, II','Lei 13.445/2017'] },
-    { cat:'RNM / Residência', nome:'Requerimento de Autorização de Residência', desc:'Modelo padrão para protocolo no MigranteWeb, conforme RN CNIg nº 1/2017', tags:['RN CNIg 1/2017','MigranteWeb'] },
-    { cat:'Visto EUA', nome:'Carta de Apresentação para Entrevista Consular', desc:'Carta explicando o propósito da viagem, vínculos no Brasil e dados financeiros ao Consulado EUA', tags:['9 FAM 402.2','DS-160'] },
-    { cat:'Visto EUA', nome:'Declaração de Patrocínio Financeiro', desc:'Carta de terceiro que custeia a viagem aos EUA, com comprovação de renda', tags:['9 FAM 402.2-5(B)'] },
-    { cat:'Interno WB', nome:'Contrato de Prestação de Serviços – Naturalização', desc:'Contrato padrão WB para serviços de assessoria em naturalização brasileira', tags:['Interno','CC/2002 Art. 421'] },
-    { cat:'Interno WB', nome:'Contrato de Prestação de Serviços – RNM', desc:'Contrato padrão WB para serviços de assessoria em Autorização de Residência', tags:['Interno'] },
-    { cat:'Interno WB', nome:'Termo de Ciência de Documentação', desc:'Termo onde o cliente declara ter entregado os documentos listados no checklist', tags:['Interno','Checklist'] },
+    {
+      cat:'📜 Contratos WB', cor:'var(--gold)',
+      nome:'Contrato – Naturalização Brasileira',
+      desc:'Contrato completo de prestação de serviços de assessoria para processo de naturalização',
+      tags:['CC/2002 Art. 421','LGPD','Assinatura Digital'],
+      corpo: `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORIA MIGRATÓRIA
+WB ASSESSORIA MIGRATÓRIA LTDA
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTRATANTE: ___________________________________
+CPF: ___________________ Data de Nascimento: ___/___/______
+Endereço: _________________________________________________
+E-mail: ____________________ Telefone: _____________________
+Nacionalidade: ___________________ Passaporte nº: ___________
+
+CONTRATADA: WB Assessoria Migratória
+CNPJ: __ . ___ . ___ / 0001 - __
+Representante: Renato Caires
+E-mail: wbassessoria.contato@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CLÁUSULA 1ª – DO OBJETO
+A CONTRATADA se compromete a prestar serviços de assessoria e consultoria migratória para o processo de NATURALIZAÇÃO BRASILEIRA do CONTRATANTE, nos termos da Lei nº 13.445/2017 e Portaria MJSP nº 623/2020, compreendendo:
+
+I.   Análise de elegibilidade e documentação necessária;
+II.  Orientação e acompanhamento na coleta de documentos;
+III. Elaboração, revisão e organização do dossiê de naturalização;
+IV.  Protocolo do requerimento junto ao Ministério da Justiça e Segurança Pública;
+V.   Acompanhamento do processo administrativo até a publicação no Diário Oficial da União;
+VI.  Assessoria em eventuais exigências ou diligências do órgão competente.
+
+CLÁUSULA 2ª – DOS HONORÁRIOS
+Pelos serviços prestados, o CONTRATANTE pagará à CONTRATADA o valor total de R$ ______________ (____________________________________________), a ser pago da seguinte forma:
+
+☐ À vista: R$ ______________ na assinatura deste contrato.
+☐ Parcelado: Entrada de R$ ______________ + _____ parcelas de R$ ______________.
+☐ Outro: __________________________________________________
+
+Forma de pagamento: ☐ PIX  ☐ Transferência  ☐ Cartão  ☐ Boleto
+Chave PIX WB: wbassessoria.contato@gmail.com
+
+PARÁGRAFO ÚNICO: Os honorários acima NÃO incluem taxas governamentais, emolumentos cartoriais, traduções juramentadas, despesas de reconhecimento de firma, custas de apostilamento, despesas de viagem ou quaisquer outras despesas de terceiros, que serão de responsabilidade exclusiva do CONTRATANTE.
+
+CLÁUSULA 3ª – DOS PRAZOS
+O prazo estimado para conclusão do processo de Naturalização é de 90 (noventa) a 180 (cento e oitenta) dias após o protocolo junto ao MJSP, conforme Portaria nº 623/2020. Este prazo é de responsabilidade exclusiva do órgão governamental competente, não sendo a CONTRATADA responsável por eventuais atrasos administrativos.
+
+CLÁUSULA 4ª – DAS OBRIGAÇÕES DO CONTRATANTE
+São obrigações do CONTRATANTE:
+I.   Fornecer todos os documentos solicitados com autenticidade e dentro dos prazos acordados;
+II.  Comunicar imediatamente qualquer alteração em seus dados pessoais, endereço ou situação migratória;
+III. Comparecer pessoalmente quando solicitado pelo órgão competente;
+IV.  Manter seus documentos válidos durante todo o processo;
+V.   Efetuar os pagamentos nos prazos pactuados.
+
+CLÁUSULA 5ª – DAS OBRIGAÇÕES DA CONTRATADA
+São obrigações da CONTRATADA:
+I.   Prestar os serviços com diligência, transparência e ética profissional;
+II.  Manter o CONTRATANTE informado sobre o andamento do processo;
+III. Guardar sigilo sobre todas as informações e documentos do CONTRATANTE (LGPD – Lei nº 13.709/2018);
+IV.  Não garantir resultado favorável, vez que a decisão é de competência exclusiva do órgão governamental.
+
+CLÁUSULA 6ª – DA RESCISÃO
+Este contrato poderá ser rescindido por qualquer das partes, mediante comunicação por escrito com antecedência mínima de 15 (quinze) dias. Em caso de rescisão por iniciativa do CONTRATANTE após o início dos trabalhos, os honorários relativos aos serviços já executados serão devidos proporcionalmente.
+
+CLÁUSULA 7ª – DO FORO
+As partes elegem o foro da Comarca de _________________, Estado de _____________, para dirimir quaisquer controvérsias oriundas do presente contrato, renunciando a qualquer outro, por mais privilegiado que seja.
+
+_______________, _____ de _________________ de _______.
+
+_________________________________
+CONTRATANTE: ___________________
+CPF: ___________________________
+
+_________________________________
+WB Assessoria Migratória
+Renato Caires
+wbassessoria.contato@gmail.com`
+    },
+    {
+      cat:'📜 Contratos WB', cor:'var(--gold)',
+      nome:'Contrato – Autorização de Residência (RNM/RNE)',
+      desc:'Contrato para assessoria em processo de Registro Nacional Migratório',
+      tags:['Lei 13.445/2017','RN CNIg 1/2017','Polícia Federal'],
+      corpo: `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORIA MIGRATÓRIA
+WB ASSESSORIA MIGRATÓRIA LTDA
+SERVIÇO: AUTORIZAÇÃO DE RESIDÊNCIA (RNM/RNE)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTRATANTE: ___________________________________
+CPF/Passaporte: ________________ Nacionalidade: ______________
+E-mail: ____________________ Telefone: _____________________
+Fundamento legal solicitado:
+☐ Reunião Familiar (cônjuge/filho brasileiro)
+☐ Vínculo empregatício
+☐ Investidor
+☐ Outra: _______________
+
+CONTRATADA: WB Assessoria Migratória
+Representante: Renato Caires | wbassessoria.contato@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CLÁUSULA 1ª – DO OBJETO
+Assessoria completa para obtenção da AUTORIZAÇÃO DE RESIDÊNCIA e emissão do CRNM (Carteira de Registro Nacional Migratório), compreendendo:
+I.   Análise do fundamento jurídico e elegibilidade;
+II.  Orientação e coleta dos documentos necessários;
+III. Elaboração e protocolo no sistema MigranteWeb;
+IV.  Agendamento e acompanhamento junto à Polícia Federal;
+V.   Acompanhamento até a emissão do CRNM.
+
+CLÁUSULA 2ª – DOS HONORÁRIOS
+Valor total: R$ ______________ 
+Pagamento: _______________________________________________
+Chave PIX: wbassessoria.contato@gmail.com
+
+PARÁGRAFO ÚNICO: Taxas da Polícia Federal (GRU), taxas de visto e demais emolumentos governamentais não estão incluídos e são de responsabilidade do CONTRATANTE.
+
+CLÁUSULA 3ª – DOS PRAZOS
+O prazo estimado para emissão do CRNM é de 30 (trinta) a 90 (noventa) dias após o atendimento na Polícia Federal, sujeito à disponibilidade de agenda do órgão e ao fluxo administrativo interno, não sendo a CONTRATADA responsável por atrasos governamentais.
+
+CLÁUSULAS 4ª a 7ª: Aplicam-se as mesmas cláusulas de obrigações, rescisão e foro do Contrato Padrão WB.
+
+_______________, _____ de _________________ de _______.
+
+___________________________       ___________________________
+CONTRATANTE                          WB Assessoria Migratória
+CPF/Passaporte: ____________         Renato Caires`
+    },
+    {
+      cat:'📜 Contratos WB', cor:'var(--gold)',
+      nome:'Contrato – Visto de Turismo (EUA / B1/B2)',
+      desc:'Contrato para assessoria em processo de visto norte-americano',
+      tags:['INA § 214(b)','DS-160','Consulado EUA'],
+      corpo: `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORIA MIGRATÓRIA
+WB ASSESSORIA MIGRATÓRIA LTDA
+SERVIÇO: VISTO DE TURISMO – EUA (B1/B2)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTRATANTE: ___________________________________
+CPF: ___________________ Passaporte nº: ___________________
+E-mail: ____________________ Telefone: _____________________
+
+CONTRATADA: WB Assessoria Migratória
+Representante: Renato Caires | wbassessoria.contato@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CLÁUSULA 1ª – DO OBJETO
+Assessoria para o processo de solicitação do VISTO DE TURISMO B1/B2 junto ao Consulado dos Estados Unidos da América, compreendendo:
+I.   Análise do perfil e estratégia de apresentação do caso;
+II.  Preenchimento e revisão do Formulário DS-160;
+III. Orientação para pagamento da taxa MRV;
+IV.  Agendamento da entrevista consular;
+V.   Elaboração de carta de apresentação e documentação de suporte;
+VI.  Preparação e simulação da entrevista consular;
+VII. Orientação pós-entrevista.
+
+CLÁUSULA 2ª – DA LIMITAÇÃO DE GARANTIA (CLÁUSULA ESSENCIAL)
+O CONTRATANTE declara estar ciente de que a concessão ou negativa do visto é decisão EXCLUSIVA do Consulado dos Estados Unidos da América, com base no Immigration and Nationality Act (INA), Section 214(b). A CONTRATADA NÃO GARANTE a aprovação do visto, sendo seus serviços limitados à assessoria e preparação do processo. Em caso de negativa consular, os honorários já pagos não serão devolvidos.
+
+CLÁUSULA 3ª – DOS HONORÁRIOS
+Valor total: R$ ______________
+Pagamento: _______________________________________________
+Chave PIX: wbassessoria.contato@gmail.com
+
+PARÁGRAFO ÚNICO: A taxa MRV (atualmente USD 185,00), SEVIS fee (se aplicável) e demais taxas consulares não estão incluídas nos honorários.
+
+CLÁUSULAS 4ª a 7ª: Aplicam-se as mesmas cláusulas de obrigações, rescisão e foro do Contrato Padrão WB.
+
+_______________, _____ de _________________ de _______.
+
+___________________________       ___________________________
+CONTRATANTE                          WB Assessoria Migratória
+CPF: _______________________         Renato Caires`
+    },
+    {
+      cat:'📄 Declarações', cor:'var(--accent)',
+      nome:'Procuração – Representação Migratória',
+      desc:'Outorga de poderes à WB Assessoria para atuar em nome do cliente',
+      tags:['CC/2002 Art. 653','MJSP','Polícia Federal'],
+      corpo: `PROCURAÇÃO
+OUTORGANTE: ___________________________________
+Nacionalidade: _____________ Estado Civil: _____________
+Portador(a) do CPF nº ___________________ e Passaporte nº ___________________
+Residente e domiciliado(a) em: _________________________________________________
+
+OUTORGADO: WB Assessoria Migratória, CNPJ ___________________, com sede em ___________________, neste ato representada por Renato Caires.
+
+PODERES: Pelo presente instrumento, o(a) OUTORGANTE confere ao OUTORGADO amplos poderes para representá-lo(a) perante:
+• Ministério da Justiça e Segurança Pública (MJSP);
+• Departamento de Migrações (DEMIG);
+• Polícia Federal – Delegacias de Imigração;
+• Cartórios, Tabelionatos e demais Órgãos Públicos;
+
+Para os fins de: protocolar requerimentos, assinar documentos, solicitar certidões, acompanhar processos administrativos, retirar documentos e praticar todos os atos necessários ao processo de _________________ do(a) outorgante.
+
+_______________, _____ de _________________ de _______.
+
+Reconhecer firma em Cartório
+
+___________________________________
+OUTORGANTE: _______________________
+CPF: ______________________________`
+    },
+    {
+      cat:'📄 Declarações', cor:'var(--accent)',
+      nome:'Declaração de Residência Ininterrupta',
+      desc:'Declaração pessoal para comprovação de residência contínua no Brasil',
+      tags:['Art. 65','Lei 13.445/2017','Naturalização'],
+      corpo: `DECLARAÇÃO DE RESIDÊNCIA ININTERRUPTA
+
+Eu, ___________________________________,
+Nacionalidade: _____________, Estado civil: _____________,
+Portador(a) do Passaporte nº ___________________, CPF nº ___________________,
+Residente e domiciliado(a) em: _________________________________________________
+Cidade: _____________________________, Estado: _____________, CEP: _____________
+
+DECLARO, para os fins do art. 65, I, da Lei nº 13.445/2017 e da Portaria MJSP nº 623/2020, que resido de forma CONTÍNUA E ININTERRUPTA no território brasileiro desde ___/___/______, até a presente data, totalizando _____ (___________) anos de residência habitual no Brasil, sem ausências que comprometam a continuidade exigida por lei.
+
+Declaro ainda que as informações acima são verdadeiras, estando ciente das sanções penais previstas no art. 299 do Código Penal Brasileiro para o crime de falsidade ideológica.
+
+_______________, _____ de _________________ de _______.
+
+___________________________________
+Assinatura do(a) Declarante
+___________________________________`
+    },
+    {
+      cat:'📄 Declarações', cor:'var(--accent)',
+      nome:'Termo de Entrega de Documentos',
+      desc:'Comprovante de entrega do dossiê pelo cliente à WB',
+      tags:['Interno WB','Checklist','LGPD'],
+      corpo: `TERMO DE RECEBIMENTO E ENTREGA DE DOCUMENTOS
+WB Assessoria Migratória
+
+Data: ___/___/______
+
+CLIENTE: ___________________________________
+CPF/Passaporte: ___________________ Serviço: _________________________
+
+Pelo presente Termo, o(a) cliente acima identificado(a) declara ter entregado à WB Assessoria Migratória os seguintes documentos originais e/ou cópias autenticadas:
+
+☐ Passaporte válido (cópia de todas as páginas com dados e vistos)
+☐ RG e/ou CNH
+☐ CPF
+☐ Certidão de Nascimento (original e/ou tradução juramentada)
+☐ Certidão de Casamento (se aplicável)
+☐ Comprovante de residência (últimos 5 anos)
+☐ Certidão de antecedentes criminais (Federal, Estadual e do país de origem)
+☐ Foto 3x4 recente (fundo branco)
+☐ Comprovante de renda / extrato bancário
+☐ _________________________________________________
+☐ _________________________________________________
+☐ _________________________________________________
+
+A WB Assessoria Migratória compromete-se a manter os documentos em sigilo, utilizando-os exclusivamente para a finalidade contratada, nos termos da LGPD (Lei nº 13.709/2018), devolvendo-os ao cliente ao término do processo ou mediante solicitação.
+
+_______________, _____ de _________________ de _______.
+
+___________________________       ___________________________
+CLIENTE                              WB Assessoria Migratória
+___________________________           Renato Caires`
+    },
+    {
+      cat:'✉️ Cartas & Ofícios', cor:'var(--green)',
+      nome:'Carta de Apresentação – Naturalização (MJ)',
+      desc:'Carta de apresentação ao MJSP acompanhando o requerimento de naturalização',
+      tags:['MJSP','Portaria 623/2020','Protocolo'],
+      corpo: `[Local], _____ de _________________ de _______.
+
+Ao
+Ministério da Justiça e Segurança Pública
+Departamento de Migrações – DEMIG
+Esplanada dos Ministérios, Bloco T
+Brasília/DF – CEP 70.064-900
+
+Ref.: Requerimento de Naturalização Ordinária / Especial
+Requerente: ___________________________________
+
+Senhor(a) Diretor(a),
+
+Vimos, por meio desta, apresentar o(a) Sr.(a) ___________________________________, nacional de _______________, portador(a) do Passaporte nº ___________________, residente e domiciliado(a) no Brasil desde ___/___/______, que vem, tempestivamente e com fulcro no art. _____ da Lei nº 13.445/2017 c/c Portaria MJSP nº 623/2020, requerer a concessão de sua NATURALIZAÇÃO BRASILEIRA.
+
+O(a) requerente preenche todos os requisitos legais exigidos, conforme documentação acostada ao presente requerimento, em especial:
+• Residência habitual e contínua no Brasil há _____ (___________) anos;
+• Capacidade civil;
+• Registro migratório regular;
+• Ausência de condenação criminal (certidões negativas em anexo);
+• Comunicação em língua portuguesa (comprovado em entrevista).
+
+Encontra-se incluso o dossiê completo contendo todos os documentos exigidos pelo Anexo I da Portaria MJSP nº 623/2020.
+
+Na certeza de contar com a atenção de V.Sª., colocamo-nos à disposição para quaisquer esclarecimentos.
+
+Atenciosamente,
+
+WB Assessoria Migratória
+Renato Caires
+wbassessoria.contato@gmail.com`
+    },
+    {
+      cat:'✉️ Cartas & Ofícios', cor:'var(--green)',
+      nome:'Carta de Apresentação – Entrevista Consular EUA',
+      desc:'Carta de vínculos e motivações para entrevista de visto americano',
+      tags:['9 FAM 402.2','DS-160','B1/B2'],
+      corpo: `[Local], _____ de _________________ de _______.
+
+À
+Embaixada/Consulado dos Estados Unidos da América
+Seção de Vistos
+[Cidade]
+
+Ref.: Solicitação de Visto B1/B2 – Turismo e Negócios
+Solicitante: ___________________________________
+
+Prezado(a) Senhor(a) Oficial Consular,
+
+Por meio desta carta, apresento-me como ___________________________________, brasileiro(a), portador(a) do CPF nº ___________________ e Passaporte nº ___________________, e venho solicitar respeitosamente a concessão do Visto B1/B2 para visita aos Estados Unidos da América.
+
+PROPÓSITO DA VIAGEM:
+___________________________________________________________________
+Período pretendido: de ___/___/______ a ___/___/______ (aproximadamente _____ dias)
+Cidades a visitar: _________________________________________________
+
+VÍNCULOS COM O BRASIL:
+Profissão: ___________________________ Empregador/CNPJ: ________________________
+Renda mensal: R$ ____________ (comprovantes em anexo)
+☐ Imóvel próprio  ☐ Família no Brasil  ☐ Negócio estabelecido  ☐ Cargo de gestão
+
+FINANÇAS PARA A VIAGEM:
+Saldo bancário disponível: R$ ____________ (extrato em anexo)
+Responsável pelos custos: ☐ Próprios recursos  ☐ Patrocinador: _____________________
+
+Declaro minha firme intenção de retornar ao Brasil ao término da viagem, em razão dos fortes vínculos pessoais, profissionais e financeiros aqui estabelecidos, conforme documentação em anexo.
+
+Atenciosamente,
+
+___________________________________
+___________________________________
+CPF: _________________ Passaporte: _________________`
+    },
   ];
+
   const cats = [...new Set(modelos.map(m=>m.cat))];
-  const catColors = { 'Naturalização':'var(--gold)', 'RNM / Residência':'var(--accent)', 'Visto EUA':'var(--green)', 'Interno WB':'var(--text3)' };
+  const catColors = {
+    '📜 Contratos WB':'var(--gold)',
+    '📄 Declarações':'var(--accent)',
+    '✉️ Cartas & Ofícios':'var(--green)'
+  };
 
   return `
+    <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:14px 18px;margin-bottom:24px;font-size:0.82rem;color:var(--text2)">
+      💡 Clique em <strong style="color:var(--gold)">👁 Visualizar</strong> para ver o modelo completo e copiar o texto. Os modelos são pré-formatados para uso imediato — basta preencher os campos em destaque.
+    </div>
+
+    <!-- ── MEUS MODELOS (personalizados) ── -->
+    <div class="panel" style="margin-bottom:24px;border-color:rgba(201,168,76,0.3)">
+      <div class="panel-header" style="background:rgba(201,168,76,0.05)">
+        <span class="panel-title" style="color:var(--gold)">⭐ Meus Modelos</span>
+        <button class="btn btn-gold btn-sm" onclick="openNovoModelo()">➕ Novo Modelo</button>
+      </div>
+      <div class="panel-body">
+        ${modelosPersonalizados.length === 0
+          ? `<div style="text-align:center;padding:32px;color:var(--text3)">
+               <div style="font-size:2rem;margin-bottom:10px">📝</div>
+               <div style="font-size:0.85rem">Nenhum modelo cadastrado ainda.</div>
+               <div style="font-size:0.78rem;margin-top:6px">Clique em <strong style="color:var(--gold)">➕ Novo Modelo</strong> para adicionar seu contrato.</div>
+             </div>`
+          : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              ${modelosPersonalizados.map(m=>`
+                <div style="background:var(--navy4);border-radius:12px;padding:16px;border:1px solid rgba(201,168,76,0.25);display:flex;flex-direction:column;gap:10px;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='rgba(201,168,76,0.25)'">
+                  <div>
+                    <div style="font-size:0.7rem;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:4px">${m.cat}</div>
+                    <div style="font-size:0.88rem;font-weight:600;color:var(--text)">${m.nome}</div>
+                    ${m.desc ? `<div style="font-size:0.77rem;color:var(--text3);margin-top:4px;line-height:1.4">${m.desc}</div>` : ''}
+                  </div>
+                  ${m.tags && m.tags.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px">${m.tags.map(t=>`<span style="font-size:0.65rem;padding:2px 7px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.25);border-radius:4px;color:var(--gold)">${t}</span>`).join('')}</div>` : ''}
+                  <div style="display:flex;gap:8px;margin-top:auto">
+                    <button class="btn btn-gold btn-sm" style="flex:1" onclick="verModelo(${JSON.stringify(m.nome).replace(/'/g,"&#39;")}, ${JSON.stringify(m.corpo).replace(/'/g,"&#39;")}, ${m.id})">👁 Visualizar</button>
+                    <button class="btn btn-outline btn-sm" onclick="editarModeloPersonalizado(${m.id})">✏️</button>
+                  </div>
+                  <div style="font-size:0.65rem;color:var(--text3)">Cadastrado em ${m.criado||'—'}</div>
+                </div>`).join('')}
+            </div>`}
+      </div>
+    </div>
     ${cats.map(cat=>`
       <div class="panel" style="margin-bottom:20px">
-        <div class="panel-header" style="border-bottom:1px solid var(--border2)">
-          <span class="panel-title" style="color:${catColors[cat]}">📁 ${cat}</span>
+        <div class="panel-header">
+          <span class="panel-title" style="color:${catColors[cat]||'var(--gold)'}">${cat}</span>
           <span style="font-size:0.75rem;color:var(--text3)">${modelos.filter(m=>m.cat===cat).length} modelos</span>
         </div>
         <div class="panel-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           ${modelos.filter(m=>m.cat===cat).map(m=>`
-            <div style="background:var(--navy4);border-radius:12px;padding:16px;border:1px solid var(--border2);display:flex;flex-direction:column;gap:10px">
+            <div style="background:var(--navy4);border-radius:12px;padding:16px;border:1px solid var(--border2);display:flex;flex-direction:column;gap:10px;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border2)'">
               <div>
                 <div style="font-size:0.85rem;font-weight:600;color:var(--text)">${m.nome}</div>
                 <div style="font-size:0.77rem;color:var(--text3);margin-top:4px;line-height:1.4">${m.desc}</div>
@@ -2847,13 +3356,163 @@ function renderModelos() {
                 ${m.tags.map(t=>`<span style="font-size:0.65rem;padding:2px 7px;background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:4px;color:var(--text3)">${t}</span>`).join('')}
               </div>
               <div style="display:flex;gap:8px;margin-top:auto">
-                <button class="btn btn-gold btn-sm" style="flex:1" onclick="showToast('✏️ Abrindo modelo: ' + m.nome,'info')">✏️ Usar</button>
-                <button class="btn btn-outline btn-sm" onclick="showToast('⬇️ Baixando: ' + m.nome + '.docx','info')">⬇️</button>
+                <button class="btn btn-gold btn-sm" style="flex:1" onclick="verModelo(${JSON.stringify(m.nome).replace(/'/g,"&#39;")}, ${JSON.stringify(m.corpo).replace(/'/g,"&#39;")})">👁 Visualizar</button>
               </div>
             </div>`).join('')}
         </div>
       </div>`).join('')}
   `;
+}
+
+function verModelo(nome, corpo, idPersonalizado) {
+  const escapedCorpo = corpo.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const jsonCorpo = JSON.stringify(corpo).replace(/'/g,"&#39;");
+  openModal(`
+    <div class="modal-title" style="font-size:1rem">${nome}</div>
+    <div style="background:var(--navy4);border:1px solid var(--border2);border-radius:10px;padding:16px;margin-bottom:16px;max-height:55vh;overflow-y:auto">
+      <pre style="white-space:pre-wrap;font-family:'DM Mono',monospace;font-size:0.73rem;color:var(--text2);line-height:1.7;margin:0">${escapedCorpo}</pre>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="navigator.clipboard.writeText(${jsonCorpo}).then(()=>showToast('✅ Texto copiado! Cole no Word ou Google Docs.'))">📋 Copiar Texto</button>
+      ${idPersonalizado ? `<button class="btn btn-outline" onclick="closeModal();setTimeout(()=>editarModeloPersonalizado(${idPersonalizado}),200)">✏️ Editar</button>` : ''}
+      <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+    </div>
+  `);
+}
+
+// ══════════════════════════════════════
+// 📝 MODELOS PERSONALIZADOS — CRUD
+// ══════════════════════════════════════
+function openNovoModelo() {
+  openModal(`
+    <div class="modal-title">➕ Novo Modelo de Documento</div>
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Nome do Modelo <span style="color:var(--red)">*</span></label>
+        <input id="nm_nome" placeholder="Ex: Contrato de Assessoria Premium, Declaração de Renda...">
+      </div>
+      <div class="form-field">
+        <label>Categoria</label>
+        <input id="nm_cat" placeholder="Ex: Meus Contratos, Declarações, Cartas..." list="nm_cat_list">
+        <datalist id="nm_cat_list">
+          <option value="Meus Contratos">
+          <option value="Declarações">
+          <option value="Cartas & Ofícios">
+          <option value="Termos Internos">
+          <option value="Outros">
+        </datalist>
+      </div>
+      <div class="form-field">
+        <label>Descrição curta</label>
+        <input id="nm_desc" placeholder="Ex: Contrato padrão para clientes premium">
+      </div>
+      <div class="form-field form-full">
+        <label>Tags <span style="font-size:0.72rem;color:var(--text3)">(separadas por vírgula)</span></label>
+        <input id="nm_tags" placeholder="Ex: WB Exclusivo, Assinatura, Premium">
+      </div>
+      <div class="form-field form-full">
+        <label>Texto do Modelo <span style="color:var(--red)">*</span></label>
+        <textarea id="nm_corpo" placeholder="Cole ou escreva aqui o texto completo do contrato/documento..." style="min-height:260px;font-family:'DM Mono',monospace;font-size:0.78rem;line-height:1.6;resize:vertical"></textarea>
+      </div>
+    </div>
+    <div id="nm_erro" style="color:var(--red);font-size:0.8rem;margin-top:8px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="salvarNovoModelo()">💾 Salvar Modelo</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+function salvarNovoModelo() {
+  const nome  = document.getElementById('nm_nome').value.trim();
+  const corpo = document.getElementById('nm_corpo').value.trim();
+  const erro  = document.getElementById('nm_erro');
+  if (!nome)  { erro.textContent='⚠️ Nome é obrigatório.';         erro.style.display='block'; return; }
+  if (!corpo) { erro.textContent='⚠️ O texto do modelo é obrigatório.'; erro.style.display='block'; return; }
+
+  const tags = document.getElementById('nm_tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  modelosPersonalizados.push({
+    id   : _modeloId++,
+    cat  : document.getElementById('nm_cat').value.trim() || 'Meus Contratos',
+    nome,
+    desc : document.getElementById('nm_desc').value.trim(),
+    tags,
+    corpo,
+    criado: new Date().toLocaleDateString('pt-BR'),
+  });
+  saveData();
+  closeModal();
+  navigateTo('modelos');
+  showToast('✅ Modelo salvo com sucesso!');
+}
+
+function editarModeloPersonalizado(id) {
+  const m = modelosPersonalizados.find(x=>x.id===id);
+  if (!m) return;
+  openModal(`
+    <div class="modal-title">✏️ Editar Modelo</div>
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Nome do Modelo <span style="color:var(--red)">*</span></label>
+        <input id="em_nome" value="${m.nome.replace(/"/g,'&quot;')}">
+      </div>
+      <div class="form-field">
+        <label>Categoria</label>
+        <input id="em_cat" value="${m.cat}" list="em_cat_list">
+        <datalist id="em_cat_list">
+          <option value="Meus Contratos">
+          <option value="Declarações">
+          <option value="Cartas & Ofícios">
+          <option value="Termos Internos">
+          <option value="Outros">
+        </datalist>
+      </div>
+      <div class="form-field">
+        <label>Descrição</label>
+        <input id="em_desc" value="${(m.desc||'').replace(/"/g,'&quot;')}">
+      </div>
+      <div class="form-field form-full">
+        <label>Tags <span style="font-size:0.72rem;color:var(--text3)">(separadas por vírgula)</span></label>
+        <input id="em_tags" value="${(m.tags||[]).join(', ')}">
+      </div>
+      <div class="form-field form-full">
+        <label>Texto do Modelo <span style="color:var(--red)">*</span></label>
+        <textarea id="em_corpo" style="min-height:260px;font-family:'DM Mono',monospace;font-size:0.78rem;line-height:1.6;resize:vertical">${m.corpo.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="salvarEdicaoModelo(${id})">💾 Salvar</button>
+      <button class="btn btn-danger" onclick="excluirModelo(${id})" style="margin-right:auto">🗑️ Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+function salvarEdicaoModelo(id) {
+  const m = modelosPersonalizados.find(x=>x.id===id);
+  if (!m) return;
+  const nome  = document.getElementById('em_nome').value.trim();
+  const corpo = document.getElementById('em_corpo').value.trim();
+  if (!nome || !corpo) { showToast('⚠️ Nome e texto são obrigatórios.','error'); return; }
+  m.nome  = nome;
+  m.cat   = document.getElementById('em_cat').value.trim() || m.cat;
+  m.desc  = document.getElementById('em_desc').value.trim();
+  m.tags  = document.getElementById('em_tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  m.corpo = corpo;
+  saveData();
+  closeModal();
+  navigateTo('modelos');
+  showToast('✅ Modelo atualizado!');
+}
+
+function excluirModelo(id) {
+  const m = modelosPersonalizados.find(x=>x.id===id);
+  if (!confirm(`Excluir o modelo "${m?.nome}"?`)) return;
+  modelosPersonalizados = modelosPersonalizados.filter(x=>x.id!==id);
+  saveData();
+  closeModal();
+  navigateTo('modelos');
+  showToast('🗑️ Modelo excluído.', 'info');
 }
 
 // ══════════════════════════════════════
