@@ -607,23 +607,32 @@ async function initData() {
 
 // ── Reset completo ────────────────────────────────────────────────
 function resetData() {
-  if (!confirm('⚠️ Isso irá apagar TODOS os dados cadastrados e restaurar os dados de demonstração. Confirma?')) return;
-  localStorage.removeItem(LS_KEY);
+  if (!confirm('⚠️ Isso irá apagar TODOS os clientes, tarefas, agendamentos e demais dados cadastrados. Confirma?')) return;
+
+  // Zera tudo — arrays vazios, mantém só o Renato como colaborador
+  clientes       = [];
+  tarefas        = [];
+  agendamentos   = [];
+  indeferimentos = [];
+  propostas      = [];
+  parceiros      = [];
+  colaboradores  = [
+    { id:1, nome:'Renato Caires', cargo:'CEO / Diretor', email:'wbassessoria.contato@gmail.com', tel:'', acesso:'ceo', av:'RC', processos:0, status:'ativo', dataCadastro: new Date().toLocaleDateString('pt-BR') },
+  ];
+  configEmpresa = { razao:'WB Assessoria Migratória', cnpj:'', tel:'', email:'wbassessoria.contato@gmail.com', endereco:'' };
+  configNotif   = { novoCliente:true, docPendente:true, relSemanal:false, smsAgend:true };
+  _clienteId=1; _colaborId=2; _agendId=1; _indId=1; _propId=1; _parceiroId=1;
+
+  // Salva no localStorage
+  try { localStorage.setItem(LS_KEY, JSON.stringify(getPayload())); } catch(e) {}
+
+  // Salva no Sheets e recarrega
   if (SHEETS_URL) {
-    // Salva defaults no Sheets
-    clientes = [...CLIENTES]; tarefas = [...TAREFAS];
-    colaboradores = [
-      { id:1, nome:'Fernanda Costa', cargo:'Analista de Processos', email:'fernanda@wbassessoria.com.br', tel:'(11) 9 9000-1111', acesso:'colaborador', av:'FC', processos:6, status:'ativo', dataCadastro:'01/01/2024' },
-      { id:2, nome:'Ricardo Nunes',  cargo:'Consultor Jurídico',    email:'ricardo@wbassessoria.com.br',  tel:'(11) 9 8000-2222', acesso:'colaborador', av:'RN', processos:0, status:'ativo', dataCadastro:'01/01/2024' },
-      { id:3, nome:'Renato Caires', cargo:'CEO / Diretor', email:'wbassessoria.contato@gmail.com', tel:'', acesso:'ceo', av:'RC', processos:0, status:'ativo', dataCadastro:'01/01/2025' },
-    ];
-    agendamentos = [...AGENDAMENTOS_DEFAULT];
-    indeferimentos = [...INDEFERIMENTOS_DEFAULT];
-    propostas = [...PROPOSTAS_DEFAULT];
-    parceiros = [...PARCEIROS_DEFAULT];
-    _clienteId=CLIENTES.length+1; _colaborId=4; _agendId=AGENDAMENTOS_DEFAULT.length+1;
-    _indId=INDEFERIMENTOS_DEFAULT.length+1; _propId=PROPOSTAS_DEFAULT.length+1; _parceiroId=PARCEIROS_DEFAULT.length+1;
-    saveData().then(() => location.reload());
+    showToast('🔄 Limpando dados no Google Sheets...', 'info');
+    const payload  = getPayload();
+    const json64   = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    fetch(SHEETS_URL, { method:'POST', mode:'no-cors', body: JSON.stringify(payload) })
+      .finally(() => setTimeout(() => location.reload(), 1500));
   } else {
     location.reload();
   }
