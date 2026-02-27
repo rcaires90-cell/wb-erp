@@ -511,34 +511,25 @@ function applyData(d) {
   if (d._parceiroId)    _parceiroId    = d._parceiroId;
 }
 
-// ── Salvar (Sheets via GET + base64 + localStorage) ──────────────
+// ── Salvar (POST no-cors + localStorage) ─────────────────────────
 async function saveData() {
   const payload = getPayload();
-
-  // Sempre salva no localStorage como cache
   try { localStorage.setItem(LS_KEY, JSON.stringify(payload)); } catch(e) {}
-
   if (!SHEETS_URL) return;
-
   if (_saving) { _saveQueue = true; return; }
   _saving = true;
   setSyncStatus('saving');
-
   try {
-    // Codifica em base64 e envia via GET (evita bloqueio CORS do POST)
-    const json64  = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-    const url     = SHEETS_URL + '?action=save&data=' + encodeURIComponent(json64);
-    const resp    = await fetch(url, { redirect: 'follow' });
-    const json    = await resp.json();
-    if (json.ok) {
-      setSyncStatus('ok');
-    } else {
-      setSyncStatus('error');
-      console.warn('Sheets error:', json.error);
-    }
+    // no-cors: evita bloqueio CORS; não lemos a resposta mas os dados chegam
+    await fetch(SHEETS_URL, {
+      method : 'POST',
+      mode   : 'no-cors',
+      body   : JSON.stringify(payload)
+    });
+    setSyncStatus('ok');
   } catch(e) {
     setSyncStatus('error');
-    console.warn('Sheets fetch error:', e);
+    console.warn('Sheets save error:', e);
   } finally {
     _saving = false;
     if (_saveQueue) { _saveQueue = false; saveData(); }
@@ -1619,8 +1610,11 @@ function renderConfiguracoes() {
               ${urlAtual ? '🔄 Atualizar URL' : '☁️ Conectar ao Google Sheets'}
             </button>
             ${urlAtual ? `
+              <button class="btn btn-outline" onclick="saveData().then(()=>showToast('✅ Dados enviados ao Google Sheets!'))">
+                ☁️ Enviar dados ao Sheets
+              </button>
               <button class="btn btn-outline" onclick="loadFromSheets().then(ok=>{ if(ok){showToast('✅ Dados recarregados do Sheets!');if(currentUser)navigateTo(currentPage);}else{showToast('❌ Falha ao recarregar','error')}})">
-                ⬇️ Forçar sincronização
+                ⬇️ Recarregar do Sheets
               </button>
               <button class="btn btn-danger" onclick="if(confirm('Desconectar Google Sheets? Os dados locais serão mantidos.')){SHEETS_URL='';localStorage.removeItem('wb_sheets_url');setSyncStatus('local');showToast('🔌 Google Sheets desconectado','warn');navigateTo('configuracoes')}">
                 🔌 Desconectar
