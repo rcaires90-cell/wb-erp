@@ -511,31 +511,27 @@ function applyData(d) {
   if (d._parceiroId)    _parceiroId    = d._parceiroId;
 }
 
-// ── Salvar (Sheets + localStorage) ───────────────────────────────
+// ── Salvar (Sheets via GET + base64 + localStorage) ──────────────
 async function saveData() {
   const payload = getPayload();
 
   // Sempre salva no localStorage como cache
   try { localStorage.setItem(LS_KEY, JSON.stringify(payload)); } catch(e) {}
 
-  // Se não tem URL configurada, só localStorage
   if (!SHEETS_URL) return;
 
-  // Se já está salvando, agenda o próximo
   if (_saving) { _saveQueue = true; return; }
   _saving = true;
   setSyncStatus('saving');
 
   try {
-    const resp = await fetch(SHEETS_URL, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      headers: { 'Content-Type': 'text/plain' }  // text/plain evita CORS preflight
-    });
-    const json = await resp.json();
+    // Codifica em base64 e envia via GET (evita bloqueio CORS do POST)
+    const json64  = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const url     = SHEETS_URL + '?action=save&data=' + encodeURIComponent(json64);
+    const resp    = await fetch(url, { redirect: 'follow' });
+    const json    = await resp.json();
     if (json.ok) {
       setSyncStatus('ok');
-      try { localStorage.setItem(LS_KEY, JSON.stringify(payload)); } catch(e) {}
     } else {
       setSyncStatus('error');
       console.warn('Sheets error:', json.error);
@@ -549,17 +545,23 @@ async function saveData() {
   }
 }
 
-// ── Carregar do Sheets (na abertura) ─────────────────────────────
+// ── Carregar do Sheets ────────────────────────────────────────────
 async function loadFromSheets() {
   if (!SHEETS_URL) return false;
   setSyncStatus('loading');
   try {
-    const resp = await fetch(SHEETS_URL + '?t=' + Date.now());
+    const url  = SHEETS_URL + '?action=load&t=' + Date.now();
+    const resp = await fetch(url, { redirect: 'follow' });
     const json = await resp.json();
     if (json.ok && json.data) {
       applyData(json.data);
       try { localStorage.setItem(LS_KEY, JSON.stringify(json.data)); } catch(e) {}
       setSyncStatus('ok');
+      return true;
+    } else if (json.ok && !json.data) {
+      // Planilha vazia — primeira vez, salva os dados atuais
+      setSyncStatus('ok');
+      saveData();
       return true;
     }
   } catch(e) {
