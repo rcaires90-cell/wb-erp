@@ -402,17 +402,15 @@
 // ══════════════════════════════════════
 // DATA
 // ══════════════════════════════════════
-// AUTH — login dinâmico via colaboradores
+// AUTH — login dinâmico via colaboradores e clientes
 // ══════════════════════════════════════
 const USERS = {
   ceo: { name:'Renato Caires', role:'ceo', roleLabel:'Diretor / CEO', avatar:'RC', email:'wbassessoria.contato@gmail.com', senha:'986469804Re.' },
-  colaborador: { name:'Colaborador', role:'colaborador', roleLabel:'Colaborador(a)', avatar:'CO', email:'colaborador@wbassessoria.com.br', senha:'wb2025' },
-  cliente: { name:'Cliente', role:'cliente', roleLabel:'Cliente', avatar:'CL', email:'cliente@wbassessoria.com.br', senha:'wb2025' }
 };
 
-// Autentica qualquer colaborador cadastrado no array
+// Autentica qualquer colaborador ou cliente cadastrado
 function autenticar(email, senha, role) {
-  // Tenta colaboradores dinâmicos primeiro
+  // 1. Tenta colaboradores dinâmicos
   const colab = colaboradores.find(c =>
     c.email.toLowerCase() === email.toLowerCase() &&
     c.senha === senha &&
@@ -422,7 +420,18 @@ function autenticar(email, senha, role) {
     const av = colab.nome.split(' ').filter(Boolean).map(w=>w[0].toUpperCase()).slice(0,2).join('');
     return { name: colab.nome, role: colab.acesso, roleLabel: colab.acesso==='ceo'?'Diretor / CEO':'Colaborador(a)', avatar: av, email: colab.email, colaboradorId: colab.id };
   }
-  // Fallback: usuário estático (cliente)
+  // 2. Tenta clientes cadastrados com portalLogin + portalSenha
+  if (role === 'cliente') {
+    const cli = clientes.find(c =>
+      (c.portalLogin||c.email).toLowerCase() === email.toLowerCase() &&
+      c.portalSenha === senha
+    );
+    if (cli) {
+      const av = cli.nome.split(' ').filter(Boolean).map(w=>w[0].toUpperCase()).slice(0,2).join('');
+      return { name: cli.nome, role: 'cliente', roleLabel: 'Cliente', avatar: av, email: cli.email, clienteId: cli.id };
+    }
+  }
+  // 3. Fallback estático CEO
   const u = Object.values(USERS).find(u => u.email.toLowerCase()===email.toLowerCase() && u.senha===senha);
   return u || null;
 }
@@ -465,6 +474,7 @@ let parceiros         = [...PARCEIROS_DEFAULT];
 let modelosPersonalizados = [];
 let notasFiscais  = [];
 let guiasISS      = [];
+let printsProcesso = []; // { id, clienteId, autor, autorRole, data, hora, descricao, base64, tamanho }
 let configEmpresa = {
   razao    : 'WB Assessoria Migratória LTDA',
   cnpj     : '52.241.467/0001-27',
@@ -476,6 +486,7 @@ let configEmpresa = {
   municipio: 'São Paulo',
   im       : '',
   cnae     : '7490-1/04',
+  cursoLink: '', // Link padrão da plataforma do curso de proficiência
 };
 let configNotif = { novoCliente:true, docPendente:true, relSemanal:false, smsAgend:true };
 let _nfId = 1;
@@ -512,7 +523,7 @@ function showToast(msg, type='success') {
 function getPayload() {
   return { clientes, tarefas, colaboradores, agendamentos,
            indeferimentos, propostas, parceiros, lancamentos, parcelasData,
-           modelosPersonalizados, notasFiscais, guiasISS,
+           modelosPersonalizados, notasFiscais, guiasISS, printsProcesso,
            configEmpresa, configNotif,
            _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId,
            _lancId, _parcelasId, _modeloId, _nfId, _guiaId };
@@ -533,6 +544,7 @@ function applyData(d) {
   if (d.modelosPersonalizados)   modelosPersonalizados   = d.modelosPersonalizados;
   if (d.notasFiscais)            notasFiscais            = d.notasFiscais;
   if (d.guiasISS)                guiasISS                = d.guiasISS;
+  if (d.printsProcesso)          printsProcesso          = d.printsProcesso;
   if (d.configEmpresa)           configEmpresa           = d.configEmpresa;
   if (d.configNotif)             configNotif             = d.configNotif;
   if (d._clienteId)              _clienteId              = d._clienteId;
@@ -663,6 +675,7 @@ function resetData() {
   configEmpresa = { razao:'WB Assessoria Migratória', cnpj:'', tel:'', email:'wbassessoria.contato@gmail.com', endereco:'' };
   configNotif   = { novoCliente:true, docPendente:true, relSemanal:false, smsAgend:true };
   _clienteId=1; _colaborId=2; _agendId=1; _indId=1; _propId=1; _parceiroId=1; _lancId=1; _parcelasId=1; _nfId=1; _guiaId=1;
+  printsProcesso = [];
 
   // Limpa e regrava o localStorage
   try { localStorage.removeItem(LS_KEY); localStorage.setItem(LS_KEY, JSON.stringify(getPayload())); } catch(e) {}
@@ -920,8 +933,9 @@ function buildNav() {
       <div class="nav-section">Minha Área</div>
       ${navItem('meu-processo','📋','Meu Processo')}
       ${navItem('meus-documentos','📁','Meus Documentos')}
-      ${navItem('mensagens-cliente','💬','Mensagens','2')}
+      ${navItem('mensagens-cliente','💬','Mensagens')}
       ${navItem('agendamentos-cliente','📅','Meus Agendamentos')}
+      ${navItem('meu-curso','📚','Curso de Português')}
       <div class="nav-section">Informações</div>
       ${navItem('faq-cliente','📚','Dúvidas Frequentes')}
       ${navItem('calculadora-cliente','🧮','Sou Elegível?')}
@@ -1012,7 +1026,7 @@ function navigateTo(page) {
     'servico-nat':'Naturalização Brasileira', 'servico-rnm':'Autorização de Residência (RNM/RNE)',
     'servico-visto':'Visto de Turismo (EUA)',
     'meu-processo':'Meu Processo', 'meus-documentos':'Meus Documentos',
-    'mensagens-cliente':'Mensagens', 'agendamentos-cliente':'Meus Agendamentos',
+    'mensagens-cliente':'Mensagens', 'agendamentos-cliente':'Meus Agendamentos', 'meu-curso':'📚 Curso de Proficiência',
     'calculadora':'Calculadora de Elegibilidade', 'calculadora-cliente':'Sou Elegível?',
     'prazos':'Prazos & Alertas de Vencimento',
     'modelos':'Modelos de Documentos',
@@ -1055,6 +1069,7 @@ function renderPage(page) {
     'meus-documentos': renderMeusDocumentos,
     'mensagens-cliente': renderMensagensCliente,
     'agendamentos-cliente': renderAgendamentosCliente,
+    'meu-curso': renderMeuCurso,
     'calculadora': renderCalculadora,
     'calculadora-cliente': renderCalculadora,
     'prazos': renderPrazos,
@@ -1952,6 +1967,11 @@ function renderConfiguracoes() {
                 <label>CNAE Principal</label>
                 <input id="cfg_cnae" value="${configEmpresa.cnae||'7490-1/04'}" placeholder="7490-1/04">
               </div>
+              <div class="form-field form-full">
+                <label>📚 Link Padrão — Curso de Proficiência em Língua Portuguesa</label>
+                <input id="cfg_curso_link" value="${configEmpresa.cursoLink||''}" placeholder="https://plataforma-do-curso.com.br">
+                <div style="font-size:0.7rem;color:var(--text3);margin-top:3px">Pré-preenchido automaticamente ao cadastrar novos clientes.</div>
+              </div>
             </div>
           </div>
 
@@ -2004,6 +2024,8 @@ function salvarConfigEmpresa() {
   configEmpresa.municipio = document.getElementById('cfg_municipio').value.trim();
   configEmpresa.iss       = parseFloat(document.getElementById('cfg_iss').value)||2;
   configEmpresa.cnae      = document.getElementById('cfg_cnae').value.trim();
+  const cursoLinkEl = document.getElementById('cfg_curso_link');
+  if (cursoLinkEl) configEmpresa.cursoLink = cursoLinkEl.value.trim();
   saveData();
   showToast('✅ Configurações salvas com sucesso!');
   if (!configEmpresa.im) showToast('⚠️ Atenção: Inscrição Municipal ainda não preenchida.','warn');
@@ -2223,6 +2245,24 @@ function renderMeuProcesso() {
         </div>
       </div>
     </div>
+
+    <!-- ── Prints do Processo Gov ── -->
+    ${printsProcesso.filter(p=>p.clienteId===c.id).length > 0 ? `
+    <div class="panel" style="margin-top:20px;border-color:rgba(96,165,250,0.25)">
+      <div class="panel-header" style="background:rgba(96,165,250,0.06)">
+        <span class="panel-title" style="color:#60a5fa">🖥️ Atualizações do Gov — Verificado pela Equipe WB</span>
+        <span class="badge" style="background:rgba(96,165,250,0.15);color:#60a5fa;border:1px solid rgba(96,165,250,0.3)">
+          ${printsProcesso.filter(p=>p.clienteId===c.id).length} verificação(ões)
+        </span>
+      </div>
+      <div class="panel-body">
+        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:14px;padding:8px 12px;background:rgba(96,165,250,0.05);border-radius:8px;border-left:3px solid #60a5fa">
+          Abaixo estão os prints das telas do governo tirados pela equipe WB durante as verificações do seu processo. Cada imagem mostra o status real no sistema oficial.
+        </div>
+        ${renderPrintsCliente(c.id, true)}
+      </div>
+    </div>` : ''}
+
     ${barraWhatsApp(c.nome, c.servico)}
   `;
 }
@@ -2441,6 +2481,131 @@ function sendMsg() {
   abrirWhatsAppWB(`Olá! Sou ${nome}. ${v}`);
   inp.value = '';
 }
+
+// ─── CLIENTE: CURSO DE PROFICIÊNCIA ──────────────────────────────
+function renderMeuCurso() {
+  const c = clienteLogado();
+  const temCurso = c && (c.cursoLogin || c.cursoLink);
+  const link  = c?.cursoLink  || configEmpresa.cursoLink || '';
+  const login = c?.cursoLogin || '';
+  const senha = c?.cursoSenha || '';
+  const nome  = c?.nome?.split(' ')[0] || 'Cliente';
+  const msgWA = `Olá! Sou ${nome} e tenho dúvidas sobre o Curso de Proficiência em Português da WB.`;
+
+  return `
+    <!-- Banner destaque curso -->
+    <div style="background:linear-gradient(135deg,#065f46,#10b981);border-radius:18px;padding:28px;margin-bottom:24px;position:relative;overflow:hidden">
+      <div style="position:absolute;right:-20px;top:-20px;font-size:8rem;opacity:0.08;pointer-events:none">📚</div>
+      <div style="font-size:0.75rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.7);margin-bottom:8px">Parceria Exclusiva WB</div>
+      <div style="font-size:1.4rem;font-weight:800;color:#fff;margin-bottom:6px">Curso de Proficiência em Língua Portuguesa</div>
+      <div style="font-size:0.85rem;color:rgba(255,255,255,0.85);line-height:1.6;max-width:480px">
+        A proficiência no idioma é um dos requisitos para a naturalização brasileira. Seu acesso ao curso já está configurado — basta clicar em <strong>Acessar Plataforma</strong>.
+      </div>
+      ${link ? `
+        <a href="${link}" target="_blank"
+          style="display:inline-flex;align-items:center;gap:8px;margin-top:18px;background:#fff;color:#065f46;
+          border-radius:10px;padding:12px 22px;font-weight:800;font-size:0.9rem;text-decoration:none;
+          box-shadow:0 4px 14px rgba(0,0,0,0.2);transition:transform 0.2s"
+          onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+          🚀 Acessar Plataforma do Curso
+        </a>` : ''}
+    </div>
+
+    <div class="grid-2">
+      <!-- Credenciais de acesso -->
+      <div class="panel" style="border-color:rgba(16,185,129,0.3)">
+        <div class="panel-header" style="background:rgba(16,185,129,0.05)">
+          <span class="panel-title" style="color:#10b981">🔑 Suas Credenciais de Acesso</span>
+        </div>
+        <div class="panel-body">
+          ${temCurso ? `
+            <div style="display:flex;flex-direction:column;gap:12px">
+              ${login ? `
+                <div style="background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:14px">
+                  <div style="font-size:0.7rem;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px">👤 Login / Usuário</div>
+                  <div style="font-size:1rem;font-weight:700;color:var(--text);font-family:'DM Mono',monospace;word-break:break-all">${login}</div>
+                  <button onclick="navigator.clipboard.writeText('${login}').then(()=>showToast('📋 Login copiado!'))"
+                    style="margin-top:8px;background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:5px 12px;color:var(--text3);font-size:0.75rem;cursor:pointer">
+                    📋 Copiar login
+                  </button>
+                </div>` : ''}
+              ${senha ? `
+                <div style="background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:14px">
+                  <div style="font-size:0.7rem;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px">🔑 Senha</div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div id="curso_senha_txt" style="font-size:1rem;font-weight:700;color:var(--gold);font-family:'DM Mono',monospace;letter-spacing:2px">••••••••</div>
+                    <button onclick="const el=document.getElementById('curso_senha_txt');el.textContent=el.textContent==='••••••••'?'${senha}':'••••••••'"
+                      style="background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;color:var(--text3);font-size:0.75rem;cursor:pointer">
+                      👁 Mostrar
+                    </button>
+                  </div>
+                  <button onclick="navigator.clipboard.writeText('${senha}').then(()=>showToast('📋 Senha copiada!'))"
+                    style="margin-top:8px;background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:5px 12px;color:var(--text3);font-size:0.75rem;cursor:pointer">
+                    📋 Copiar senha
+                  </button>
+                </div>` : ''}
+              ${link ? `
+                <div style="background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:14px">
+                  <div style="font-size:0.7rem;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px">🔗 Link da Plataforma</div>
+                  <a href="${link}" target="_blank" style="font-size:0.82rem;color:#10b981;word-break:break-all">${link}</a>
+                </div>` : ''}
+              <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:10px 12px;font-size:0.75rem;color:var(--text3)">
+                ⚠️ Mantenha suas credenciais em segurança. Em caso de problemas de acesso, entre em contato com a WB.
+              </div>
+            </div>
+          ` : `
+            <div style="text-align:center;padding:30px;color:var(--text3)">
+              <div style="font-size:2.5rem;margin-bottom:12px">⏳</div>
+              <div style="font-size:0.85rem;font-weight:600;color:var(--text);margin-bottom:6px">Acesso em configuração</div>
+              <div style="font-size:0.78rem">A equipe WB está configurando seu acesso ao curso. Em breve você receberá as credenciais.</div>
+            </div>
+          `}
+        </div>
+      </div>
+
+      <!-- Dicas e informações -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <!-- Passo a passo -->
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">📋 Como Acessar</span></div>
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:10px">
+            ${[
+              ['1', 'Clique em "Acessar Plataforma do Curso" acima', '#10b981'],
+              ['2', 'Digite seu Login e Senha conforme informado ao lado', '#10b981'],
+              ['3', 'Acesse sua trilha de aprendizado personalizada', '#10b981'],
+              ['4', 'Complete o nível exigido para a naturalização (A2/B1)', '#10b981'],
+              ['5', 'Solicite o certificado de proficiência ao concluir', '#c9a84c'],
+            ].map(([n,t,cor])=>`
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="width:26px;height:26px;border-radius:50%;background:${cor};color:#fff;font-size:0.75rem;font-weight:800;
+                  display:flex;align-items:center;justify-content:center;flex-shrink:0">${n}</div>
+                <div style="font-size:0.82rem;color:var(--text2);padding-top:4px">${t}</div>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <!-- Dúvidas -->
+        <div class="panel" style="border-color:rgba(37,211,102,0.25)">
+          <div class="panel-header" style="background:rgba(37,211,102,0.04)">
+            <span class="panel-title" style="color:#25d366">💬 Dúvidas sobre o Curso?</span>
+          </div>
+          <div class="panel-body">
+            <div style="font-size:0.82rem;color:var(--text2);margin-bottom:12px">
+              Problemas de acesso, dúvidas sobre conteúdo ou certificação? Nossa equipe te ajuda.
+            </div>
+            <button onclick="abrirWhatsAppWB(${JSON.stringify(msgWA)})"
+              style="display:flex;align-items:center;gap:10px;background:#25d366;color:#fff;border:none;
+              border-radius:10px;padding:12px 16px;font-weight:700;font-size:0.85rem;cursor:pointer;width:100%">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
+              Falar com a WB — (11) 91425-8886
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    ${barraWhatsApp(nome, 'Curso de Proficiência')}
+  `;
+}
 function openModal(html) {
   document.getElementById('modal-body').innerHTML = html;
   document.getElementById('modal').classList.add('open');
@@ -2487,6 +2652,7 @@ function openClienteModal(id) {
     <div class="modal-actions">
       ${currentRole !== 'cliente' ? `<button class="btn btn-gold" onclick="atualizarEtapa(${c.id})">Avançar Etapa</button>` : ''}
       ${currentRole !== 'cliente' ? `<button class="btn btn-outline" onclick="openEditarCliente(${c.id})">✏️ Editar Dados</button>` : ''}
+      ${currentRole !== 'cliente' ? `<button class="btn btn-outline" style="background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.4);color:#60a5fa" onclick="closeModal();openUploadPrintProcesso(${c.id})">📸 Anexar Print do Gov</button>` : ''}
       <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
     </div>
   `);
@@ -2498,6 +2664,8 @@ function openEditarCliente(id) {
   const respOptions = colaboradores.map(col=>`<option value="${col.nome}" ${col.nome===c.responsavel?'selected':''}>${col.nome}</option>`).join('');
   openModal(`
     <div class="modal-title">✏️ Editar Cliente</div>
+
+    <div style="font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Dados Pessoais</div>
     <div class="form-grid">
       <div class="form-field form-full"><label>Nome Completo</label><input id="ec2_nome" value="${c.nome}"></div>
       <div class="form-field"><label>E-mail</label><input id="ec2_email" type="email" value="${c.email}"></div>
@@ -2530,6 +2698,54 @@ function openEditarCliente(id) {
       </div>
       <div class="form-field form-full"><label>Observações</label><textarea id="ec2_obs">${c.obs||''}</textarea></div>
     </div>
+
+    <!-- ── Acesso ao Portal WB ── -->
+    <div style="margin:18px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)">🔐 Acesso ao Portal WB</div>
+    <div style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px;margin-bottom:4px">
+      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Credenciais que o cliente usa para entrar no portal e acompanhar o processo.</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Login (e-mail) do Portal</label>
+          <input id="ec2_portal_login" value="${c.portalLogin||c.email}">
+        </div>
+        <div class="form-field">
+          <label>Senha do Portal</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="ec2_portal_senha" value="${c.portalSenha||''}" style="flex:1" placeholder="Digite ou gere uma senha">
+            <button type="button" onclick="document.getElementById('ec2_portal_senha').value=gerarSenhaPortal(document.getElementById('ec2_nome').value||'${c.nome}')"
+              style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;color:var(--text3);cursor:pointer;font-size:0.8rem;white-space:nowrap;flex-shrink:0">🔄</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;padding:10px 12px;background:var(--navy3);border-radius:8px;font-size:0.78rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="color:var(--text3)">Para enviar ao cliente:</span>
+        <button onclick="copiarCredenciaisPortal('${c.nome}',document.getElementById('ec2_portal_login').value,document.getElementById('ec2_portal_senha').value)"
+          style="background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;color:var(--text);font-size:0.75rem;cursor:pointer">📋 Copiar credenciais</button>
+        <button onclick="enviarCredenciaisWhatsApp('${c.nome}',document.getElementById('ec2_portal_login').value,document.getElementById('ec2_portal_senha').value,'${c.tel||''}')"
+          style="background:#25d366;border:none;border-radius:6px;padding:5px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600">💬 Enviar por WhatsApp</button>
+      </div>
+    </div>
+
+    <!-- ── Curso de Proficiência ── -->
+    <div style="margin:18px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:#10b981">📚 Curso de Proficiência em Língua Portuguesa</div>
+    <div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px">
+      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Parceria WB · Credenciais do cliente na plataforma do curso.</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Login do Curso</label>
+          <input id="ec2_curso_login" value="${c.cursoLogin||''}" placeholder="Usuário ou e-mail na plataforma">
+        </div>
+        <div class="form-field">
+          <label>Senha do Curso</label>
+          <input id="ec2_curso_senha" value="${c.cursoSenha||''}" placeholder="Senha de acesso ao curso">
+        </div>
+        <div class="form-field form-full">
+          <label>Link da Plataforma</label>
+          <input id="ec2_curso_link" value="${c.cursoLink||configEmpresa.cursoLink||''}" placeholder="https://...">
+        </div>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-gold" onclick="salvarEdicaoCliente(${id})">💾 Salvar Alterações</button>
       <button class="btn btn-danger" onclick="excluirCliente(${id})" style="margin-right:auto">🗑️ Excluir</button>
@@ -2541,20 +2757,44 @@ function openEditarCliente(id) {
 function salvarEdicaoCliente(id) {
   const c = clientes.find(x=>x.id===id);
   if (!c) return;
-  c.nome       = document.getElementById('ec2_nome').value.trim()  || c.nome;
-  c.email      = document.getElementById('ec2_email').value.trim() || c.email;
-  c.tel        = document.getElementById('ec2_tel').value.trim()   || '—';
-  c.cpf        = document.getElementById('ec2_cpf').value.trim()   || '—';
-  c.pais       = document.getElementById('ec2_pais').value.trim()  || '—';
-  c.servico    = document.getElementById('ec2_servico').value;
-  c.status     = document.getElementById('ec2_status').value;
-  c.responsavel= document.getElementById('ec2_resp').value;
-  c.valor      = parseFloat(document.getElementById('ec2_valor').value) || c.valor;
-  c.pago       = document.getElementById('ec2_pago').value === 'true';
-  c.obs        = document.getElementById('ec2_obs').value.trim();
+  c.nome        = document.getElementById('ec2_nome').value.trim()  || c.nome;
+  c.email       = document.getElementById('ec2_email').value.trim() || c.email;
+  c.tel         = document.getElementById('ec2_tel').value.trim()   || '—';
+  c.cpf         = document.getElementById('ec2_cpf').value.trim()   || '—';
+  c.pais        = document.getElementById('ec2_pais').value.trim()  || '—';
+  c.servico     = document.getElementById('ec2_servico').value;
+  c.status      = document.getElementById('ec2_status').value;
+  c.responsavel = document.getElementById('ec2_resp').value;
+  c.valor       = parseFloat(document.getElementById('ec2_valor').value) || c.valor;
+  c.pago        = document.getElementById('ec2_pago').value === 'true';
+  c.obs         = document.getElementById('ec2_obs').value.trim();
+  // Portal
+  c.portalLogin = document.getElementById('ec2_portal_login').value.trim() || c.email;
+  c.portalSenha = document.getElementById('ec2_portal_senha').value.trim() || c.portalSenha;
+  // Curso
+  c.cursoLogin  = document.getElementById('ec2_curso_login').value.trim();
+  c.cursoSenha  = document.getElementById('ec2_curso_senha').value.trim();
+  c.cursoLink   = document.getElementById('ec2_curso_link').value.trim();
+  // Salva link como padrão global se preenchido
+  if (c.cursoLink && !configEmpresa.cursoLink) configEmpresa.cursoLink = c.cursoLink;
   saveData();
   closeModal();
   navigateTo(currentPage);
+  showToast('✅ Cliente atualizado com sucesso!');
+}
+
+function copiarCredenciaisPortal(nome, login, senha) {
+  const url   = window.location.href.split('?')[0];
+  const texto = `Olá, ${nome}! 👋\n\nSuas credenciais de acesso ao Portal WB Assessoria Migratória:\n\n🔗 Link: ${url}\n👤 Login: ${login}\n🔑 Senha: ${senha}\n\nAtravés do portal você acompanha todas as etapas do seu processo em tempo real.\n\nQualquer dúvida, estamos no WhatsApp: (11) 91425-8886`;
+  navigator.clipboard.writeText(texto).then(()=>showToast('📋 Credenciais copiadas! Cole no e-mail ou WhatsApp.')).catch(()=>showToast('⚠️ Erro ao copiar. Tente manualmente.','warn'));
+}
+
+function enviarCredenciaisWhatsApp(nome, login, senha, tel) {
+  const url   = window.location.href.split('?')[0];
+  const msg   = `Olá, ${nome}! 👋\n\nSuas credenciais de acesso ao Portal WB:\n\n🔗 ${url}\n👤 Login: ${login}\n🔑 Senha: ${senha}\n\nQualquer dúvida: (11) 91425-8886`;
+  const num   = tel ? tel.replace(/\D/g,'') : WB_WHATSAPP;
+  const fone  = num.length >= 10 ? (num.startsWith('55') ? num : '55'+num) : WB_WHATSAPP;
+  window.open(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 function excluirCliente(id) {
@@ -2583,19 +2823,43 @@ function atualizarEtapa(id) {
   }
 }
 
+function gerarSenhaPortal(nome) {
+  // Primeira palavra do nome + 4 dígitos aleatórios + caractere especial
+  const parte = nome.trim().split(' ')[0].toLowerCase().replace(/[^a-z]/g,'').slice(0,6);
+  const nums  = Math.floor(1000 + Math.random() * 9000);
+  const especiais = ['!','@','#','$','*'];
+  const esp   = especiais[Math.floor(Math.random() * especiais.length)];
+  return parte.charAt(0).toUpperCase() + parte.slice(1) + nums + esp;
+}
+
+function preencherCredenciaisPortal() {
+  const nomeEl  = document.getElementById('nc_nome');
+  const emailEl = document.getElementById('nc_email');
+  const loginEl = document.getElementById('nc_portal_login');
+  const senhaEl = document.getElementById('nc_portal_senha');
+  if (!loginEl || !senhaEl) return;
+  const nome  = nomeEl?.value?.trim() || '';
+  const email = emailEl?.value?.trim() || '';
+  if (email  && !loginEl.value) loginEl.value = email;
+  if (nome   && !senhaEl.value) senhaEl.value = gerarSenhaPortal(nome);
+}
+
 function openNovoCliente(prefillServico) {
   const respOptions = colaboradores.map(c=>`<option value="${c.nome}">${c.nome} — ${c.cargo}</option>`).join('');
   const servicoSel = (s) => prefillServico && s.includes(prefillServico.split(' ')[0]) ? 'selected' : '';
   openModal(`
     <div class="modal-title">Novo Cliente</div>
+
+    <!-- ── Dados Pessoais ── -->
+    <div style="font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Dados Pessoais</div>
     <div class="form-grid">
       <div class="form-field form-full">
         <label>Nome Completo <span style="color:var(--red)">*</span></label>
-        <input id="nc_nome" placeholder="Nome completo do cliente">
+        <input id="nc_nome" placeholder="Nome completo do cliente" oninput="preencherCredenciaisPortal()">
       </div>
       <div class="form-field">
         <label>E-mail <span style="color:var(--red)">*</span></label>
-        <input id="nc_email" type="email" placeholder="email@email.com">
+        <input id="nc_email" type="email" placeholder="email@email.com" oninput="preencherCredenciaisPortal()">
       </div>
       <div class="form-field">
         <label>Telefone</label>
@@ -2645,7 +2909,49 @@ function openNovoCliente(prefillServico) {
         <textarea id="nc_obs" placeholder="Anotações sobre o cliente ou processo..."></textarea>
       </div>
     </div>
-    <div id="nc_erro" style="color:var(--red);font-size:0.8rem;margin-top:8px;display:none"></div>
+
+    <!-- ── Acesso ao Portal WB ── -->
+    <div style="margin:18px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)">🔐 Acesso ao Portal WB</div>
+    <div style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px;margin-bottom:4px">
+      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Credenciais geradas automaticamente. O cliente usará esses dados para entrar no portal e acompanhar o processo.</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Login (e-mail) do Portal</label>
+          <input id="nc_portal_login" placeholder="Preenchido ao digitar o e-mail">
+        </div>
+        <div class="form-field">
+          <label>Senha do Portal</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="nc_portal_senha" placeholder="Gerada automaticamente" style="flex:1">
+            <button type="button" onclick="document.getElementById('nc_portal_senha').value=gerarSenhaPortal(document.getElementById('nc_nome').value||'Cliente')"
+              style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;color:var(--text3);cursor:pointer;font-size:0.8rem;white-space:nowrap;flex-shrink:0">🔄 Gerar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Curso de Proficiência ── -->
+    <div style="margin:18px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:#10b981">📚 Curso de Proficiência em Língua Portuguesa</div>
+    <div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px">
+      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Parceria WB · Preencha as credenciais de acesso do cliente na plataforma do curso.</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Login do Curso</label>
+          <input id="nc_curso_login" placeholder="Ex: email ou usuário na plataforma">
+        </div>
+        <div class="form-field">
+          <label>Senha do Curso</label>
+          <input id="nc_curso_senha" placeholder="Senha de acesso ao curso">
+        </div>
+        <div class="form-field form-full">
+          <label>Link da Plataforma do Curso</label>
+          <input id="nc_curso_link" placeholder="https://..." value="${configEmpresa.cursoLink||''}">
+          <div style="font-size:0.7rem;color:var(--text3);margin-top:3px">Este link aparecerá no portal do cliente. Pode ser salvo como padrão em Configurações.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="nc_erro" style="color:var(--red);font-size:0.8rem;margin-top:12px;display:none"></div>
     <div class="modal-actions">
       <button class="btn btn-gold" onclick="salvarNovoCliente()">✅ Cadastrar Cliente</button>
       <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
@@ -2665,32 +2971,48 @@ function salvarNovoCliente() {
   const totalEtapas = serv.includes('Naturaliz') ? 6 : serv.includes('RNM') ? 5 : 4;
   const hoje = new Date().toLocaleDateString('pt-BR');
 
+  // Credenciais do portal — garante que sempre existe
+  const portalLogin = document.getElementById('nc_portal_login')?.value?.trim() || email;
+  const portalSenha = document.getElementById('nc_portal_senha')?.value?.trim() || gerarSenhaPortal(nome);
+
   const novo = {
-    id          : _clienteId++,
-    nome        : nome,
-    email       : email,
-    tel         : document.getElementById('nc_tel').value.trim() || '—',
-    cpf         : document.getElementById('nc_cpf').value.trim() || '—',
-    pais        : document.getElementById('nc_pais').value.trim() || '—',
-    servico     : serv,
-    status      : 'Pendente Documentação',
-    etapa       : 0,
-    totalEtapas : totalEtapas,
-    responsavel : document.getElementById('nc_resp').value,
-    prioridade  : document.getElementById('nc_prio').value,
-    dataCadastro: hoje,
-    valor       : parseFloat(document.getElementById('nc_valor').value) || 0,
-    pago        : document.getElementById('nc_pago').value === 'true',
-    docs        : [],
+    id           : _clienteId++,
+    nome,
+    email,
+    tel          : document.getElementById('nc_tel').value.trim() || '—',
+    cpf          : document.getElementById('nc_cpf').value.trim() || '—',
+    pais         : document.getElementById('nc_pais').value.trim() || '—',
+    servico      : serv,
+    status       : 'Pendente Documentação',
+    etapa        : 0,
+    totalEtapas,
+    responsavel  : document.getElementById('nc_resp').value,
+    prioridade   : document.getElementById('nc_prio').value,
+    dataCadastro : hoje,
+    valor        : parseFloat(document.getElementById('nc_valor').value) || 0,
+    pago         : document.getElementById('nc_pago').value === 'true',
+    docs         : [],
     docsPendentes: [],
-    obs         : document.getElementById('nc_obs').value.trim(),
+    obs          : document.getElementById('nc_obs').value.trim(),
+    // Acesso portal
+    portalLogin,
+    portalSenha,
+    // Curso de proficiência
+    cursoLogin   : document.getElementById('nc_curso_login')?.value?.trim() || '',
+    cursoSenha   : document.getElementById('nc_curso_senha')?.value?.trim() || '',
+    cursoLink    : document.getElementById('nc_curso_link')?.value?.trim()  || configEmpresa.cursoLink || '',
   };
 
   clientes.push(novo);
   saveData();
   closeModal();
   navigateTo('clientes');
-  setTimeout(() => showToast(`✅ Cliente "${nome}" cadastrado com sucesso!`), 100);
+  setTimeout(() => {
+    showToast(`✅ Cliente "${nome}" cadastrado! Login: ${portalLogin}`);
+    // Salva link do curso como padrão se preenchido
+    const link = novo.cursoLink;
+    if (link && !configEmpresa.cursoLink) { configEmpresa.cursoLink = link; saveData(); }
+  }, 100);
 }
 
 function openNovaTarefa() {
@@ -6168,6 +6490,20 @@ function renderLinhaDoTempo() {
         </div>
       </div>
     </div>
+
+    <!-- ── Prints do Processo ── -->
+    <div class="panel" style="margin-top:20px">
+      <div class="panel-header" style="background:rgba(96,165,250,0.05);border-bottom:1px solid rgba(96,165,250,0.15)">
+        <span class="panel-title" style="color:#60a5fa">🖥️ Prints do Processo Gov (${printsProcesso.filter(p=>p.clienteId===c.id).length})</span>
+        <button class="btn btn-sm" onclick="openUploadPrintProcesso(${c.id})"
+          style="background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.3);color:#60a5fa;border-radius:8px;padding:6px 14px;font-size:0.8rem;cursor:pointer">
+          📸 + Novo Print
+        </button>
+      </div>
+      <div class="panel-body">
+        ${renderPrintsCliente(c.id, false)}
+      </div>
+    </div>
     `}
   `;
 }
@@ -6435,5 +6771,247 @@ function copiarDocumento() {
     if (saved) { _docsSalvos = JSON.parse(saved); _docId = Math.max(..._docsSalvos.map(d=>d.id),0)+1; }
   } catch(e) {}
 })();
+
+// ══════════════════════════════════════════════════════════════════
+// 📸 PRINTS DO PROCESSO GOV — Upload, visualização e portal cliente
+// ══════════════════════════════════════════════════════════════════
+let _printId = 1;
+
+function openUploadPrintProcesso(clienteId) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  openModal(`
+    <div class="modal-title">📸 Anexar Print do Processo</div>
+    <div style="background:rgba(96,165,250,0.07);border:1px solid rgba(96,165,250,0.2);border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:0.8rem;color:var(--text2)">
+      <strong style="color:var(--text)">${c.nome}</strong> · ${c.servico}<br>
+      <span style="color:var(--text3);font-size:0.75rem">O print será registrado com <strong>data, hora e seu nome</strong> e ficará visível no portal do cliente.</span>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Descrição do que está sendo mostrado <span style="color:var(--red)">*</span></label>
+        <input id="print_desc" placeholder="Ex: Protocolo recebido no MJSP, processo nº 1234/2025 — status Em análise">
+      </div>
+      <div class="form-field form-full">
+        <label>Print da tela do Gov <span style="color:var(--red)">*</span></label>
+        <div id="print_drop_zone"
+          style="border:2px dashed var(--border2);border-radius:12px;padding:28px;text-align:center;cursor:pointer;transition:border-color 0.2s;margin-top:4px"
+          ondragover="event.preventDefault();this.style.borderColor='#60a5fa'"
+          ondragleave="this.style.borderColor='var(--border2)'"
+          ondrop="handlePrintDrop(event,${clienteId})"
+          onclick="document.getElementById('print_file_input').click()">
+          <div style="font-size:2.5rem;margin-bottom:8px">🖥️</div>
+          <div style="font-size:0.85rem;color:var(--text2);font-weight:500">Clique ou arraste o print aqui</div>
+          <div style="font-size:0.72rem;color:var(--text3);margin-top:4px">PNG, JPG, WEBP — máx 5MB</div>
+          <input type="file" id="print_file_input" style="display:none" accept="image/png,image/jpeg,image/jpg,image/webp" onchange="previewPrint(this.files[0],${clienteId})">
+        </div>
+        <!-- Preview da imagem -->
+        <div id="print_preview_area" style="display:none;margin-top:12px">
+          <img id="print_preview_img" style="width:100%;max-height:300px;object-fit:contain;border-radius:10px;border:1px solid var(--border2)">
+          <div id="print_preview_info" style="font-size:0.75rem;color:var(--text3);margin-top:6px;text-align:center"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="print_erro" style="color:var(--red);font-size:0.8rem;margin-top:8px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" id="print_salvar_btn" onclick="salvarPrintProcesso(${clienteId})" disabled
+        style="opacity:0.5;cursor:not-allowed">📸 Salvar Print</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+function handlePrintDrop(event, clienteId) {
+  event.preventDefault();
+  document.getElementById('print_drop_zone').style.borderColor = 'var(--border2)';
+  const file = event.dataTransfer.files[0];
+  if (file) previewPrint(file, clienteId);
+}
+
+let _printBase64Temp = null;
+let _printFileNameTemp = null;
+let _printTamanhoTemp = 0;
+
+function previewPrint(file, clienteId) {
+  if (!file) return;
+  const erro = document.getElementById('print_erro');
+
+  if (!file.type.startsWith('image/')) {
+    if (erro) { erro.textContent='⚠️ Somente imagens são aceitas (PNG, JPG, WEBP).'; erro.style.display='block'; }
+    return;
+  }
+  if (file.size > 5.2 * 1024 * 1024) {
+    if (erro) { erro.textContent='⚠️ Imagem excede 5MB.'; erro.style.display='block'; }
+    return;
+  }
+  if (erro) erro.style.display = 'none';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    _printBase64Temp   = e.target.result;
+    _printFileNameTemp = file.name;
+    _printTamanhoTemp  = file.size;
+
+    const prev     = document.getElementById('print_preview_area');
+    const img      = document.getElementById('print_preview_img');
+    const info     = document.getElementById('print_preview_info');
+    const btn      = document.getElementById('print_salvar_btn');
+    const dropZone = document.getElementById('print_drop_zone');
+
+    if (img)  img.src = e.target.result;
+    if (prev) prev.style.display = 'block';
+    if (info) info.textContent = `${file.name} · ${(file.size/1024).toFixed(0)} KB`;
+    if (btn)  { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+    if (dropZone) dropZone.style.borderColor = '#60a5fa';
+  };
+  reader.readAsDataURL(file);
+}
+
+function salvarPrintProcesso(clienteId) {
+  const desc = document.getElementById('print_desc')?.value?.trim();
+  const erro = document.getElementById('print_erro');
+
+  if (!desc) {
+    if (erro) { erro.textContent='⚠️ Descreva o que está sendo mostrado no print.'; erro.style.display='block'; }
+    return;
+  }
+  if (!_printBase64Temp) {
+    if (erro) { erro.textContent='⚠️ Selecione uma imagem.'; erro.style.display='block'; }
+    return;
+  }
+
+  const agora  = new Date();
+  const data   = agora.toLocaleDateString('pt-BR');
+  const hora   = agora.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+
+  printsProcesso.push({
+    id         : _printId++,
+    clienteId,
+    autor      : currentUser?.name || 'Equipe WB',
+    autorRole  : currentRole === 'ceo' ? 'CEO / Diretor' : 'Colaborador',
+    autorAvatar: currentUser?.avatar || 'WB',
+    data,
+    hora,
+    descricao  : desc,
+    arquivo    : _printFileNameTemp,
+    tamanho    : _printTamanhoTemp,
+    base64     : _printBase64Temp,
+  });
+
+  _printBase64Temp   = null;
+  _printFileNameTemp = null;
+
+  saveData();
+  closeModal();
+  showToast('📸 Print salvo! O cliente já pode visualizar no portal.');
+
+  // Atualiza a tela atual se estiver em processos/clientes
+  if (['clientes','processos','linha-do-tempo','dossie'].includes(currentPage)) {
+    navigateTo(currentPage);
+  }
+}
+
+// ── Componente: lista de prints de um cliente ─────────────────────
+function renderPrintsCliente(clienteId, modoCliente) {
+  const prints = printsProcesso.filter(p => p.clienteId === clienteId);
+  if (!prints.length) {
+    return modoCliente
+      ? `<div style="text-align:center;padding:30px;color:var(--text3);font-size:0.82rem">
+           <div style="font-size:2rem;margin-bottom:8px">🖥️</div>
+           Nenhuma atualização com print ainda.<br>
+           <span style="font-size:0.75rem">Quando a equipe verificar seu processo no site do governo, o print aparecerá aqui.</span>
+         </div>`
+      : `<div style="text-align:center;padding:20px;color:var(--text3);font-size:0.8rem">Nenhum print anexado ainda.</div>`;
+  }
+
+  return `<div style="display:flex;flex-direction:column;gap:16px">
+    ${[...prints].reverse().map(p => `
+      <div style="background:var(--navy3);border:1px solid var(--border2);border-radius:14px;overflow:hidden;
+        ${modoCliente ? 'border-left:4px solid #60a5fa' : ''}">
+
+        <!-- Cabeçalho do print -->
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border2)">
+          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#1d4ed8,#60a5fa);
+            display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:#fff;flex-shrink:0">
+            ${p.autorAvatar||p.autor.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}
+          </div>
+          <div style="flex:1">
+            <div style="font-size:0.83rem;font-weight:600;color:var(--text)">${p.autor}</div>
+            <div style="font-size:0.7rem;color:var(--text3)">${p.autorRole} · ${p.data} às ${p.hora}</div>
+          </div>
+          <span style="background:rgba(96,165,250,0.12);color:#60a5fa;border:1px solid rgba(96,165,250,0.3);
+            border-radius:20px;padding:3px 10px;font-size:0.68rem;font-weight:600;letter-spacing:0.5px">
+            🖥️ PRINT GOV
+          </span>
+        </div>
+
+        <!-- Descrição -->
+        <div style="padding:10px 16px 0;font-size:0.82rem;color:var(--text2);font-style:italic">
+          "${p.descricao}"
+        </div>
+
+        <!-- Imagem do print -->
+        <div style="padding:12px 16px">
+          <img src="${p.base64}" alt="Print do processo"
+            style="width:100%;border-radius:10px;border:1px solid var(--border2);cursor:zoom-in;
+            box-shadow:0 2px 12px rgba(0,0,0,0.3);max-height:420px;object-fit:contain;background:#000"
+            onclick="verPrintFullscreen(${p.id})"
+            title="Clique para ampliar">
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:0 16px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="font-size:0.7rem;color:var(--text3)">${p.arquivo||''} · ${(p.tamanho/1024).toFixed(0)} KB</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" onclick="verPrintFullscreen(${p.id})" title="Ampliar">🔍 Ampliar</button>
+            <button class="btn btn-outline btn-sm" onclick="baixarPrint(${p.id})" title="Baixar">⬇️ Baixar</button>
+            ${!modoCliente ? `<button class="btn btn-danger btn-sm" onclick="excluirPrint(${p.id})" title="Excluir">🗑️</button>` : ''}
+          </div>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function verPrintFullscreen(id) {
+  const p = printsProcesso.find(x=>x.id===id);
+  if (!p) return;
+  openModal(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-weight:700;color:var(--text);font-size:0.9rem">${p.descricao}</div>
+        <div style="font-size:0.75rem;color:var(--text3);margin-top:2px">
+          Verificado por <strong>${p.autor}</strong> · ${p.data} às ${p.hora}
+        </div>
+      </div>
+      <span style="background:rgba(96,165,250,0.12);color:#60a5fa;border:1px solid rgba(96,165,250,0.3);
+        border-radius:20px;padding:4px 12px;font-size:0.72rem;font-weight:600">🖥️ PRINT GOV</span>
+    </div>
+    <img src="${p.base64}" style="width:100%;border-radius:10px;border:1px solid var(--border2);
+      max-height:70vh;object-fit:contain;background:#111;display:block">
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-gold" onclick="baixarPrint(${p.id})">⬇️ Baixar Imagem</button>
+      <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+    </div>
+  `);
+}
+
+function baixarPrint(id) {
+  const p = printsProcesso.find(x=>x.id===id);
+  if (!p) return;
+  const a = document.createElement('a');
+  a.href     = p.base64;
+  a.download = p.arquivo || `print_processo_${p.data.replace(/\//g,'-')}.png`;
+  a.click();
+}
+
+function excluirPrint(id) {
+  const p = printsProcesso.find(x=>x.id===id);
+  if (!confirm(`Excluir o print "${p?.descricao?.slice(0,40)}"?`)) return;
+  printsProcesso = printsProcesso.filter(x=>x.id!==id);
+  saveData();
+  navigateTo(currentPage);
+  showToast('🗑️ Print excluído.','info');
+}
 
 </script>
