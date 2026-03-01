@@ -497,8 +497,23 @@ let indeferimentos    = [...INDEFERIMENTOS_DEFAULT];
 let propostas         = [...PROPOSTAS_DEFAULT];
 let parceiros         = [...PARCEIROS_DEFAULT];
 let modelosPersonalizados = []; // { id, cat, nome, desc, tags:[], corpo }
-let configEmpresa     = { razao:'WB Assessoria Migratória LTDA', cnpj:'XX.XXX.XXX/0001-XX', tel:'(11) 9 9999-9999', email:'contato@wbassessoria.com.br', endereco:'Av. Paulista, 1000 - São Paulo, SP' };
-let configNotif       = { novoCliente:true, docPendente:true, relSemanal:false, smsAgend:true };
+let notasFiscais  = []; // { id, numero, serie, clienteId, clienteNome, servico, valor, iss, status, emissao, vencimento, competencia, obs }
+let guiasISS      = []; // { id, mes, ano, valor, aliquota, status, vencimento, pago }
+let configEmpresa = {
+  razao    : 'WB Assessoria Migratória LTDA',
+  cnpj     : '52.241.467/0001-27',
+  tel      : '(11) 9 9999-9999',
+  email    : 'wbassessoria.contato@gmail.com',
+  endereco : 'São Paulo, SP',
+  regime   : 'Simples Nacional',
+  iss      : 2,        // alíquota ISS % (padrão SP)
+  municipio: 'São Paulo',
+  im       : '',       // Inscrição Municipal (preencher nas configs)
+  cnae     : '7490-1/04', // Atividades de intermediação e agenciamento de serviços
+};
+let configNotif = { novoCliente:true, docPendente:true, relSemanal:false, smsAgend:true };
+let _nfId = 1;
+let _guiaId = 1;
 
 let _clienteId  = CLIENTES.length + 1;
 let _colaborId  = 4;
@@ -531,9 +546,10 @@ function showToast(msg, type='success') {
 function getPayload() {
   return { clientes, tarefas, colaboradores, agendamentos,
            indeferimentos, propostas, parceiros, lancamentos, parcelasData,
-           modelosPersonalizados,
+           modelosPersonalizados, notasFiscais, guiasISS,
            configEmpresa, configNotif,
-           _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId, _lancId, _parcelasId, _modeloId };
+           _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId,
+           _lancId, _parcelasId, _modeloId, _nfId, _guiaId };
 }
 
 // ── Aplicar dados carregados ─────────────────────────────────────
@@ -549,6 +565,8 @@ function applyData(d) {
   if (d.lancamentos)             lancamentos             = d.lancamentos;
   if (d.parcelasData)            parcelasData            = d.parcelasData;
   if (d.modelosPersonalizados)   modelosPersonalizados   = d.modelosPersonalizados;
+  if (d.notasFiscais)            notasFiscais            = d.notasFiscais;
+  if (d.guiasISS)                guiasISS                = d.guiasISS;
   if (d.configEmpresa)           configEmpresa           = d.configEmpresa;
   if (d.configNotif)             configNotif             = d.configNotif;
   if (d._clienteId)              _clienteId              = d._clienteId;
@@ -560,6 +578,8 @@ function applyData(d) {
   if (d._lancId)                 _lancId                 = d._lancId;
   if (d._parcelasId)             _parcelasId             = d._parcelasId;
   if (d._modeloId)               _modeloId               = d._modeloId;
+  if (d._nfId)                   _nfId                   = d._nfId;
+  if (d._guiaId)                 _guiaId                 = d._guiaId;
 }
 
 // ── Salvar (POST no-cors + localStorage) ─────────────────────────
@@ -674,7 +694,7 @@ function resetData() {
   ];
   configEmpresa = { razao:'WB Assessoria Migratória', cnpj:'', tel:'', email:'wbassessoria.contato@gmail.com', endereco:'' };
   configNotif   = { novoCliente:true, docPendente:true, relSemanal:false, smsAgend:true };
-  _clienteId=1; _colaborId=2; _agendId=1; _indId=1; _propId=1; _parceiroId=1; _lancId=1; _parcelasId=1;
+  _clienteId=1; _colaborId=2; _agendId=1; _indId=1; _propId=1; _parceiroId=1; _lancId=1; _parcelasId=1; _nfId=1; _guiaId=1;
 
   // Limpa e regrava o localStorage
   try { localStorage.removeItem(LS_KEY); localStorage.setItem(LS_KEY, JSON.stringify(getPayload())); } catch(e) {}
@@ -951,6 +971,11 @@ function buildNav() {
       ${navItem('modelos','📄','Modelos de Documentos')}
       ${navItem('indeferimentos','❌','Indeferimentos & Recursos')}
       ${navItem('parceiros','🤝','Rede de Parceiros')}
+      <div class="nav-section">🚀 Exclusivo WB</div>
+      ${navItem('dossie','📁','Dossiê Digital')}
+      ${navItem('gerador-contrato','⚡','Gerador de Contratos')}
+      ${navItem('radar','🎯','Radar de Processos')}
+      ${navItem('linha-do-tempo','📅','Linha do Tempo')}
       <div class="nav-section">Serviços</div>
       ${navItem('servico-nat','🇧🇷','Naturalização')}
       ${navItem('servico-rnm','🪪','RNM / RNE')}
@@ -964,6 +989,7 @@ function buildNav() {
       ${navItem('dashboard','🏠','Dashboard')}
       ${navItem('financeiro','💰','Financeiro')}
       ${navItem('financeiro-avancado','💳','Financeiro Avançado')}
+      ${navItem('fiscal','🧾','Notas Fiscais')}
       ${navItem('relatorios','📊','Relatórios')}
       <div class="nav-section">Gestão</div>
       ${navItem('clientes','👥','Clientes')}
@@ -977,6 +1003,12 @@ function buildNav() {
       ${navItem('contratos','📑','Contratos & Propostas')}
       ${navItem('indeferimentos','❌','Indeferimentos & Recursos')}
       ${navItem('parceiros','🤝','Rede de Parceiros')}
+      <div class="nav-section">🚀 Exclusivo WB</div>
+      ${navItem('dossie','📁','Dossiê Digital')}
+      ${navItem('gerador-contrato','⚡','Gerador de Contratos')}
+      ${navItem('editor','✏️','Editor de Documentos')}
+      ${navItem('radar','🎯','Radar de Processos')}
+      ${navItem('linha-do-tempo','📅','Linha do Tempo')}
       <div class="nav-section">Serviços</div>
       ${navItem('servico-nat','🇧🇷','Naturalização')}
       ${navItem('servico-rnm','🪪','RNM / RNE')}
@@ -1020,7 +1052,13 @@ function navigateTo(page) {
     'parceiros':'Rede de Parceiros',
     'faq':'Base de Conhecimento Migratório',
     'faq-cliente':'Dúvidas Frequentes',
-    'financeiro-avancado':'Financeiro Avançado'
+    'financeiro-avancado':'Financeiro Avançado',
+    'fiscal':'🧾 Notas Fiscais & Obrigações',
+    'dossie':'📁 Dossiê Digital do Cliente',
+    'gerador-contrato':'⚡ Gerador de Contratos',
+    'radar':'🎯 Radar de Processos',
+    'linha-do-tempo':'📅 Linha do Tempo',
+    'editor':'✏️ Editor de Documentos',
   };
   document.getElementById('page-title').textContent = titles[page] || page;
   renderPage(page);
@@ -1058,6 +1096,12 @@ function renderPage(page) {
     'faq': renderFaq,
     'faq-cliente': renderFaqCliente,
     'financeiro-avancado': renderFinanceiroAvancado,
+    'fiscal': renderFiscal,
+    'dossie': renderDossie,
+    'gerador-contrato': renderGeradorContrato,
+    'radar': renderRadar,
+    'linha-do-tempo': renderLinhaDoTempo,
+    'editor': renderEditor,
   };
   if (pages[page]) { c.innerHTML = ''; c.innerHTML = pages[page](); }
   else c.innerHTML = `<div style="color:var(--text3);text-align:center;padding:60px">Página em construção</div>`;
@@ -4303,5 +4347,1728 @@ function renderFaqCliente() {
   `;
 }
 </script>
-</body>
-</html>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     💡 FUNCIONALIDADES EXCLUSIVAS WB — INSERIDAS ANTES DO FECHAMENTO
+     ═══════════════════════════════════════════════════════════════ -->
+<script>
+
+// ══════════════════════════════════════════════════════════════════
+// 📁  DOSSIÊ DIGITAL — Upload de documentos por cliente
+// ══════════════════════════════════════════════════════════════════
+const DOC_CATS = ['Contrato','Termo de Adaptação de Nome','Check-List','Termo de Imagem e Voz','Recibo','Documento de Identidade','Passaporte','CPF','Certidão','Comprovante','Procuração','Outro'];
+
+function renderDossie() {
+  const clientesSorted = [...clientes].sort((a,b)=>a.nome.localeCompare(b.nome));
+  if (!clientesSorted.length) return `<div style="text-align:center;padding:80px;color:var(--text3)"><div style="font-size:3rem">📁</div><div style="margin-top:12px">Nenhum cliente cadastrado ainda.</div><button class="btn btn-gold" style="margin-top:16px" onclick="navigateTo('clientes')">+ Cadastrar Cliente</button></div>`;
+
+  return `
+    <div style="background:linear-gradient(135deg,rgba(201,168,76,0.1),rgba(59,130,246,0.05));border:1px solid rgba(201,168,76,0.2);border-radius:16px;padding:20px;margin-bottom:24px">
+      <div style="font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:6px">📁 Dossiê Digital do Cliente</div>
+      <div style="font-size:0.82rem;color:var(--text3)">Faça upload dos contratos assinados, termos, recibos e demais documentos diretamente no prontuário de cada cliente. Tudo armazenado de forma segura e acessível a qualquer momento.</div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <input id="dossie-busca" placeholder="🔍  Buscar cliente..." style="background:var(--navy2);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;color:var(--text);font-size:0.85rem;flex:1;min-width:200px" oninput="filtrarDossie(this.value)">
+    </div>
+
+    <div id="dossie-lista">
+      ${clientesSorted.map(c => {
+        const docs = c.arquivos || [];
+        const scoreP = calcularScore(c);
+        return `
+        <div class="panel dossie-card" data-nome="${c.nome.toLowerCase()}" style="margin-bottom:16px">
+          <div class="panel-header" style="cursor:pointer" onclick="toggleDossie(${c.id})">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="user-avatar" style="width:38px;height:38px;font-size:0.8rem;flex-shrink:0">${c.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}</div>
+              <div>
+                <div style="font-weight:600;color:var(--text)">${c.nome}</div>
+                <div style="font-size:0.75rem;color:var(--text3)">${c.servico} · ${docs.length} arquivo${docs.length!==1?'s':''}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="font-size:0.75rem;color:${scoreP>=70?'var(--green)':scoreP>=40?'var(--orange)':'var(--red)'}">Score ${scoreP}%</div>
+              ${statusBadge(c.status)}
+              <span style="color:var(--text3);font-size:1.1rem">▾</span>
+            </div>
+          </div>
+          <div id="dossie-body-${c.id}" style="display:none">
+            <div class="panel-body">
+              <!-- Upload area -->
+              <div style="border:2px dashed var(--border2);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px;transition:border-color 0.2s;cursor:pointer"
+                ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
+                ondragleave="this.style.borderColor='var(--border2)'"
+                ondrop="handleDrop(event,${c.id})"
+                onclick="document.getElementById('file-input-${c.id}').click()">
+                <div style="font-size:2rem;margin-bottom:8px">📎</div>
+                <div style="font-size:0.85rem;color:var(--text2);font-weight:500">Clique ou arraste arquivos aqui</div>
+                <div style="font-size:0.73rem;color:var(--text3);margin-top:4px">Word, PDF, imagens • Máx 2MB por arquivo</div>
+                <input type="file" id="file-input-${c.id}" style="display:none" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" onchange="uploadArquivos(${c.id}, this.files)">
+              </div>
+
+              <!-- Lista de arquivos -->
+              <div id="arquivos-${c.id}">
+                ${renderArquivos(c.id)}
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderArquivos(clienteId) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return '';
+  const docs = c.arquivos || [];
+  if (!docs.length) return `<div style="text-align:center;padding:20px;color:var(--text3);font-size:0.82rem">Nenhum arquivo enviado ainda.</div>`;
+
+  const catIcons = { 'Contrato':'📜', 'Termo de Adaptação de Nome':'✍️', 'Check-List':'☑️', 'Termo de Imagem e Voz':'🎙️', 'Recibo':'🧾', 'Passaporte':'🛂', 'CPF':'🪪', 'Certidão':'📋', 'Procuração':'⚖️', 'Outro':'📄' };
+  return `
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${docs.map(d=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--navy3);border-radius:10px;border:1px solid var(--border2)">
+          <span style="font-size:1.3rem">${catIcons[d.cat]||'📄'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.83rem;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.nome}</div>
+            <div style="font-size:0.7rem;color:var(--text3)">${d.cat} · ${d.data} · ${(d.tamanho/1024).toFixed(0)} KB</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn btn-sm btn-outline" onclick="baixarArquivo(${clienteId},${d.id})" title="Baixar">⬇️</button>
+            <button class="btn btn-sm btn-danger" onclick="excluirArquivo(${clienteId},${d.id})" title="Excluir">🗑️</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function toggleDossie(id) {
+  const el = document.getElementById(`dossie-body-${id}`);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function filtrarDossie(q) {
+  document.querySelectorAll('.dossie-card').forEach(card => {
+    card.style.display = card.dataset.nome.includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+function handleDrop(event, clienteId) {
+  event.preventDefault();
+  event.target.closest('[ondrop]').style.borderColor = 'var(--border2)';
+  uploadArquivos(clienteId, event.dataTransfer.files);
+}
+
+function uploadArquivos(clienteId, fileList) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  if (!c.arquivos) c.arquivos = [];
+
+  let pendentes = fileList.length;
+  let erros = 0;
+
+  Array.from(fileList).forEach(file => {
+    if (file.size > 2.1 * 1024 * 1024) {
+      showToast(`❌ "${file.name}" excede 2MB.`, 'error');
+      pendentes--; return;
+    }
+
+    // Detectar categoria pelo nome
+    const nLower = file.name.toLowerCase();
+    let cat = 'Outro';
+    if (nLower.includes('contrato'))         cat = 'Contrato';
+    else if (nLower.includes('adaptacao') || nLower.includes('adaptação') || nLower.includes('nome')) cat = 'Termo de Adaptação de Nome';
+    else if (nLower.includes('checklist') || nLower.includes('check')) cat = 'Check-List';
+    else if (nLower.includes('imagem') || nLower.includes('voz')) cat = 'Termo de Imagem e Voz';
+    else if (nLower.includes('recibo'))      cat = 'Recibo';
+    else if (nLower.includes('passaporte'))  cat = 'Passaporte';
+    else if (nLower.includes('cpf'))         cat = 'CPF';
+    else if (nLower.includes('certid'))      cat = 'Certidão';
+    else if (nLower.includes('procuracao') || nLower.includes('procuração')) cat = 'Procuração';
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      c.arquivos.push({
+        id      : Date.now() + Math.random(),
+        nome    : file.name,
+        cat,
+        tipo    : file.type,
+        tamanho : file.size,
+        data    : new Date().toLocaleDateString('pt-BR'),
+        base64  : e.target.result,
+      });
+      pendentes--;
+      if (pendentes === 0) {
+        saveData();
+        // Re-render lista do cliente específico
+        const el = document.getElementById(`arquivos-${clienteId}`);
+        if (el) el.innerHTML = renderArquivos(clienteId);
+        // Atualiza contagem no header
+        const panel = document.querySelector(`.dossie-card[data-nome="${c.nome.toLowerCase()}"] .panel-header div div:nth-child(2)`);
+        if (panel) panel.textContent = `${c.servico} · ${c.arquivos.length} arquivo${c.arquivos.length!==1?'s':''}`;
+        showToast(`✅ ${fileList.length - erros} arquivo(s) enviado(s) com sucesso!`);
+      }
+    };
+    reader.onerror = () => { erros++; pendentes--; };
+    reader.readAsDataURL(file);
+  });
+}
+
+function baixarArquivo(clienteId, arquivoId) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c || !c.arquivos) return;
+  const arq = c.arquivos.find(a=>a.id===arquivoId);
+  if (!arq) return;
+  const link = document.createElement('a');
+  link.href = arq.base64;
+  link.download = arq.nome;
+  link.click();
+}
+
+function excluirArquivo(clienteId, arquivoId) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c || !c.arquivos) return;
+  const arq = c.arquivos.find(a=>a.id===arquivoId);
+  if (!confirm(`Excluir "${arq?.nome}"?`)) return;
+  c.arquivos = c.arquivos.filter(a=>a.id!==arquivoId);
+  saveData();
+  const el = document.getElementById(`arquivos-${clienteId}`);
+  if (el) el.innerHTML = renderArquivos(clienteId);
+  showToast('🗑️ Arquivo excluído.', 'info');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ⚡ GERADOR DE CONTRATOS — Preenche automaticamente com dados do cliente
+// ══════════════════════════════════════════════════════════════════
+function renderGeradorContrato() {
+  const todosModelos = [
+    { id:'nat',  nome:'Contrato – Naturalização Brasileira',    servico:'Naturalização' },
+    { id:'rnm',  nome:'Contrato – Autorização de Residência',   servico:'RNM' },
+    { id:'visto',nome:'Contrato – Visto de Turismo EUA',        servico:'Visto' },
+    ...modelosPersonalizados.map(m => ({ id:'custom_'+m.id, nome:m.nome, servico:m.cat }))
+  ];
+
+  return `
+    <div style="background:linear-gradient(135deg,rgba(201,168,76,0.1),rgba(16,185,129,0.05));border:1px solid rgba(201,168,76,0.25);border-radius:16px;padding:20px;margin-bottom:24px">
+      <div style="font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:6px">⚡ Gerador de Contratos</div>
+      <div style="font-size:0.82rem;color:var(--text3)">Selecione um cliente e um modelo. O sistema preenche automaticamente nome, CPF, serviço, valor e data — gerando um contrato pronto para assinar em segundos.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">⚙️ Configurar Geração</span></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>1. Selecione o Cliente <span style="color:var(--red)">*</span></label>
+            <select id="gc_cliente" onchange="previewGeradorCliente()">
+              <option value="">— Selecione —</option>
+              ${clientes.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-field">
+            <label>2. Selecione o Modelo <span style="color:var(--red)">*</span></label>
+            <select id="gc_modelo">
+              <option value="">— Selecione —</option>
+              ${todosModelos.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <!-- Preview dados do cliente -->
+        <div id="gc_preview" style="display:none;background:var(--navy3);border-radius:10px;padding:14px;margin-bottom:16px;font-size:0.8rem;color:var(--text2)"></div>
+
+        <button class="btn btn-gold" onclick="gerarContrato()" style="width:100%;padding:12px;font-size:0.9rem">⚡ Gerar Contrato Preenchido</button>
+      </div>
+    </div>
+
+    <!-- Output -->
+    <div id="gc_output" style="display:none;margin-top:20px" class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📄 Contrato Gerado</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-gold btn-sm" id="gc_copy_btn">📋 Copiar</button>
+          <button class="btn btn-outline btn-sm" id="gc_salvar_btn">💾 Salvar no Sistema</button>
+          <button class="btn btn-outline btn-sm" onclick="abrirEditorCompleto()">✏️ Abrir no Editor</button>
+          <button class="btn btn-outline btn-sm" onclick="imprimirContrato()">🖨️ Imprimir</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div style="font-size:0.75rem;color:var(--text3);margin-bottom:10px">💡 Você pode editar o texto diretamente abaixo antes de salvar ou imprimir.</div>
+        <div id="gc_texto" contenteditable="true"
+          style="background:var(--navy4);border:1px solid var(--border2);border-radius:10px;padding:20px;max-height:60vh;overflow-y:auto;
+          white-space:pre-wrap;font-family:'DM Mono',monospace;font-size:0.73rem;color:var(--text2);line-height:1.75;
+          outline:none;transition:border-color 0.2s"
+          onfocus="this.style.borderColor='var(--gold)'"
+          onblur="this.style.borderColor='var(--border2)'"
+        ></div>
+      </div>
+    </div>
+  `;
+}
+
+function previewGeradorCliente() {
+  const sel = document.getElementById('gc_cliente');
+  const prev = document.getElementById('gc_preview');
+  if (!sel || !sel.value) { if(prev) prev.style.display='none'; return; }
+  const c = clientes.find(x=>x.id===parseInt(sel.value));
+  if (!c || !prev) return;
+  prev.style.display = 'block';
+  prev.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:16px">
+      ${[['Nome',c.nome],['CPF',c.cpf],['Tel',c.tel],['E-mail',c.email],['País',c.pais],['Serviço',c.servico],['Valor','R$ '+c.valor.toLocaleString('pt-BR')],['Cadastro',c.dataCadastro]].map(([k,v])=>`
+        <div><span style="color:var(--text3);font-size:0.7rem;display:block">${k}</span><span style="font-weight:500;color:var(--text)">${v||'—'}</span></div>`).join('')}
+    </div>`;
+}
+
+const GERADOR_TEMPLATES = {
+  nat: `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORIA MIGRATÓRIA
+WB ASSESSORIA MIGRATÓRIA LTDA
+SERVIÇO: NATURALIZAÇÃO BRASILEIRA
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTRATANTE: {{NOME}}
+CPF: {{CPF}}  |  Telefone: {{TEL}}
+E-mail: {{EMAIL}}
+Nacionalidade: {{PAIS}}
+
+CONTRATADA: WB Assessoria Migratória LTDA
+Representante: Renato Caires  |  wbassessoria.contato@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CLÁUSULA 1ª – DO OBJETO
+A CONTRATADA compromete-se a prestar serviços de assessoria em NATURALIZAÇÃO BRASILEIRA ao(à) CONTRATANTE {{NOME}}, nos termos da Lei nº 13.445/2017 e Portaria MJSP nº 623/2020.
+
+CLÁUSULA 2ª – DOS HONORÁRIOS
+Pelos serviços prestados, o CONTRATANTE pagará o valor de R$ {{VALOR}} ({{VALOR_EXTENSO}}).
+
+Pagamento via PIX: wbassessoria.contato@gmail.com
+
+PARÁGRAFO ÚNICO: Taxas governamentais, cartoriais e de terceiros NÃO estão incluídas.
+
+CLÁUSULA 3ª – DOS PRAZOS
+Prazo estimado: 90 a 180 dias após o protocolo, sujeito ao fluxo administrativo do MJSP.
+
+CLÁUSULA 4ª – DAS DISPOSIÇÕES GERAIS
+A WB Assessoria Migratória não garante resultado favorável, pois a decisão é exclusiva do órgão governamental. Todos os dados são tratados com sigilo conforme a LGPD (Lei nº 13.709/2018).
+
+{{LOCAL}}, {{DATA}}.
+
+_________________________________       _________________________________
+{{NOME}}                                  WB Assessoria Migratória
+CPF: {{CPF}}                              Renato Caires`,
+
+  rnm: `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORIA MIGRATÓRIA
+WB ASSESSORIA MIGRATÓRIA LTDA
+SERVIÇO: AUTORIZAÇÃO DE RESIDÊNCIA (RNM/RNE)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTRATANTE: {{NOME}}
+CPF/Passaporte: {{CPF}}  |  Telefone: {{TEL}}
+E-mail: {{EMAIL}}  |  Nacionalidade: {{PAIS}}
+
+CONTRATADA: WB Assessoria Migratória LTDA
+Representante: Renato Caires  |  wbassessoria.contato@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CLÁUSULA 1ª – DO OBJETO
+Assessoria completa para obtenção da AUTORIZAÇÃO DE RESIDÊNCIA e emissão do CRNM, compreendendo análise migratória, coleta documental, protocolo no MigranteWeb e acompanhamento na Polícia Federal.
+
+CLÁUSULA 2ª – DOS HONORÁRIOS
+Valor total: R$ {{VALOR}} ({{VALOR_EXTENSO}}).
+PIX: wbassessoria.contato@gmail.com
+
+PARÁGRAFO ÚNICO: Taxas da Polícia Federal (GRU) e demais custos governamentais são de responsabilidade exclusiva do CONTRATANTE.
+
+CLÁUSULA 3ª – DOS PRAZOS
+Prazo estimado para emissão do CRNM: 30 a 90 dias após atendimento na Polícia Federal.
+
+CLÁUSULA 4ª – LGPD
+Dados tratados com sigilo total conforme Lei nº 13.709/2018.
+
+{{LOCAL}}, {{DATA}}.
+
+_________________________________       _________________________________
+{{NOME}}                                  WB Assessoria Migratória
+CPF/Passaporte: {{CPF}}                   Renato Caires`,
+
+  visto: `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORIA MIGRATÓRIA
+WB ASSESSORIA MIGRATÓRIA LTDA
+SERVIÇO: VISTO DE TURISMO EUA (B1/B2)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTRATANTE: {{NOME}}
+CPF: {{CPF}}  |  Telefone: {{TEL}}
+E-mail: {{EMAIL}}
+
+CONTRATADA: WB Assessoria Migratória LTDA
+Representante: Renato Caires  |  wbassessoria.contato@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CLÁUSULA 1ª – DO OBJETO
+Assessoria para solicitação do Visto B1/B2: análise de perfil, DS-160, agendamento consular, preparação da entrevista e documentação de suporte.
+
+CLÁUSULA 2ª – LIMITAÇÃO DE GARANTIA (ESSENCIAL)
+O CONTRATANTE declara estar ciente de que a concessão do visto é decisão EXCLUSIVA do Consulado dos EUA (INA § 214b). A WB NÃO garante aprovação. Em caso de negativa, os honorários pagos não são devolvidos.
+
+CLÁUSULA 3ª – DOS HONORÁRIOS
+Valor total: R$ {{VALOR}} ({{VALOR_EXTENSO}}).
+Taxa MRV (USD 185) e demais taxas consulares são de responsabilidade do CONTRATANTE.
+PIX: wbassessoria.contato@gmail.com
+
+{{LOCAL}}, {{DATA}}.
+
+_________________________________       _________________________________
+{{NOME}}                                  WB Assessoria Migratória
+CPF: {{CPF}}                              Renato Caires`,
+};
+
+function valorExtenso(n) {
+  const un = ['zero','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+  const dz = ['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+  const ct = ['','cem','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+  if (n===0) return 'zero reais';
+  let v = Math.round(n);
+  let txt = '';
+  if (v>=1000) { txt += (un[Math.floor(v/1000)]||dz[Math.floor(v/1000/10)])+' mil'; v = v%1000; if(v) txt+=' e '; }
+  if (v>=100) { txt += v===100?'cem':ct[Math.floor(v/100)]; v=v%100; if(v) txt+=' e '; }
+  if (v>=20) { txt += dz[Math.floor(v/10)]; v=v%10; if(v) txt+=' e '; }
+  if (v>0) txt += un[v];
+  return txt.trim() + ' reais';
+}
+
+function gerarContrato() {
+  const cId  = parseInt(document.getElementById('gc_cliente')?.value);
+  const mId  = document.getElementById('gc_modelo')?.value;
+  if (!cId || !mId) { showToast('⚠️ Selecione cliente e modelo.','warn'); return; }
+
+  const c = clientes.find(x=>x.id===cId);
+  if (!c) return;
+
+  let template = '';
+  if (mId.startsWith('custom_')) {
+    const customId = parseInt(mId.replace('custom_',''));
+    const m = modelosPersonalizados.find(x=>x.id===customId);
+    template = m?.corpo || '';
+  } else {
+    template = GERADOR_TEMPLATES[mId] || '';
+  }
+
+  if (!template) { showToast('⚠️ Modelo não encontrado.','error'); return; }
+
+  const hoje = new Date();
+  const dataFormatada = hoje.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+  const local = (configEmpresa?.endereco?.split(',').pop()?.trim()) || 'São Paulo, SP';
+
+  const contrato = template
+    .replace(/\{\{NOME\}\}/g, c.nome)
+    .replace(/\{\{CPF\}\}/g, c.cpf || '___________________')
+    .replace(/\{\{TEL\}\}/g, c.tel || '___________________')
+    .replace(/\{\{EMAIL\}\}/g, c.email || '___________________')
+    .replace(/\{\{PAIS\}\}/g, c.pais || '___________________')
+    .replace(/\{\{SERVICO\}\}/g, c.servico)
+    .replace(/\{\{VALOR\}\}/g, c.valor.toLocaleString('pt-BR',{minimumFractionDigits:2}))
+    .replace(/\{\{VALOR_EXTENSO\}\}/g, valorExtenso(c.valor))
+    .replace(/\{\{DATA\}\}/g, dataFormatada)
+    .replace(/\{\{LOCAL\}\}/g, local)
+    .replace(/\{\{RESPONSAVEL\}\}/g, c.responsavel || 'Renato Caires');
+
+  const out  = document.getElementById('gc_output');
+  const txt  = document.getElementById('gc_texto');
+  const btn  = document.getElementById('gc_copy_btn');
+  const salvarBtn = document.getElementById('gc_salvar_btn');
+  if (!out || !txt) return;
+
+  txt.textContent = contrato;
+  out.style.display = 'block';
+
+  btn.onclick = () => {
+    const texto = txt.innerText || txt.textContent;
+    navigator.clipboard.writeText(texto).then(()=>showToast('✅ Contrato copiado! Cole no Word.'));
+  };
+
+  salvarBtn.onclick = () => {
+    const texto = txt.innerText || txt.textContent;
+    const nomeDoc = `Contrato – ${c.nome.split(' ').slice(0,2).join(' ')} – ${new Date().toLocaleDateString('pt-BR')}`;
+    // Salva como documento editado na lista de documentos salvos
+    if (!documentosSalvos) window.documentosSalvos = [];
+    window.documentosSalvos.push({ id: Date.now(), nome: nomeDoc, texto, clienteId: c.id, data: new Date().toLocaleDateString('pt-BR') });
+    showToast(`💾 Contrato salvo como "${nomeDoc}"!`);
+  };
+
+  out.scrollIntoView({ behavior:'smooth' });
+}
+
+function abrirEditorCompleto() {
+  const txt = document.getElementById('gc_texto');
+  const texto = txt ? (txt.innerText || txt.textContent) : '';
+  window._editorTexto = texto;
+  navigateTo('editor');
+}
+
+function imprimirContrato() {
+  const el  = document.getElementById('gc_texto');
+  const txt = el ? (el.innerText || el.textContent) : '';
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Contrato WB Assessoria Migratória</title>
+    <style>
+      body { font-family: 'Times New Roman', serif; font-size: 12px; line-height: 1.8; padding: 50px 60px; color: #111; max-width: 800px; margin: 0 auto; }
+      pre  { white-space: pre-wrap; font-family: inherit; font-size: inherit; }
+      @media print { body { padding: 20px; } }
+    </style>
+  </head><body><pre>${txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre></body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(), 400);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🧾 MÓDULO FISCAL — NFS-e, ISS e Obrigações
+// ══════════════════════════════════════════════════════════════════
+const SERVICOS_NF = [
+  { codigo:'7490-1/04', desc:'Assessoria e consultoria em processos migratórios' },
+  { codigo:'7490-1/04', desc:'Elaboração e protocolo de requerimento de naturalização' },
+  { codigo:'7490-1/04', desc:'Assessoria para Autorização de Residência (RNM/RNE)' },
+  { codigo:'7490-1/04', desc:'Assessoria para obtenção de visto consular' },
+  { codigo:'7490-1/04', desc:'Consultoria jurídica migratória' },
+  { codigo:'7490-1/04', desc:'Organização e revisão de dossiê migratório' },
+];
+
+function renderFiscal() {
+  const hoje      = new Date();
+  const mesAtual  = hoje.getMonth();
+  const anoAtual  = hoje.getFullYear();
+  const nfMes     = notasFiscais.filter(n => {
+    const [d,m,a] = (n.emissao||'').split('/');
+    return parseInt(m)-1===mesAtual && parseInt(a)===anoAtual;
+  });
+  const totalNfMes    = nfMes.reduce((a,b)=>a+(b.valor||0),0);
+  const totalISSMes   = nfMes.reduce((a,b)=>a+(b.iss||0),0);
+  const nfPendentes   = notasFiscais.filter(n=>n.status==='Pendente');
+  const nfEmitidas    = notasFiscais.filter(n=>n.status==='Emitida');
+  const nfCanceladas  = notasFiscais.filter(n=>n.status==='Cancelada');
+
+  const stColor = { 'Emitida':'badge-green', 'Pendente':'badge-orange', 'Cancelada':'badge-red', 'Substituída':'badge-gray' };
+
+  return `
+    <!-- ── Cabeçalho fiscal ── -->
+    <div style="background:linear-gradient(135deg,rgba(16,185,129,0.1),rgba(201,168,76,0.06));border:1px solid rgba(16,185,129,0.25);border-radius:16px;padding:20px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+      <div>
+        <div style="font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;color:var(--text3)">CNPJ</div>
+        <div style="font-size:1.2rem;font-weight:800;color:var(--gold);font-family:'DM Mono',monospace;letter-spacing:2px">${configEmpresa.cnpj}</div>
+        <div style="font-size:0.8rem;color:var(--text2);margin-top:2px">${configEmpresa.razao} · ${configEmpresa.regime||'Simples Nacional'}</div>
+        <div style="font-size:0.75rem;color:var(--text3);margin-top:2px">CNAE ${configEmpresa.cnae||'7490-1/04'} · ISS ${configEmpresa.iss||2}% · Município: ${configEmpresa.municipio||'São Paulo'}</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-gold" onclick="openNovaNotaFiscal()">➕ Emitir Nota Fiscal</button>
+        <button class="btn btn-outline" onclick="openGerarGuiaISS()">🏦 Gerar Guia ISS</button>
+        <button class="btn btn-outline" onclick="abrirRelatorioFiscal()">📊 Relatório Fiscal</button>
+      </div>
+    </div>
+
+    <!-- ── KPIs do mês ── -->
+    <div class="stat-grid" style="margin-bottom:24px">
+      <div class="stat-card green">
+        <div class="stat-label">💰 Serviços Faturados (mês)</div>
+        <div class="stat-value">R$ ${(totalNfMes/1000).toFixed(1)}k</div>
+        <div class="stat-sub">${nfMes.length} nota(s) em ${MESES_PT[mesAtual]}/${anoAtual}</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-label">🏦 ISS a Recolher (mês)</div>
+        <div class="stat-value">R$ ${totalISSMes.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+        <div class="stat-sub">${configEmpresa.iss||2}% sobre serviços</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">📄 Notas Emitidas</div>
+        <div class="stat-value">${nfEmitidas.length}</div>
+        <div class="stat-sub">${nfPendentes.length} pendente(s)</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid var(--text3)">
+        <div class="stat-label">📋 Total Geral</div>
+        <div class="stat-value">R$ ${(notasFiscais.filter(n=>n.status==='Emitida').reduce((a,b)=>a+(b.valor||0),0)/1000).toFixed(1)}k</div>
+        <div class="stat-sub">${notasFiscais.length} notas no sistema</div>
+      </div>
+    </div>
+
+    <!-- ── Abas ── -->
+    <div style="display:flex;gap:2px;margin-bottom:20px;background:var(--navy2);border-radius:10px;padding:4px;width:fit-content">
+      ${['Notas Fiscais','Guias ISS','Obrigações'].map((t,i)=>`
+        <button onclick="switchFiscalTab(${i})" id="ftab-${i}" class="btn btn-sm"
+          style="background:${i===0?'var(--navy3)':'transparent'};color:${i===0?'var(--gold)':'var(--text3)'};border:none;border-radius:8px;transition:all 0.2s">${t}</button>
+      `).join('')}
+    </div>
+
+    <!-- ── Tab 0: Notas Fiscais ── -->
+    <div id="fiscal-tab-0">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">📄 Notas Fiscais de Serviço</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="nf-filtro-status" onchange="filtrarNFs()" style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;color:var(--text);font-size:0.78rem">
+              <option value="">Todos os status</option>
+              <option value="Emitida">Emitidas</option>
+              <option value="Pendente">Pendentes</option>
+              <option value="Cancelada">Canceladas</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-body" style="padding:0">
+          <div id="tabela-nfs">
+            ${tabelaNFs(notasFiscais)}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab 1: Guias ISS ── -->
+    <div id="fiscal-tab-1" style="display:none">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">🏦 Guias de ISS Geradas</span>
+          <button class="btn btn-gold btn-sm" onclick="openGerarGuiaISS()">➕ Nova Guia</button>
+        </div>
+        <div class="panel-body" style="padding:0">
+          ${guiasISS.length===0
+            ? `<div style="text-align:center;padding:40px;color:var(--text3)">Nenhuma guia gerada ainda. Clique em <strong>+ Nova Guia</strong> para gerar o ISS do mês.</div>`
+            : `<table class="tbl">
+                <thead><tr><th>Competência</th><th>Valor Serviços</th><th>ISS (${configEmpresa.iss||2}%)</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody>
+                ${guiasISS.map(g=>`
+                  <tr>
+                    <td style="font-family:'DM Mono',monospace;font-size:0.82rem">${MESES_PT[g.mes-1]}/${g.ano}</td>
+                    <td style="font-family:'DM Mono',monospace;color:var(--gold)">R$ ${(g.valorServicos||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                    <td style="font-family:'DM Mono',monospace;color:var(--green);font-weight:600">R$ ${(g.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                    <td style="font-size:0.8rem;color:${g.status!=='Pago'?'var(--orange)':'var(--text3)'}">${g.vencimento}</td>
+                    <td><span class="badge ${g.status==='Pago'?'badge-green':g.status==='Vencido'?'badge-red':'badge-orange'}">${g.status}</span></td>
+                    <td style="display:flex;gap:6px">
+                      <button class="btn btn-sm btn-gold" onclick="imprimirGuia(${g.id})" title="Imprimir">🖨️</button>
+                      ${g.status!=='Pago'?`<button class="btn btn-sm btn-outline" onclick="marcarGuiaPaga(${g.id})" title="Marcar como pago">✅</button>`:''}
+                      <button class="btn btn-sm btn-danger" onclick="excluirGuia(${g.id})">🗑️</button>
+                    </td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>`}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab 2: Obrigações ── -->
+    <div id="fiscal-tab-2" style="display:none">
+      ${renderObrigacoesFiscais()}
+    </div>
+  `;
+}
+
+function switchFiscalTab(idx) {
+  [0,1,2].forEach(i => {
+    const tab = document.getElementById(`fiscal-tab-${i}`);
+    const btn = document.getElementById(`ftab-${i}`);
+    if (tab) tab.style.display = i===idx ? '' : 'none';
+    if (btn) {
+      btn.style.background = i===idx ? 'var(--navy3)' : 'transparent';
+      btn.style.color      = i===idx ? 'var(--gold)' : 'var(--text3)';
+    }
+  });
+}
+
+function tabelaNFs(lista) {
+  const stColor = { 'Emitida':'badge-green', 'Pendente':'badge-orange', 'Cancelada':'badge-red', 'Substituída':'badge-gray' };
+  if (!lista.length) return `<div style="text-align:center;padding:40px;color:var(--text3)">Nenhuma nota fiscal registrada. Clique em <strong style="color:var(--gold)">+ Emitir Nota Fiscal</strong> para começar.</div>`;
+  return `<table class="tbl">
+    <thead><tr><th>Nº NF</th><th>Tomador</th><th>Descrição do Serviço</th><th>Emissão</th><th>Valor</th><th>ISS</th><th>Status</th><th>Ações</th></tr></thead>
+    <tbody>
+      ${[...lista].reverse().map(n=>`
+        <tr>
+          <td style="font-family:'DM Mono',monospace;font-size:0.82rem;color:var(--gold);font-weight:600">${String(n.numero).padStart(6,'0')}</td>
+          <td>
+            <div style="font-size:0.82rem;font-weight:500;color:var(--text)">${n.clienteNome?.split(' ').slice(0,3).join(' ')||'—'}</div>
+            <div style="font-size:0.7rem;color:var(--text3)">${n.clienteCpf||''}</div>
+          </td>
+          <td style="font-size:0.78rem;max-width:220px;color:var(--text2)">${n.servico||'—'}</td>
+          <td style="font-family:'DM Mono',monospace;font-size:0.78rem">${n.emissao||'—'}</td>
+          <td style="font-family:'DM Mono',monospace;color:var(--green);font-weight:600">R$ ${(n.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+          <td style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--text3)">R$ ${(n.iss||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+          <td><span class="badge ${stColor[n.status]||'badge-gray'}">${n.status}</span></td>
+          <td style="display:flex;gap:5px">
+            <button class="btn btn-sm btn-gold" onclick="visualizarNF(${n.id})" title="Visualizar/Imprimir">👁</button>
+            ${n.status==='Pendente'?`<button class="btn btn-sm btn-outline" onclick="emitirNF(${n.id})" title="Emitir">✅</button>`:''}
+            ${n.status!=='Cancelada'&&n.status!=='Emitida'?`<button class="btn btn-sm btn-danger" onclick="cancelarNF(${n.id})">✕</button>`:''}
+          </td>
+        </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+function filtrarNFs() {
+  const st = document.getElementById('nf-filtro-status')?.value||'';
+  const lista = st ? notasFiscais.filter(n=>n.status===st) : notasFiscais;
+  const el = document.getElementById('tabela-nfs');
+  if (el) el.innerHTML = tabelaNFs(lista);
+}
+
+// ── MODAL: Nova Nota Fiscal ───────────────────────────────────────
+function openNovaNotaFiscal(clientePreId) {
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const venc = new Date(Date.now()+30*864e5).toLocaleDateString('pt-BR');
+  openModal(`
+    <div class="modal-title">🧾 Emitir Nota Fiscal de Serviço</div>
+    <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.78rem;color:var(--text3)">
+      Prestador: <strong style="color:var(--text)">${configEmpresa.razao}</strong> · CNPJ: <strong style="color:var(--gold)">${configEmpresa.cnpj}</strong>
+    </div>
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Tomador de Serviço (Cliente) <span style="color:var(--red)">*</span></label>
+        <select id="nf_cliente" onchange="preencherDadosTomador()">
+          <option value="">— Selecione o cliente —</option>
+          ${clientes.map(c=>`<option value="${c.id}" ${c.id===clientePreId?'selected':''}>${c.nome}</option>`).join('')}
+          <option value="externo">Tomador externo (preencher manualmente)</option>
+        </select>
+      </div>
+      <div class="form-field form-full" id="nf_externo_area" style="display:none">
+        <label>Nome / Razão Social do Tomador <span style="color:var(--red)">*</span></label>
+        <input id="nf_ext_nome" placeholder="Nome completo ou razão social">
+      </div>
+      <div class="form-field" id="nf_cpf_area">
+        <label>CPF / CNPJ do Tomador</label>
+        <input id="nf_tomador_cpf" placeholder="Preenchido automaticamente">
+      </div>
+      <div class="form-field">
+        <label>Competência (mês/ano)</label>
+        <input id="nf_competencia" placeholder="MM/AAAA" data-mask="mesano" value="${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getFullYear()}">
+      </div>
+      <div class="form-field form-full">
+        <label>Descrição do Serviço <span style="color:var(--red)">*</span></label>
+        <select id="nf_servico_select" onchange="selecionarServicoNF(this.value)">
+          <option value="">— Selecione ou personalize —</option>
+          ${SERVICOS_NF.map(s=>`<option value="${s.desc}">${s.desc}</option>`).join('')}
+          <option value="__custom__">Outro (digitar manualmente)</option>
+        </select>
+        <textarea id="nf_servico" placeholder="Descrição detalhada do serviço prestado..." style="margin-top:8px;min-height:70px"></textarea>
+      </div>
+      <div class="form-field">
+        <label>Valor do Serviço (R$) <span style="color:var(--red)">*</span></label>
+        <input id="nf_valor" type="number" min="0" step="0.01" placeholder="0,00" oninput="calcularISSNF()">
+      </div>
+      <div class="form-field">
+        <label>Alíquota ISS (%)</label>
+        <input id="nf_aliquota" type="number" value="${configEmpresa.iss||2}" min="0" max="5" step="0.5" oninput="calcularISSNF()">
+      </div>
+      <div class="form-field">
+        <label>ISS Calculado</label>
+        <input id="nf_iss_valor" readonly placeholder="Auto" style="background:var(--navy);color:var(--green);font-weight:600">
+      </div>
+      <div class="form-field">
+        <label>Data de Emissão</label>
+        <input id="nf_emissao" value="${hoje}" data-mask="data">
+      </div>
+      <div class="form-field">
+        <label>Observações</label>
+        <input id="nf_obs" placeholder="Opcional...">
+      </div>
+    </div>
+    <div id="nf_erro" style="color:var(--red);font-size:0.8rem;margin-top:8px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="salvarNF('Pendente')">💾 Salvar como Rascunho</button>
+      <button class="btn btn-outline" style="background:var(--green);color:#fff;border-color:var(--green)" onclick="salvarNF('Emitida')">✅ Emitir Nota</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+  if (clientePreId) setTimeout(preencherDadosTomador, 100);
+}
+
+function preencherDadosTomador() {
+  const sel  = document.getElementById('nf_cliente')?.value;
+  const ext  = document.getElementById('nf_externo_area');
+  const cpfI = document.getElementById('nf_tomador_cpf');
+  if (sel === 'externo') {
+    if (ext) ext.style.display = '';
+    if (cpfI) cpfI.value = '';
+    return;
+  }
+  if (ext) ext.style.display = 'none';
+  const c = clientes.find(x=>x.id===parseInt(sel));
+  if (c && cpfI) cpfI.value = c.cpf||'';
+  // Auto-preenche valor se disponível
+  const valI = document.getElementById('nf_valor');
+  if (c && valI && !valI.value) { valI.value = c.valor||''; calcularISSNF(); }
+  // Auto-preenche serviço
+  const svcT = document.getElementById('nf_servico');
+  if (c && svcT && !svcT.value) svcT.value = `Assessoria e consultoria em processos migratórios — ${c.servico}`;
+}
+
+function selecionarServicoNF(v) {
+  const t = document.getElementById('nf_servico');
+  if (!t) return;
+  if (v && v !== '__custom__') t.value = v;
+}
+
+function calcularISSNF() {
+  const val  = parseFloat(document.getElementById('nf_valor')?.value||0);
+  const ali  = parseFloat(document.getElementById('nf_aliquota')?.value||2);
+  const out  = document.getElementById('nf_iss_valor');
+  if (out) out.value = 'R$ ' + (val * ali / 100).toLocaleString('pt-BR',{minimumFractionDigits:2});
+}
+
+function salvarNF(status) {
+  const cId  = document.getElementById('nf_cliente')?.value;
+  const erro = document.getElementById('nf_erro');
+  const servico = document.getElementById('nf_servico')?.value?.trim();
+  const valorS  = parseFloat(document.getElementById('nf_valor')?.value||0);
+  const aliquota= parseFloat(document.getElementById('nf_aliquota')?.value||2);
+
+  let tomadorNome = '', tomadorCpf = '';
+  if (cId === 'externo') {
+    tomadorNome = document.getElementById('nf_ext_nome')?.value?.trim();
+    if (!tomadorNome) { if(erro){erro.textContent='⚠️ Nome do tomador é obrigatório.';erro.style.display='block';} return; }
+  } else if (cId) {
+    const c = clientes.find(x=>x.id===parseInt(cId));
+    tomadorNome = c?.nome||''; tomadorCpf = c?.cpf||'';
+  } else {
+    if(erro){erro.textContent='⚠️ Selecione o tomador de serviço.';erro.style.display='block';} return;
+  }
+  if (!servico) { if(erro){erro.textContent='⚠️ Descrição do serviço é obrigatória.';erro.style.display='block';} return; }
+  if (!valorS || valorS<=0) { if(erro){erro.textContent='⚠️ Valor inválido.';erro.style.display='block';} return; }
+
+  const iss   = Math.round(valorS * aliquota) / 100;
+  const hoje  = new Date().toLocaleDateString('pt-BR');
+  const [cm,ca] = (document.getElementById('nf_competencia')?.value||hoje).split('/');
+
+  notasFiscais.push({
+    id           : _nfId,
+    numero       : _nfId,
+    clienteId    : parseInt(cId)||null,
+    clienteNome  : tomadorNome,
+    clienteCpf   : document.getElementById('nf_tomador_cpf')?.value || tomadorCpf,
+    servico,
+    valor        : valorS,
+    aliquota,
+    iss          : parseFloat(iss.toFixed(2)),
+    status,
+    emissao      : document.getElementById('nf_emissao')?.value || hoje,
+    competencia  : `${cm?.padStart(2,'0')||'01'}/${ca||new Date().getFullYear()}`,
+    obs          : document.getElementById('nf_obs')?.value?.trim()||'',
+  });
+  _nfId++;
+  saveData();
+  closeModal();
+  navigateTo('fiscal');
+  showToast(status==='Emitida' ? '✅ Nota Fiscal emitida com sucesso!' : '💾 Nota salva como rascunho.');
+}
+
+function emitirNF(id) {
+  const n = notasFiscais.find(x=>x.id===id);
+  if (!n) return;
+  if (!confirm(`Emitir a NF-e nº ${String(n.numero).padStart(6,'0')} para ${n.clienteNome}?`)) return;
+  n.status = 'Emitida';
+  saveData();
+  navigateTo('fiscal');
+  showToast('✅ Nota Fiscal emitida!');
+}
+
+function cancelarNF(id) {
+  const n = notasFiscais.find(x=>x.id===id);
+  if (!n) return;
+  if (!confirm(`Cancelar a NF-e nº ${String(n.numero).padStart(6,'0')}?`)) return;
+  n.status = 'Cancelada';
+  saveData();
+  navigateTo('fiscal');
+  showToast('❌ Nota Fiscal cancelada.','info');
+}
+
+// ── VISUALIZAR / IMPRIMIR NF ──────────────────────────────────────
+function visualizarNF(id) {
+  const n = notasFiscais.find(x=>x.id===id);
+  if (!n) return;
+  const html = gerarHTMLNF(n);
+  openModal(`
+    <div class="modal-title">🧾 NF-e Nº ${String(n.numero).padStart(6,'0')}</div>
+    <div style="background:#fff;border-radius:10px;padding:4px;max-height:65vh;overflow-y:auto">
+      <iframe id="nf-preview" style="width:100%;height:480px;border:none;border-radius:8px"></iframe>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="imprimirNF(${n.id})">🖨️ Imprimir / Salvar PDF</button>
+      <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+    </div>
+  `);
+  setTimeout(()=>{
+    const iframe = document.getElementById('nf-preview');
+    if (!iframe) return;
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+  },100);
+}
+
+function imprimirNF(id) {
+  const n = notasFiscais.find(x=>x.id===id);
+  if (!n) return;
+  const win = window.open('','_blank');
+  win.document.write(gerarHTMLNF(n));
+  win.document.close();
+  setTimeout(()=>win.print(),500);
+}
+
+function gerarHTMLNF(n) {
+  const num = String(n.numero).padStart(6,'0');
+  const stCorBg = n.status==='Emitida'?'#d1fae5':n.status==='Cancelada'?'#fee2e2':'#fef3c7';
+  const stCor   = n.status==='Emitida'?'#065f46':n.status==='Cancelada'?'#991b1b':'#92400e';
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+  <title>NFS-e Nº ${num} — WB Assessoria Migratória</title>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:Arial,sans-serif; font-size:11px; color:#1a1a1a; background:#f5f5f5; }
+    .page { background:#fff; max-width:800px; margin:20px auto; padding:40px; box-shadow:0 2px 16px rgba(0,0,0,0.12); }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #1a1a2e; padding-bottom:18px; margin-bottom:18px; }
+    .logo-area h1 { font-size:22px; font-weight:900; color:#1a1a2e; letter-spacing:1px; }
+    .logo-area p  { font-size:10px; color:#666; margin-top:2px; letter-spacing:2px; text-transform:uppercase; }
+    .nf-badge  { background:#1a1a2e; color:#c9a84c; padding:10px 18px; border-radius:8px; text-align:center; }
+    .nf-badge .tipo { font-size:9px; letter-spacing:2px; text-transform:uppercase; }
+    .nf-badge .num  { font-size:20px; font-weight:900; font-family:monospace; }
+    .status-badge { display:inline-block; padding:4px 12px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; background:${stCorBg}; color:${stCor}; margin-top:6px; }
+    .section { margin-bottom:18px; }
+    .section-title { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:#999; font-weight:700; border-bottom:1px solid #eee; padding-bottom:5px; margin-bottom:10px; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .field label { display:block; font-size:9px; color:#999; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px; }
+    .field span  { font-size:12px; font-weight:600; color:#111; }
+    .servico-box { background:#f8f8f8; border:1px solid #eee; border-radius:6px; padding:12px; font-size:12px; line-height:1.6; }
+    .valores-box { background:#1a1a2e; color:#fff; border-radius:10px; padding:18px; }
+    .val-row { display:flex; justify-content:space-between; padding:5px 0; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.1); }
+    .val-row:last-child { border-bottom:none; padding-top:10px; }
+    .val-row.total .label { font-size:13px; font-weight:700; color:#c9a84c; }
+    .val-row.total .valor { font-size:18px; font-weight:900; color:#c9a84c; }
+    .footer { margin-top:24px; padding-top:14px; border-top:2px solid #eee; display:flex; justify-content:space-between; align-items:flex-end; font-size:10px; color:#999; }
+    .assin { text-align:center; border-top:1px solid #ccc; padding-top:6px; width:200px; }
+    @media print { body { background:#fff; } .page { box-shadow:none; margin:0; } }
+  </style>
+  </head><body><div class="page">
+
+    <div class="header">
+      <div class="logo-area">
+        <h1>WB</h1>
+        <p>Assessoria Migratória</p>
+        <div style="margin-top:10px;font-size:10px;color:#555;line-height:1.8">
+          <div><strong>CNPJ:</strong> ${configEmpresa.cnpj}</div>
+          <div><strong>Regime:</strong> ${configEmpresa.regime||'Simples Nacional'}</div>
+          ${configEmpresa.im?`<div><strong>Insc. Municipal:</strong> ${configEmpresa.im}</div>`:''}
+          <div><strong>CNAE:</strong> ${configEmpresa.cnae||'7490-1/04'}</div>
+          <div><strong>Município:</strong> ${configEmpresa.municipio||'São Paulo'}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="nf-badge">
+          <div class="tipo">NFS-e</div>
+          <div class="num">Nº ${num}</div>
+        </div>
+        <div class="status-badge">${n.status}</div>
+        <div style="margin-top:8px;font-size:10px;color:#666">Emissão: <strong>${n.emissao}</strong></div>
+        <div style="font-size:10px;color:#666">Competência: <strong>${n.competencia}</strong></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Tomador de Serviço</div>
+      <div class="grid-2">
+        <div class="field"><label>Nome / Razão Social</label><span>${n.clienteNome||'—'}</span></div>
+        <div class="field"><label>CPF / CNPJ</label><span>${n.clienteCpf||'—'}</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Discriminação dos Serviços</div>
+      <div class="servico-box">${n.servico||'—'}</div>
+      ${n.obs?`<div style="margin-top:8px;font-size:10px;color:#666"><strong>Obs:</strong> ${n.obs}</div>`:''}
+    </div>
+
+    <div class="section">
+      <div class="valores-box">
+        <div class="val-row"><span class="label">Valor dos Serviços</span><span class="valor">R$ ${(n.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span></div>
+        <div class="val-row"><span class="label">Alíquota ISS</span><span class="valor">${n.aliquota||configEmpresa.iss||2}%</span></div>
+        <div class="val-row"><span class="label">ISS Retido</span><span class="valor">R$ ${(n.iss||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span></div>
+        <div class="val-row total"><span class="label">VALOR LÍQUIDO</span><span class="valor">R$ ${((n.valor||0)-(n.iss||0)).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>
+        <div style="margin-bottom:6px"><strong>WB Assessoria Migratória LTDA</strong></div>
+        <div>CNPJ: ${configEmpresa.cnpj}</div>
+        <div>${configEmpresa.email||''}</div>
+        <div style="margin-top:8px;font-size:9px;color:#bbb">Documento gerado pelo sistema interno WB ERP · Não substitui NFS-e emitida pela prefeitura</div>
+      </div>
+      <div class="assin">
+        <div style="height:40px"></div>
+        <div>Renato Caires</div>
+        <div style="font-size:9px;color:#999">Diretor / WB Assessoria Migratória</div>
+      </div>
+    </div>
+
+  </div></body></html>`;
+}
+
+// ── GUIA ISS ─────────────────────────────────────────────────────
+function openGerarGuiaISS() {
+  const hoje = new Date();
+  const mesAtual = hoje.getMonth()+1;
+  const anoAtual = hoje.getFullYear();
+  // Calcula total de serviços do mês atual
+  const nfMes = notasFiscais.filter(n=>{
+    if (n.status==='Cancelada') return false;
+    const [,m,a] = (n.competencia||'').split('/');
+    return parseInt(m)===mesAtual && parseInt(a)===anoAtual;
+  });
+  const totalServicos = nfMes.reduce((a,b)=>a+(b.valor||0),0);
+  const totalISS      = nfMes.reduce((a,b)=>a+(b.iss||0),0);
+  // Vencimento: dia 10 do mês seguinte
+  const vencDt = new Date(anoAtual, mesAtual, 10);
+  const venc   = vencDt.toLocaleDateString('pt-BR');
+
+  openModal(`
+    <div class="modal-title">🏦 Gerar Guia de ISS</div>
+    <div style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px;margin-bottom:16px;font-size:0.82rem">
+      <div style="color:var(--text3);margin-bottom:8px">Cálculo automático baseado nas NFS-e do mês selecionado:</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div><div style="font-size:0.7rem;color:var(--text3)">NF-e emitidas</div><div style="font-weight:700;color:var(--text)">${nfMes.length}</div></div>
+        <div><div style="font-size:0.7rem;color:var(--text3)">Total serviços</div><div style="font-weight:700;color:var(--gold)">R$ ${totalServicos.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+        <div><div style="font-size:0.7rem;color:var(--text3)">ISS ${configEmpresa.iss||2}%</div><div style="font-weight:700;color:var(--green)">R$ ${totalISS.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-field">
+        <label>Mês de Competência</label>
+        <select id="guia_mes">
+          ${MESES_PT.map((m,i)=>`<option value="${i+1}" ${i+1===mesAtual?'selected':''}>${m}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Ano</label>
+        <input id="guia_ano" type="number" value="${anoAtual}">
+      </div>
+      <div class="form-field">
+        <label>Valor dos Serviços (R$)</label>
+        <input id="guia_servicos" type="number" value="${totalServicos.toFixed(2)}" oninput="calcGuia()">
+      </div>
+      <div class="form-field">
+        <label>Alíquota ISS (%)</label>
+        <input id="guia_aliquota" type="number" value="${configEmpresa.iss||2}" oninput="calcGuia()">
+      </div>
+      <div class="form-field">
+        <label>ISS a Recolher</label>
+        <input id="guia_iss" readonly value="${totalISS.toFixed(2)}" style="background:var(--navy);color:var(--green);font-weight:600">
+      </div>
+      <div class="form-field">
+        <label>Vencimento</label>
+        <input id="guia_venc" value="${venc}" data-mask="data">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="salvarGuiaISS()">💾 Gerar Guia</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+function calcGuia() {
+  const s = parseFloat(document.getElementById('guia_servicos')?.value||0);
+  const a = parseFloat(document.getElementById('guia_aliquota')?.value||2);
+  const o = document.getElementById('guia_iss');
+  if (o) o.value = (s*a/100).toFixed(2);
+}
+
+function salvarGuiaISS() {
+  const mes  = parseInt(document.getElementById('guia_mes')?.value);
+  const ano  = parseInt(document.getElementById('guia_ano')?.value);
+  const svc  = parseFloat(document.getElementById('guia_servicos')?.value||0);
+  const ali  = parseFloat(document.getElementById('guia_aliquota')?.value||2);
+  const iss  = parseFloat(document.getElementById('guia_iss')?.value||0);
+  const venc = document.getElementById('guia_venc')?.value;
+
+  guiasISS.push({ id:_guiaId++, mes, ano, valorServicos:svc, aliquota:ali, valor:iss, vencimento:venc, status:'Pendente', emitido:new Date().toLocaleDateString('pt-BR') });
+  saveData();
+  closeModal();
+  navigateTo('fiscal');
+  showToast('🏦 Guia de ISS gerada! Acesse a aba Guias ISS.');
+}
+
+function marcarGuiaPaga(id) {
+  const g = guiasISS.find(x=>x.id===id);
+  if (!g) return;
+  g.status = 'Pago';
+  g.dataPagamento = new Date().toLocaleDateString('pt-BR');
+  saveData();
+  navigateTo('fiscal');
+  showToast('✅ Guia marcada como paga!');
+}
+
+function excluirGuia(id) {
+  if (!confirm('Excluir esta guia?')) return;
+  guiasISS = guiasISS.filter(x=>x.id!==id);
+  saveData();
+  navigateTo('fiscal');
+}
+
+function imprimirGuia(id) {
+  const g = guiasISS.find(x=>x.id===id);
+  if (!g) return;
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Guia ISS ${MESES_PT[g.mes-1]}/${g.ano}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:12px;padding:40px;color:#111;background:#fff}
+    h1{font-size:18px;color:#1a1a2e;margin-bottom:4px} .sub{color:#888;font-size:11px;margin-bottom:24px}
+    table{width:100%;border-collapse:collapse;margin-top:16px}
+    td,th{padding:10px 14px;border:1px solid #ddd;font-size:12px} th{background:#1a1a2e;color:#c9a84c;font-weight:700}
+    .total{font-size:16px;font-weight:900;color:#065f46;background:#d1fae5}
+    .footer{margin-top:40px;border-top:1px solid #ccc;padding-top:16px;font-size:10px;color:#999}
+    @media print{body{padding:20px}}
+  </style></head><body>
+  <h1>WB Assessoria Migratória</h1>
+  <div class="sub">CNPJ: ${configEmpresa.cnpj} · ${configEmpresa.regime||'Simples Nacional'}</div>
+  <h2 style="font-size:14px;color:#333">GUIA DE RECOLHIMENTO DE ISS</h2>
+  <table>
+    <tr><th>Campo</th><th>Valor</th></tr>
+    <tr><td>Competência</td><td><strong>${MESES_PT[g.mes-1]}/${g.ano}</strong></td></tr>
+    <tr><td>Município</td><td>${configEmpresa.municipio||'São Paulo'}</td></tr>
+    <tr><td>CNPJ do Prestador</td><td>${configEmpresa.cnpj}</td></tr>
+    ${configEmpresa.im?`<tr><td>Inscrição Municipal</td><td>${configEmpresa.im}</td></tr>`:''}
+    <tr><td>Total de Serviços Prestados</td><td>R$ ${(g.valorServicos||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td></tr>
+    <tr><td>Alíquota ISS</td><td>${g.aliquota||2}%</td></tr>
+    <tr><td>Vencimento</td><td style="color:#b45309;font-weight:600">${g.vencimento}</td></tr>
+    <tr class="total"><td><strong>ISS A RECOLHER</strong></td><td><strong>R$ ${(g.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong></td></tr>
+  </table>
+  <div class="footer">
+    <p>⚠️ Este documento é um controle interno. O pagamento oficial do ISS deve ser realizado através do portal da Prefeitura do Município de ${configEmpresa.municipio||'São Paulo'}.</p>
+    <p>Gerado em ${new Date().toLocaleDateString('pt-BR','pt-BR')} · WB ERP</p>
+  </div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(),400);
+}
+
+// ── OBRIGAÇÕES FISCAIS ────────────────────────────────────────────
+function renderObrigacoesFiscais() {
+  const hoje = new Date();
+  const mes  = hoje.getMonth()+1;
+  const ano  = hoje.getFullYear();
+  const nfMes = notasFiscais.filter(n=>{
+    if(n.status==='Cancelada') return false;
+    const [,m,a] = (n.competencia||'').split('/');
+    return parseInt(m)===mes && parseInt(a)===ano;
+  });
+  const totalServicos = nfMes.reduce((a,b)=>a+(b.valor||0),0);
+  const totalISS = nfMes.reduce((a,b)=>a+(b.iss||0),0);
+  const guiaMes = guiasISS.find(g=>g.mes===mes&&g.ano===ano);
+
+  const obrigacoes = [
+    {
+      nome      : 'ISS — Imposto Sobre Serviços',
+      orgao     : `Prefeitura de ${configEmpresa.municipio||'São Paulo'}`,
+      vencimento: `10/${String(mes===12?1:mes+1).padStart(2,'0')}/${mes===12?ano+1:ano}`,
+      valor     : totalISS,
+      base      : totalServicos,
+      aliquota  : `${configEmpresa.iss||2}%`,
+      status    : guiaMes?.status||'Pendente',
+      portal    : 'https://nfe.prefeitura.sp.gov.br',
+      obs       : 'Recolher mensalmente via portal NFS-e da prefeitura',
+    },
+    {
+      nome      : 'DAS — Simples Nacional',
+      orgao     : 'Receita Federal',
+      vencimento: `20/${String(mes===12?1:mes+1).padStart(2,'0')}/${mes===12?ano+1:ano}`,
+      valor     : null,
+      base      : null,
+      aliquota  : 'Tabela Simples',
+      status    : 'Verificar contabilidade',
+      portal    : 'https://www8.receita.fazenda.gov.br/SimplesNacional/',
+      obs       : 'Emitido pelo PGDAS-D (Simples Nacional). Consulte seu contador.',
+    },
+    {
+      nome      : 'DIRF / EFD-Reinf',
+      orgao     : 'Receita Federal',
+      vencimento: 'Anual (Fev)',
+      valor     : null,
+      base      : null,
+      aliquota  : '—',
+      status    : 'Anual',
+      portal    : 'https://www.gov.br/receitafederal',
+      obs       : 'Declaração de Imposto de Renda Retido na Fonte (quando aplicável)',
+    },
+    {
+      nome      : 'DEFIS — Declaração Anual Simples',
+      orgao     : 'Receita Federal',
+      vencimento: '31/03 (anual)',
+      valor     : null,
+      base      : null,
+      aliquota  : '—',
+      status    : 'Anual',
+      portal    : 'https://www8.receita.fazenda.gov.br/SimplesNacional/',
+      obs       : 'Declaração anual obrigatória para empresas do Simples Nacional',
+    },
+  ];
+
+  return `
+    <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:14px;margin-bottom:20px;font-size:0.8rem;color:var(--text3)">
+      ⚠️ Este painel é um <strong style="color:var(--text)">controle interno auxiliar</strong>. O recolhimento oficial deve sempre ser feito diretamente nos portais governamentais abaixo. Consulte sempre seu contador para valores definitivos.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      ${obrigacoes.map(o=>`
+        <div style="background:var(--navy2);border:1px solid var(--border2);border-radius:12px;padding:18px;border-left:4px solid ${o.status==='Pago'?'var(--green)':o.status==='Pendente'?'var(--orange)':'var(--text3)'}">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div style="flex:1">
+              <div style="font-size:0.9rem;font-weight:700;color:var(--text)">${o.nome}</div>
+              <div style="font-size:0.75rem;color:var(--text3);margin-top:2px">${o.orgao}</div>
+              <div style="font-size:0.78rem;color:var(--text2);margin-top:8px;line-height:1.5">${o.obs}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:0.7rem;color:var(--text3)">Vencimento</div>
+              <div style="font-weight:600;color:var(--orange);font-size:0.85rem">${o.vencimento}</div>
+              ${o.valor!==null?`<div style="font-size:0.7rem;color:var(--text3);margin-top:6px">ISS do mês</div><div style="font-size:1.1rem;font-weight:800;color:var(--green)">R$ ${o.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>`:''}
+              ${o.aliquota!=='—'?`<div style="font-size:0.7rem;color:var(--text3);margin-top:4px">${o.base!==null?`Base: R$ ${o.base.toLocaleString('pt-BR',{minimumFractionDigits:2})} · `:''}${o.aliquota}</div>`:''}
+              <span class="badge ${o.status==='Pago'?'badge-green':o.status==='Pendente'?'badge-orange':'badge-gray'}" style="margin-top:8px;display:inline-block">${o.status}</span>
+            </div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <a href="${o.portal}" target="_blank" class="btn btn-outline btn-sm">🌐 Acessar Portal</a>
+            ${o.nome.includes('ISS')?`<button class="btn btn-gold btn-sm" onclick="openGerarGuiaISS()">🏦 Gerar Guia ISS</button>`:''}
+          </div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+function abrirRelatorioFiscal() {
+  const hoje = new Date();
+  // Agrupar NFs por mês
+  const porMes = {};
+  notasFiscais.filter(n=>n.status!=='Cancelada').forEach(n=>{
+    const [,m,a] = (n.competencia||n.emissao||'').split('/');
+    if (!m||!a) return;
+    const k = `${a}-${m.padStart(2,'0')}`;
+    if (!porMes[k]) porMes[k] = { mes:`${MESES_PT[parseInt(m)-1]}/${a}`, nfs:0, servicos:0, iss:0 };
+    porMes[k].nfs++;
+    porMes[k].servicos += n.valor||0;
+    porMes[k].iss      += n.iss||0;
+  });
+  const rows = Object.entries(porMes).sort((a,b)=>a[0]>b[0]?1:-1);
+
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Relatório Fiscal — WB Assessoria Migratória</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:12px;padding:40px;background:#fff;color:#111}
+    h1{font-size:20px;color:#1a1a2e;margin-bottom:4px} .sub{color:#888;margin-bottom:24px}
+    table{width:100%;border-collapse:collapse;margin-top:16px}
+    th{background:#1a1a2e;color:#c9a84c;padding:10px 14px;text-align:left}
+    td{padding:9px 14px;border-bottom:1px solid #eee}
+    tr:hover td{background:#f9f9f9}
+    .total td{background:#1a1a2e;color:#c9a84c;font-weight:700}
+    .footer{margin-top:30px;font-size:10px;color:#bbb;border-top:1px solid #eee;padding-top:12px}
+    @media print{body{padding:20px}}
+  </style></head><body>
+  <h1>WB Assessoria Migratória — Relatório Fiscal</h1>
+  <div class="sub">CNPJ: ${configEmpresa.cnpj} · Gerado em ${hoje.toLocaleDateString('pt-BR')}</div>
+  <table>
+    <thead><tr><th>Competência</th><th>NF-e Emitidas</th><th>Total Serviços</th><th>ISS (${configEmpresa.iss||2}%)</th><th>Líquido</th></tr></thead>
+    <tbody>
+    ${rows.map(([,v])=>`<tr>
+      <td><strong>${v.mes}</strong></td>
+      <td>${v.nfs}</td>
+      <td>R$ ${v.servicos.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="color:#b45309">R$ ${v.iss.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="color:#065f46;font-weight:600">R$ ${(v.servicos-v.iss).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    </tr>`).join('')}
+    ${rows.length?`<tr class="total">
+      <td>TOTAL GERAL</td>
+      <td>${rows.reduce((a,[,v])=>a+v.nfs,0)}</td>
+      <td>R$ ${rows.reduce((a,[,v])=>a+v.servicos,0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td>R$ ${rows.reduce((a,[,v])=>a+v.iss,0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td>R$ ${rows.reduce((a,[,v])=>a+v.servicos-v.iss,0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    </tr>`:'<tr><td colspan="5" style="text-align:center;color:#bbb">Nenhuma nota fiscal registrada.</td></tr>'}
+    </tbody>
+  </table>
+  <div class="footer">Relatório gerado pelo sistema interno WB ERP · Não substitui obrigações acessórias oficiais</div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(),400);
+}
+function calcularScore(c) {
+  let score = 100;
+  // Docs pendentes
+  score -= (c.docsPendentes?.length || 0) * 8;
+  // Status
+  if (c.status === 'Pendente Documentação') score -= 20;
+  if (c.status === 'Cancelado')             score -= 50;
+  if (c.status === 'Concluído')             score = 100;
+  // Pagamento
+  if (!c.pago) score -= 15;
+  // Progresso baixo
+  const pct = c.etapa / (c.totalEtapas || 1);
+  if (pct < 0.25) score -= 10;
+  // Arquivos carregados
+  const nArq = (c.arquivos||[]).length;
+  if (nArq === 0) score -= 10;
+  return Math.max(0, Math.min(100, score));
+}
+
+function renderRadar() {
+  const sorted = [...clientes].sort((a,b) => calcularScore(a) - calcularScore(b));
+  const criticos  = sorted.filter(c => calcularScore(c) < 40 && c.status !== 'Concluído');
+  const atencao   = sorted.filter(c => { const s = calcularScore(c); return s >= 40 && s < 70 && c.status !== 'Concluído'; });
+  const saudaveis = sorted.filter(c => calcularScore(c) >= 70 || c.status === 'Concluído');
+
+  function card(c) {
+    const score = calcularScore(c);
+    const cor   = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--orange)' : 'var(--red)';
+    const pct   = Math.round(c.etapa / (c.totalEtapas||1) * 100);
+    const alertas = [];
+    if (!c.pago)                           alertas.push('💸 Pagamento pendente');
+    if ((c.docsPendentes?.length||0) > 0)  alertas.push(`📄 ${c.docsPendentes.length} doc(s) pendente(s)`);
+    if (c.status === 'Pendente Documentação') alertas.push('⚠️ Aguardando documentação');
+    if (!(c.arquivos?.length))             alertas.push('📁 Sem arquivos no dossiê');
+
+    return `
+      <div style="background:var(--navy2);border:1px solid var(--border2);border-left:4px solid ${cor};border-radius:12px;padding:16px;transition:transform 0.1s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div>
+            <div style="font-weight:600;font-size:0.88rem;color:var(--text)">${c.nome.split(' ').slice(0,3).join(' ')}</div>
+            <div style="font-size:0.72rem;color:var(--text3);margin-top:2px">${c.servico}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:1.4rem;font-weight:800;color:${cor}">${score}</div>
+            <div style="font-size:0.65rem;color:var(--text3);letter-spacing:1px">SCORE</div>
+          </div>
+        </div>
+        <div style="background:var(--navy3);border-radius:4px;height:6px;margin-bottom:10px">
+          <div style="height:6px;border-radius:4px;background:${cor};width:${pct}%;transition:width 0.4s"></div>
+        </div>
+        ${alertas.length ? `<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">${alertas.map(a=>`<div style="font-size:0.72rem;color:var(--orange)">${a}</div>`).join('')}</div>` : ''}
+        <button class="btn btn-outline btn-sm" onclick="openClienteModal(${c.id})" style="width:100%">Ver Processo</button>
+      </div>`;
+  }
+
+  return `
+    <div style="background:linear-gradient(135deg,rgba(239,68,68,0.08),rgba(201,168,76,0.05));border:1px solid rgba(239,68,68,0.2);border-radius:16px;padding:20px;margin-bottom:24px">
+      <div style="font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:6px">🎯 Radar de Processos</div>
+      <div style="font-size:0.82rem;color:var(--text3)">Algoritmo exclusivo WB que analisa automaticamente a saúde de cada processo — pagamento, documentação, progresso e arquivos — e emite um <strong style="color:var(--gold)">Score de 0 a 100</strong>. Processos críticos ficam em destaque para priorização imediata.</div>
+    </div>
+
+    <div class="stat-grid" style="margin-bottom:24px">
+      <div class="stat-card" style="border-left:4px solid var(--red)">
+        <div class="stat-label">🔴 Críticos</div>
+        <div class="stat-value" style="color:var(--red)">${criticos.length}</div>
+        <div class="stat-sub">Score abaixo de 40</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid var(--orange)">
+        <div class="stat-label">🟡 Atenção</div>
+        <div class="stat-value" style="color:var(--orange)">${atencao.length}</div>
+        <div class="stat-sub">Score 40–69</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid var(--green)">
+        <div class="stat-label">🟢 Saudáveis</div>
+        <div class="stat-value" style="color:var(--green)">${saudaveis.length}</div>
+        <div class="stat-sub">Score 70+</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-label">📊 Média Geral</div>
+        <div class="stat-value">${clientes.length ? Math.round(clientes.reduce((a,c)=>a+calcularScore(c),0)/clientes.length) : '—'}</div>
+        <div class="stat-sub">Score médio carteira</div>
+      </div>
+    </div>
+
+    ${criticos.length ? `
+      <div class="panel" style="margin-bottom:20px;border-color:rgba(239,68,68,0.3)">
+        <div class="panel-header" style="background:rgba(239,68,68,0.07)">
+          <span class="panel-title" style="color:var(--red)">🔴 Processos Críticos — Ação Imediata</span>
+        </div>
+        <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+          ${criticos.map(card).join('')}
+        </div>
+      </div>` : ''}
+
+    ${atencao.length ? `
+      <div class="panel" style="margin-bottom:20px">
+        <div class="panel-header"><span class="panel-title" style="color:var(--orange)">🟡 Requer Atenção</span></div>
+        <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+          ${atencao.map(card).join('')}
+        </div>
+      </div>` : ''}
+
+    ${saudaveis.length ? `
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title" style="color:var(--green)">🟢 Processos Saudáveis</span></div>
+        <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+          ${saudaveis.map(card).join('')}
+        </div>
+      </div>` : ''}
+
+    ${!clientes.length ? `<div style="text-align:center;padding:80px;color:var(--text3)"><div style="font-size:3rem">🎯</div><div style="margin-top:12px">Nenhum cliente cadastrado.</div></div>` : ''}
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 📅 LINHA DO TEMPO — Histórico visual do processo de cada cliente
+// ══════════════════════════════════════════════════════════════════
+function renderLinhaDoTempo() {
+  const ETAPAS_SERVICO = {
+    'Naturalização Brasileira':   ['🔍 Análise de Elegibilidade','📋 Coleta de Documentos','🌐 Tradução Juramentada','📤 Protocolo no MJSP','⚖️ Análise Federal','📰 Publicação no DOU','🎉 Naturalização Concluída'],
+    'Autorização de Residência (RNM)':['🔍 Análise Migratória','📋 Coleta de Documentos','💻 Protocolo MigranteWeb','📅 Agendamento PF','🪪 Atendimento na PF','✅ Emissão do CRNM'],
+    'Visto de Turismo (EUA)':    ['🔍 Avaliação de Perfil','📝 Preenchimento DS-160','💳 Pagamento MRV','📅 Agendamento Consular','🎤 Entrevista Consular','✈️ Visto Aprovado'],
+  };
+
+  const clienteId = window._tlClienteId || (clientes[0]?.id);
+  const c = clientes.find(x=>x.id===clienteId) || clientes[0];
+
+  const key = Object.keys(ETAPAS_SERVICO).find(k=>c?.servico?.includes(k.split(' ')[0]));
+  const etapas = key ? ETAPAS_SERVICO[key] : ['Etapa 1','Etapa 2','Etapa 3','Etapa 4'];
+
+  return `
+    <div style="background:linear-gradient(135deg,rgba(96,165,250,0.08),rgba(201,168,76,0.05));border:1px solid rgba(96,165,250,0.2);border-radius:16px;padding:20px;margin-bottom:24px">
+      <div style="font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:6px">📅 Linha do Tempo do Processo</div>
+      <div style="font-size:0.82rem;color:var(--text3)">Visualização cronológica do progresso de cada cliente — etapas concluídas, em andamento e pendentes, com histórico de datas e eventos registrados.</div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap">
+      <select id="tl_cliente" style="background:var(--navy2);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;color:var(--text);font-size:0.85rem;flex:1" onchange="window._tlClienteId=parseInt(this.value);navigateTo('linha-do-tempo')">
+        ${clientes.map(cli=>`<option value="${cli.id}" ${cli.id===clienteId?'selected':''}>${cli.nome}</option>`).join('')}
+      </select>
+    </div>
+
+    ${!c ? `<div style="text-align:center;padding:60px;color:var(--text3)">Nenhum cliente cadastrado.</div>` : `
+    <!-- Cabeçalho do cliente -->
+    <div class="panel" style="margin-bottom:24px">
+      <div class="panel-body">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div class="user-avatar" style="width:52px;height:52px;font-size:1rem">${c.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}</div>
+          <div style="flex:1">
+            <div style="font-size:1.1rem;font-weight:700;color:var(--text)">${c.nome}</div>
+            <div style="font-size:0.8rem;color:var(--text3);margin-top:2px">${c.servico} · Responsável: ${c.responsavel}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              ${statusBadge(c.status)}
+              <span class="badge badge-gray">Etapa ${c.etapa}/${c.totalEtapas}</span>
+              ${c.pago?'<span class="badge badge-green">✓ Pago</span>':'<span class="badge badge-red">Pagamento Pendente</span>'}
+              <span class="badge badge-gray" style="color:var(--gold)">Score ${calcularScore(c)}</span>
+            </div>
+          </div>
+          <div style="text-align:right;font-size:0.8rem;color:var(--text3)">
+            Cadastrado em<br><strong style="color:var(--text)">${c.dataCadastro}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline vertical -->
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">🕐 Etapas do Processo</span></div>
+      <div class="panel-body">
+        <div style="position:relative;padding-left:40px">
+          <!-- linha vertical -->
+          <div style="position:absolute;left:18px;top:0;bottom:0;width:2px;background:var(--border2)"></div>
+
+          ${etapas.map((etapa, idx)=>{
+            const concluida = idx < c.etapa;
+            const atual     = idx === c.etapa - 1;
+            const futura    = idx >= c.etapa;
+            const cor       = concluida ? 'var(--green)' : atual ? 'var(--gold)' : 'var(--border)';
+            const bgDot     = concluida ? '#10b981' : atual ? '#c9a84c' : 'var(--navy3)';
+            const evento    = (c.timeline||[])[idx];
+
+            return `
+              <div style="position:relative;margin-bottom:28px;padding-bottom:4px">
+                <!-- Dot -->
+                <div style="position:absolute;left:-31px;top:4px;width:20px;height:20px;border-radius:50%;background:${bgDot};border:3px solid ${cor};display:flex;align-items:center;justify-content:center;font-size:0.55rem;color:#fff;font-weight:800;z-index:2">
+                  ${concluida?'✓':atual?'▶':idx+1}
+                </div>
+
+                <div style="background:${atual?'rgba(201,168,76,0.07)':concluida?'rgba(16,185,129,0.04)':'var(--navy4)'};border:1px solid ${cor};border-radius:10px;padding:14px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                    <div>
+                      <span style="font-size:0.83rem;font-weight:${atual?'700':'500'};color:${concluida?'var(--text)':atual?'var(--gold)':'var(--text3)'}">${etapa}</span>
+                      ${atual?'<span class="badge badge-blue" style="margin-left:8px;font-size:0.65rem">Em andamento</span>':''}
+                      ${concluida?'<span class="badge badge-green" style="margin-left:8px;font-size:0.65rem">Concluído</span>':''}
+                    </div>
+                    ${concluida && !futura ? `<div style="font-size:0.72rem;color:var(--text3)">${evento?.data||c.dataCadastro||''}</div>` : ''}
+                  </div>
+                  ${evento?.obs ? `<div style="font-size:0.77rem;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border2)">${evento.obs}</div>` : ''}
+                  ${atual ? `
+                    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+                      <button class="btn btn-gold btn-sm" onclick="registrarEvento(${c.id},${idx})">+ Registrar nota</button>
+                      <button class="btn btn-outline btn-sm" onclick="atualizarEtapa(${c.id})">Avançar para próxima etapa ▶</button>
+                    </div>` : ''}
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+    `}
+  `;
+}
+
+function registrarEvento(clienteId, etapaIdx) {
+  openModal(`
+    <div class="modal-title">📝 Registrar Nota na Etapa</div>
+    <div class="form-field">
+      <label>Observação / Evento</label>
+      <textarea id="evt_obs" placeholder="Ex: Documentos recebidos, protocolo feito em 10/03, aguardando retorno do MJSP..." style="min-height:120px"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="salvarEvento(${clienteId},${etapaIdx})">💾 Salvar</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+function salvarEvento(clienteId, etapaIdx) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  if (!c.timeline) c.timeline = [];
+  const obs = document.getElementById('evt_obs').value.trim();
+  if (!obs) return;
+  c.timeline[etapaIdx] = { data: new Date().toLocaleDateString('pt-BR'), obs };
+  saveData();
+  closeModal();
+  navigateTo('linha-do-tempo');
+  showToast('✅ Nota registrada na linha do tempo!');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ✏️ EDITOR DE DOCUMENTOS — Editor completo com formatação
+// ══════════════════════════════════════════════════════════════════
+let _docsSalvos = []; // { id, nome, html, texto, data, clienteId }
+let _docId = 1;
+
+function renderEditor() {
+  // Carrega documentos salvos do localStorage junto com o restante dos dados
+  const texto = window._editorTexto || '';
+  window._editorTexto = null;
+
+  return `
+    <div style="display:flex;gap:16px;align-items:stretch;min-height:calc(100vh - 140px)">
+
+      <!-- ─── PAINEL ESQUERDO: lista de docs salvos ─── -->
+      <div style="width:240px;flex-shrink:0;display:flex;flex-direction:column;gap:12px">
+        <button class="btn btn-gold" onclick="novoDocumento()" style="width:100%">➕ Novo Documento</button>
+
+        <div class="panel" style="flex:1">
+          <div class="panel-header"><span class="panel-title" style="font-size:0.8rem">📂 Documentos Salvos</span></div>
+          <div id="docs-lista" style="max-height:calc(100vh - 280px);overflow-y:auto">
+            ${renderDocsList()}
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── EDITOR PRINCIPAL ─── -->
+      <div style="flex:1;display:flex;flex-direction:column;gap:0">
+
+        <!-- Barra de título e ações -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+          <input id="doc-titulo" placeholder="Nome do documento..." value=""
+            style="flex:1;background:var(--navy2);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;color:var(--text);font-size:0.9rem;font-weight:600;min-width:180px"
+            onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border2)'">
+          <select id="doc-cliente" style="background:var(--navy2);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;color:var(--text);font-size:0.82rem">
+            <option value="">— Vincular a cliente (opcional) —</option>
+            ${clientes.map(c=>`<option value="${c.id}">${c.nome.split(' ').slice(0,3).join(' ')}</option>`).join('')}
+          </select>
+          <button class="btn btn-gold" onclick="salvarDocumento()">💾 Salvar</button>
+          <button class="btn btn-outline" onclick="imprimirDocumento()">🖨️ Imprimir</button>
+          <button class="btn btn-outline" onclick="copiarDocumento()">📋 Copiar</button>
+        </div>
+
+        <!-- Toolbar de formatação -->
+        <div style="background:var(--navy2);border:1px solid var(--border2);border-radius:10px 10px 0 0;padding:8px 12px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+
+          <!-- Fonte e tamanho -->
+          <select onchange="execCmd('fontName',this.value)" style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;color:var(--text);font-size:0.75rem;margin-right:4px">
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Arial">Arial</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Helvetica">Helvetica</option>
+          </select>
+          <select onchange="execCmd('fontSize',this.value)" style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;color:var(--text);font-size:0.75rem;margin-right:8px">
+            <option value="2">8px</option>
+            <option value="3" selected>10px</option>
+            <option value="4">12px</option>
+            <option value="5">14px</option>
+            <option value="6">18px</option>
+            <option value="7">24px</option>
+          </select>
+
+          ${[
+            ['B','bold','<strong>B</strong>','Negrito'],
+            ['I','italic','<em>I</em>','Itálico'],
+            ['U','underline','<u>U</u>','Sublinhado'],
+          ].map(([,cmd,lbl,title])=>`<button title="${title}" onclick="execCmd('${cmd}')" style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:4px 9px;color:var(--text);cursor:pointer;font-size:0.82rem;min-width:28px">${lbl}</button>`).join('')}
+
+          <div style="width:1px;height:22px;background:var(--border2);margin:0 6px"></div>
+
+          ${[
+            ['justifyLeft','⬅','Alinhar esquerda'],
+            ['justifyCenter','☰','Centralizar'],
+            ['justifyRight','➡','Alinhar direita'],
+            ['justifyFull','≡','Justificar'],
+          ].map(([cmd,lbl,title])=>`<button title="${title}" onclick="execCmd('${cmd}')" style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:4px 9px;color:var(--text);cursor:pointer;font-size:0.82rem">${lbl}</button>`).join('')}
+
+          <div style="width:1px;height:22px;background:var(--border2);margin:0 6px"></div>
+
+          <button title="Lista com marcadores" onclick="execCmd('insertUnorderedList')" style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:4px 9px;color:var(--text);cursor:pointer;font-size:0.82rem">• Lista</button>
+          <button title="Lista numerada" onclick="execCmd('insertOrderedList')" style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:4px 9px;color:var(--text);cursor:pointer;font-size:0.82rem">1. Lista</button>
+
+          <div style="width:1px;height:22px;background:var(--border2);margin:0 6px"></div>
+
+          <!-- Cor do texto -->
+          <label title="Cor do texto" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.75rem;color:var(--text3)">
+            A <input type="color" value="#ffffff" onchange="execCmd('foreColor',this.value)" style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0">
+          </label>
+          <!-- Destaque -->
+          <label title="Destaque" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.75rem;color:var(--text3)">
+            🖊 <input type="color" value="#c9a84c" onchange="execCmd('hiliteColor',this.value)" style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0">
+          </label>
+
+          <div style="width:1px;height:22px;background:var(--border2);margin:0 6px"></div>
+
+          <button title="Desfazer" onclick="execCmd('undo')" style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:4px 9px;color:var(--text);cursor:pointer;font-size:0.82rem">↩</button>
+          <button title="Refazer" onclick="execCmd('redo')" style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:4px 9px;color:var(--text);cursor:pointer;font-size:0.82rem">↪</button>
+
+          <div style="margin-left:auto;display:flex;gap:6px">
+            <button title="Limpar formatação" onclick="execCmd('removeFormat')" style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:4px 9px;color:var(--text3);cursor:pointer;font-size:0.72rem">Limpar</button>
+          </div>
+        </div>
+
+        <!-- Área de edição — folha A4 simulada -->
+        <div style="background:#1a1f2e;border:1px solid var(--border2);border-top:none;border-radius:0 0 10px 10px;padding:12px;flex:1">
+          <div
+            id="doc-editor"
+            contenteditable="true"
+            spellcheck="true"
+            style="background:#fff;color:#111;border-radius:6px;padding:50px 60px;min-height:600px;
+            font-family:'Times New Roman',serif;font-size:12px;line-height:1.8;
+            outline:none;box-shadow:0 4px 24px rgba(0,0,0,0.4);
+            max-width:760px;margin:0 auto;overflow-y:auto"
+          >${texto ? texto.replace(/\n/g,'<br>') : '<p style="color:#999;font-style:italic">Comece a digitar seu documento aqui, ou cole um texto do Gerador de Contratos...</p>'}</div>
+        </div>
+
+        <div style="font-size:0.72rem;color:var(--text3);text-align:center;margin-top:8px">
+          Documento em fundo branco simulando folha A4 · Selecione o texto para formatar
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function execCmd(cmd, val) {
+  const editor = document.getElementById('doc-editor');
+  if (!editor) return;
+  editor.focus();
+  document.execCommand(cmd, false, val || null);
+}
+
+function renderDocsList() {
+  if (!_docsSalvos.length) return `<div style="padding:16px;font-size:0.78rem;color:var(--text3);text-align:center">Nenhum documento salvo.</div>`;
+  return _docsSalvos.map(d=>`
+    <div style="padding:10px 12px;border-bottom:1px solid var(--border2);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background=''" onclick="abrirDocSalvo(${d.id})">
+      <div style="font-size:0.8rem;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.nome}</div>
+      <div style="font-size:0.68rem;color:var(--text3);margin-top:2px">${d.data}${d.clienteNome?' · '+d.clienteNome.split(' ')[0]:''}</div>
+      <button class="btn btn-danger btn-sm" style="margin-top:6px;width:100%;padding:3px" onclick="event.stopPropagation();excluirDocSalvo(${d.id})">🗑️ Excluir</button>
+    </div>`).join('');
+}
+
+function novoDocumento() {
+  const titulo = document.getElementById('doc-titulo');
+  const editor = document.getElementById('doc-editor');
+  const cliente = document.getElementById('doc-cliente');
+  if (titulo) titulo.value = '';
+  if (cliente) cliente.value = '';
+  if (editor) editor.innerHTML = '<p style="color:#999;font-style:italic">Comece a digitar seu documento aqui...</p>';
+  window._docAtualId = null;
+}
+
+function salvarDocumento() {
+  const editor = document.getElementById('doc-editor');
+  const titulo = document.getElementById('doc-titulo')?.value.trim();
+  const clienteId = parseInt(document.getElementById('doc-cliente')?.value)||null;
+  if (!editor) return;
+  if (!titulo) { showToast('⚠️ Dê um nome ao documento antes de salvar.','warn'); document.getElementById('doc-titulo')?.focus(); return; }
+
+  const html   = editor.innerHTML;
+  const texto  = editor.innerText || editor.textContent;
+  const data   = new Date().toLocaleDateString('pt-BR');
+  const clienteNome = clienteId ? (clientes.find(c=>c.id===clienteId)?.nome||'') : '';
+
+  if (window._docAtualId) {
+    const doc = _docsSalvos.find(d=>d.id===window._docAtualId);
+    if (doc) { doc.nome=titulo; doc.html=html; doc.texto=texto; doc.data=data; doc.clienteId=clienteId; doc.clienteNome=clienteNome; }
+  } else {
+    window._docAtualId = _docId;
+    _docsSalvos.unshift({ id:_docId++, nome:titulo, html, texto, data, clienteId, clienteNome });
+  }
+
+  // Persiste nos dados globais
+  try { localStorage.setItem('wb_erp_docs', JSON.stringify(_docsSalvos)); } catch(e) {}
+  showToast(`💾 "${titulo}" salvo com sucesso!`);
+  const lista = document.getElementById('docs-lista');
+  if (lista) lista.innerHTML = renderDocsList();
+}
+
+function abrirDocSalvo(id) {
+  const doc = _docsSalvos.find(d=>d.id===id);
+  if (!doc) return;
+  const editor = document.getElementById('doc-editor');
+  const titulo = document.getElementById('doc-titulo');
+  const cliente = document.getElementById('doc-cliente');
+  if (editor) editor.innerHTML = doc.html || (doc.texto||'').replace(/\n/g,'<br>');
+  if (titulo) titulo.value = doc.nome;
+  if (cliente && doc.clienteId) cliente.value = doc.clienteId;
+  window._docAtualId = id;
+  showToast(`📂 "${doc.nome}" carregado.`,'info');
+}
+
+function excluirDocSalvo(id) {
+  const doc = _docsSalvos.find(d=>d.id===id);
+  if (!confirm(`Excluir "${doc?.nome}"?`)) return;
+  _docsSalvos = _docsSalvos.filter(d=>d.id!==id);
+  try { localStorage.setItem('wb_erp_docs', JSON.stringify(_docsSalvos)); } catch(e) {}
+  if (window._docAtualId === id) { window._docAtualId = null; novoDocumento(); }
+  const lista = document.getElementById('docs-lista');
+  if (lista) lista.innerHTML = renderDocsList();
+  showToast('🗑️ Documento excluído.','info');
+}
+
+function imprimirDocumento() {
+  const editor = document.getElementById('doc-editor');
+  const titulo = document.getElementById('doc-titulo')?.value || 'Documento WB';
+  if (!editor) return;
+  const html = editor.innerHTML;
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <title>${titulo}</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font-family: 'Times New Roman', serif; font-size: 12px; line-height: 1.8; padding: 50px 60px; color: #111; max-width: 800px; margin: 0 auto; }
+      @page { margin: 2cm; }
+      @media print { body { padding: 0; } }
+    </style>
+  </head><body>${html}</body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(), 400);
+}
+
+function copiarDocumento() {
+  const editor = document.getElementById('doc-editor');
+  if (!editor) return;
+  navigator.clipboard.writeText(editor.innerText||editor.textContent)
+    .then(()=>showToast('✅ Texto copiado! Cole no Word ou Google Docs.'));
+}
+
+// Carrega docs salvos do localStorage ao iniciar
+(function carregarDocsSalvos() {
+  try {
+    const saved = localStorage.getItem('wb_erp_docs');
+    if (saved) { _docsSalvos = JSON.parse(saved); _docId = Math.max(..._docsSalvos.map(d=>d.id),0)+1; }
+  } catch(e) {}
+})();
+
+</script>
