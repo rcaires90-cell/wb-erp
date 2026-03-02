@@ -504,8 +504,11 @@ let _modeloId   = 1;
 //  BANCO DE DADOS — Google Sheets + localStorage como cache
 // ══════════════════════════════════════════════════════════════════
 const LS_KEY   = 'wb_erp_v3';
-const LS_URL   = 'wb_sheets_url';
-let   SHEETS_URL = localStorage.getItem(LS_URL) || '';
+const LS_URL     = 'wb_sheets_url';
+const SHEETS_URL_FIXO = 'https://script.google.com/macros/s/AKfycbz8vLQU-78y2_q4ZhPADHLu8eM5sKZ4F8uRy-Ph1pv08j3hFrjC7piOCpMYdhUHLlaX/exec';
+// Link fixo no código — qualquer dispositivo sincroniza automaticamente sem precisar configurar
+localStorage.setItem(LS_URL, SHEETS_URL_FIXO);
+let   SHEETS_URL = SHEETS_URL_FIXO;
 let   _saving  = false;
 let   _saveQueue = false;
 
@@ -1859,68 +1862,31 @@ function renderServico(tipo) {
 
 // ─── CONFIGURAÇÕES ───
 function renderConfiguracoes() {
-  const urlAtual = SHEETS_URL || '';
   return `
     <!-- ── GOOGLE SHEETS ── -->
-    <div class="panel" style="margin-bottom:24px;border-color:rgba(201,168,76,0.3)">
-      <div class="panel-header" style="background:rgba(201,168,76,0.05)">
-        <span class="panel-title" style="color:var(--gold)">☁️ Banco de Dados — Google Sheets</span>
-        <span id="sheets-badge" style="font-size:0.72rem;padding:3px 10px;border-radius:20px;background:${urlAtual?'rgba(16,185,129,0.15)':'rgba(255,255,255,0.05)'};color:${urlAtual?'var(--green)':'var(--text3)'};border:1px solid ${urlAtual?'var(--green)':'var(--border)'}">
-          ${urlAtual ? '✅ Conectado' : '🔌 Não configurado'}
+    <div class="panel" style="margin-bottom:24px;border-color:rgba(16,185,129,0.35)">
+      <div class="panel-header" style="background:rgba(16,185,129,0.06)">
+        <span class="panel-title" style="color:var(--green)">☁️ Banco de Dados — Google Sheets</span>
+        <span style="font-size:0.72rem;padding:3px 12px;border-radius:20px;background:rgba(16,185,129,0.15);color:var(--green);border:1px solid var(--green);font-weight:600">
+          ✅ Conectado automaticamente
         </span>
       </div>
       <div class="panel-body">
-        ${urlAtual ? `
-          <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:0.8rem;color:var(--text2)">
-            ✅ <strong>Conectado ao Google Sheets.</strong> Todos os dados são salvos automaticamente na nuvem e ficam acessíveis de qualquer dispositivo.
-          </div>` : `
-          <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:0.8rem;color:var(--text2);line-height:1.6">
-            ℹ️ <strong>Sem Google Sheets configurado.</strong> Os dados ficam salvos apenas neste navegador. Configure abaixo para salvar na nuvem e acessar de qualquer dispositivo.
-          </div>`}
+        <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:16px;margin-bottom:20px;font-size:0.82rem;color:var(--text2);line-height:1.7">
+          ✅ <strong style="color:var(--text)">Google Sheets configurado e fixo no sistema.</strong><br>
+          Todos os dispositivos — computador, celular, tablet — sincronizam automaticamente sem precisar configurar nada.<br>
+          <span style="font-size:0.75rem;color:var(--text3);margin-top:4px;display:block;font-family:'DM Mono',monospace;word-break:break-all">${SHEETS_URL_FIXO.slice(0,60)}...</span>
+        </div>
 
-        <div style="display:flex;flex-direction:column;gap:16px">
-          <!-- Instruções passo a passo -->
-          <details style="background:var(--navy4);border-radius:10px;border:1px solid var(--border2)">
-            <summary style="padding:14px 16px;cursor:pointer;font-size:0.83rem;font-weight:600;color:var(--text);list-style:none;display:flex;justify-content:space-between;align-items:center">
-              📋 Como configurar (passo a passo) <span style="color:var(--text3)">▼</span>
-            </summary>
-            <div style="padding:0 16px 16px;font-size:0.8rem;color:var(--text2);line-height:1.8;border-top:1px solid var(--border2);margin-top:0;padding-top:14px">
-              <strong style="color:var(--gold)">1.</strong> Acesse <a href="https://sheets.google.com" target="_blank" style="color:var(--accent)">sheets.google.com</a> e crie uma planilha em branco.<br>
-              <strong style="color:var(--gold)">2.</strong> No menu superior clique em <strong>Extensões → Apps Script</strong>.<br>
-              <strong style="color:var(--gold)">3.</strong> Apague todo o código que aparecer e cole o conteúdo do arquivo <code style="background:var(--navy3);padding:2px 6px;border-radius:4px">Code.gs</code> que você baixou.<br>
-              <strong style="color:var(--gold)">4.</strong> Clique em <strong>Implantar → Nova implantação</strong>.<br>
-              <strong style="color:var(--gold)">5.</strong> Tipo: <strong>Aplicativo da Web</strong> → Executar como: <strong>Eu</strong> → Quem tem acesso: <strong>Qualquer pessoa</strong>.<br>
-              <strong style="color:var(--gold)">6.</strong> Clique <strong>Implantar</strong>, autorize e copie a <strong>URL do app da web</strong>.<br>
-              <strong style="color:var(--gold)">7.</strong> Cole a URL abaixo e clique em <strong>Conectar</strong>.
-            </div>
-          </details>
-
-          <!-- Input da URL -->
-          <div class="form-grid">
-            <div class="form-field form-full">
-              <label>URL do Google Apps Script (Web App)</label>
-              <input id="cfg_sheets_url"
-                placeholder="https://script.google.com/macros/s/..."
-                value="${urlAtual}"
-                style="font-family:'DM Mono',monospace;font-size:0.78rem">
-            </div>
-          </div>
-
-          <div style="display:flex;gap:12px;flex-wrap:wrap">
-            <button class="btn btn-gold" onclick="salvarSheetsUrl()">
-              ${urlAtual ? '🔄 Atualizar URL' : '☁️ Conectar ao Google Sheets'}
-            </button>
-            ${urlAtual ? `
-              <button class="btn btn-outline" onclick="saveData().then(()=>showToast('✅ Dados enviados ao Google Sheets!'))">
-                ☁️ Enviar dados ao Sheets
-              </button>
-              <button class="btn btn-outline" onclick="loadFromSheets().then(ok=>{ if(ok){showToast('✅ Dados recarregados do Sheets!');if(currentUser)navigateTo(currentPage);}else{showToast('❌ Falha ao recarregar','error')}})">
-                ⬇️ Recarregar do Sheets
-              </button>
-              <button class="btn btn-danger" onclick="if(confirm('Desconectar Google Sheets? Os dados locais serão mantidos.')){SHEETS_URL='';localStorage.removeItem('wb_sheets_url');setSyncStatus('local');showToast('🔌 Google Sheets desconectado','warn');navigateTo('configuracoes')}">
-                🔌 Desconectar
-              </button>` : ''}
-          </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button class="btn btn-outline" style="background:rgba(16,185,129,0.08);border-color:var(--green);color:var(--green)"
+            onclick="saveData().then(()=>showToast('✅ Dados enviados ao Google Sheets!'))">
+            ☁️ Forçar envio ao Sheets
+          </button>
+          <button class="btn btn-outline"
+            onclick="loadFromSheets().then(ok=>{ if(ok){applyData(JSON.parse(localStorage.getItem('wb_erp_v3')||'{}'));showToast('✅ Dados recarregados do Sheets!');if(currentUser)navigateTo(currentPage);}else{showToast('❌ Falha ao recarregar','error')}})">
+            ⬇️ Recarregar do Sheets
+          </button>
         </div>
       </div>
     </div>
@@ -2823,196 +2789,485 @@ function atualizarEtapa(id) {
   }
 }
 
+// ── Helpers de moeda ────────────────────────────────────────────
+function parseMoeda(v) {
+  return parseFloat((v||'0').replace(/[R$\s.]/g,'').replace(',','.')) || 0;
+}
+function fmtMoeda(v) {
+  return 'R$ ' + Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
 function gerarSenhaPortal(nome) {
-  // Primeira palavra do nome + 4 dígitos aleatórios + caractere especial
-  const parte = nome.trim().split(' ')[0].toLowerCase().replace(/[^a-z]/g,'').slice(0,6);
+  const parte = (nome||'Cliente').trim().split(' ')[0].toLowerCase().replace(/[^a-z]/g,'').slice(0,6);
   const nums  = Math.floor(1000 + Math.random() * 9000);
-  const especiais = ['!','@','#','$','*'];
-  const esp   = especiais[Math.floor(Math.random() * especiais.length)];
+  const esp   = ['!','@','#','$','*'][Math.floor(Math.random()*5)];
   return parte.charAt(0).toUpperCase() + parte.slice(1) + nums + esp;
 }
 
 function preencherCredenciaisPortal() {
-  const nomeEl  = document.getElementById('nc_nome');
-  const emailEl = document.getElementById('nc_email');
+  const email = document.getElementById('nc_email')?.value?.trim()||'';
+  const nome  = document.getElementById('nc_nome')?.value?.trim()||'';
   const loginEl = document.getElementById('nc_portal_login');
   const senhaEl = document.getElementById('nc_portal_senha');
-  if (!loginEl || !senhaEl) return;
-  const nome  = nomeEl?.value?.trim() || '';
-  const email = emailEl?.value?.trim() || '';
-  if (email  && !loginEl.value) loginEl.value = email;
-  if (nome   && !senhaEl.value) senhaEl.value = gerarSenhaPortal(nome);
+  if (loginEl && !loginEl.value && email) loginEl.value = email;
+  if (senhaEl && !senhaEl.value && nome)  senhaEl.value = gerarSenhaPortal(nome);
+  if (_ncWizard) { _ncWizard.nome = nome; _ncWizard.email = email; }
 }
 
-function openNovoCliente(prefillServico) {
-  const respOptions = colaboradores.map(c=>`<option value="${c.nome}">${c.nome} — ${c.cargo}</option>`).join('');
-  const servicoSel = (s) => prefillServico && s.includes(prefillServico.split(' ')[0]) ? 'selected' : '';
-  openModal(`
-    <div class="modal-title">Novo Cliente</div>
+// ══════════════════════════════════════════════════════════════════
+// WIZARD CADASTRO — 3 ETAPAS
+// ══════════════════════════════════════════════════════════════════
+let _ncWizard = {};
 
-    <!-- ── Dados Pessoais ── -->
-    <div style="font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Dados Pessoais</div>
+function openNovoCliente(prefillServico) {
+  _ncWizard = { prefillServico: prefillServico||'', docs:{} };
+  renderWizardEtapa(1);
+}
+
+function renderWizardEtapa(etapa) {
+  const labels = ['Dados & Documentos','Contrato & Pagamento','Acesso & Curso'];
+  const stepBar = `<div style="display:flex;margin-bottom:22px;border-radius:10px;overflow:hidden;border:1px solid var(--border2)">
+    ${labels.map((s,i)=>`
+      <div style="flex:1;padding:9px 4px;text-align:center;font-size:0.7rem;font-weight:${etapa===i+1?700:400};
+        background:${etapa===i+1?'var(--gold)':etapa>i+1?'rgba(201,168,76,0.18)':'var(--navy3)'};
+        color:${etapa===i+1?'#111':etapa>i+1?'var(--gold)':'var(--text3)'};
+        border-right:${i<2?'1px solid var(--border2)':'none'}">
+        <div style="font-size:0.9rem;margin-bottom:1px">${etapa>i+1?'✅':etapa===i+1?'▶':i+1}</div>${s}
+      </div>`).join('')}
+  </div>`;
+
+  const respOpts = colaboradores.map(c=>`<option value="${c.nome}">${c.nome} — ${c.cargo}</option>`).join('');
+  const svcSel   = s => (_ncWizard.prefillServico||'').includes(s) ? 'selected' : '';
+  const d        = _ncWizard.docs||{};
+  let body = '';
+
+  // ── ETAPA 1 ────────────────────────────────────────────────────
+  if (etapa===1) { body = `
+    <div style="font-size:0.7rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">👤 Dados Pessoais</div>
     <div class="form-grid">
       <div class="form-field form-full">
         <label>Nome Completo <span style="color:var(--red)">*</span></label>
-        <input id="nc_nome" placeholder="Nome completo do cliente" oninput="preencherCredenciaisPortal()">
+        <input id="nc_nome" placeholder="Nome completo" value="${_ncWizard.nome||''}" oninput="_ncWizard.nome=this.value">
       </div>
       <div class="form-field">
         <label>E-mail <span style="color:var(--red)">*</span></label>
-        <input id="nc_email" type="email" placeholder="email@email.com" oninput="preencherCredenciaisPortal()">
+        <input id="nc_email" type="email" placeholder="email@email.com" value="${_ncWizard.email||''}" oninput="_ncWizard.email=this.value">
       </div>
       <div class="form-field">
         <label>Telefone</label>
-        <input id="nc_tel" data-mask="tel" placeholder="(XX) 9 XXXX-XXXX">
+        <input id="nc_tel" data-mask="tel" placeholder="(XX) 9 XXXX-XXXX" value="${_ncWizard.tel||''}">
       </div>
       <div class="form-field">
-        <label>CPF / Passaporte</label>
-        <input id="nc_cpf" data-mask="cpf" placeholder="Documento de Identificação">
+        <label>CPF</label>
+        <input id="nc_cpf" data-mask="cpf" placeholder="000.000.000-00" value="${_ncWizard.cpf||''}">
+      </div>
+      <div class="form-field">
+        <label>RNM / RNE</label>
+        <input id="nc_rnm" placeholder="Ex: V123456-7" value="${_ncWizard.rnm||''}" maxlength="12"
+          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9-]/g,'');_ncWizard.rnm=this.value">
       </div>
       <div class="form-field">
         <label>País de Origem</label>
-        <input id="nc_pais" placeholder="Ex: Brasil, Portugal, Itália...">
+        <input id="nc_pais" placeholder="Ex: Portugal, Itália..." value="${_ncWizard.pais||''}">
       </div>
       <div class="form-field">
         <label>Serviço <span style="color:var(--red)">*</span></label>
         <select id="nc_servico">
-          <option value="Naturalização Brasileira" ${servicoSel('Naturalização')}>Naturalização Brasileira</option>
-          <option value="Autorização de Residência (RNM)" ${servicoSel('RNM')}>Autorização de Residência (RNM)</option>
-          <option value="Visto de Turismo (EUA)" ${servicoSel('Visto')}>Visto de Turismo (EUA)</option>
+          <option value="Naturalização Brasileira" ${svcSel('Naturaliz')||(!_ncWizard.servico||_ncWizard.servico==='Naturalização Brasileira'?'selected':'')}>Naturalização Brasileira</option>
+          <option value="Autorização de Residência (RNM)" ${_ncWizard.servico==='Autorização de Residência (RNM)'?'selected':svcSel('RNM')}>Autorização de Residência (RNM)</option>
+          <option value="Visto de Turismo (EUA)" ${_ncWizard.servico==='Visto de Turismo (EUA)'?'selected':svcSel('Visto')}>Visto de Turismo (EUA)</option>
         </select>
       </div>
       <div class="form-field">
         <label>Responsável</label>
-        <select id="nc_resp">${respOptions}</select>
-      </div>
-      <div class="form-field">
-        <label>Valor Contratado (R$)</label>
-        <input id="nc_valor" data-mask="moeda" inputmode="numeric" placeholder="0" min="0">
-      </div>
-      <div class="form-field">
-        <label>Pagamento</label>
-        <select id="nc_pago">
-          <option value="false">⏳ Pendente</option>
-          <option value="true">✅ Pago</option>
-        </select>
+        <select id="nc_resp">${respOpts}</select>
       </div>
       <div class="form-field">
         <label>Prioridade</label>
         <select id="nc_prio">
-          <option value="normal">Normal</option>
-          <option value="alta">Alta</option>
-          <option value="baixa">Baixa</option>
+          <option value="normal" ${(_ncWizard.prioridade||'normal')==='normal'?'selected':''}>Normal</option>
+          <option value="alta"   ${_ncWizard.prioridade==='alta'?'selected':''}>🔴 Alta</option>
+          <option value="baixa"  ${_ncWizard.prioridade==='baixa'?'selected':''}>🟢 Baixa</option>
         </select>
       </div>
       <div class="form-field form-full">
         <label>Observações</label>
-        <textarea id="nc_obs" placeholder="Anotações sobre o cliente ou processo..."></textarea>
+        <textarea id="nc_obs" placeholder="Anotações sobre o cliente...">${_ncWizard.obs||''}</textarea>
       </div>
     </div>
 
-    <!-- ── Acesso ao Portal WB ── -->
-    <div style="margin:18px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)">🔐 Acesso ao Portal WB</div>
-    <div style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px;margin-bottom:4px">
-      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Credenciais geradas automaticamente. O cliente usará esses dados para entrar no portal e acompanhar o processo.</div>
+    <div style="margin:20px 0 10px;font-size:0.7rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)">📋 Documentos Prontos para Naturalização</div>
+    <div style="background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.18);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+
+      ${[['doc_rnm','rnm','RNM (Registro Nacional Migratório)'],
+         ['doc_cpf_d','cpfDoc','CPF'],
+         ['doc_end','enderecoAtual','Comprovante de Endereço Atualizado'],
+         ['doc_certlp','certLingua','Certificado de Língua Portuguesa'],
+         ['doc_certpp','certProva','Certificado de Prova Presencial']
+        ].map(([id,key,label])=>`
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="${id}" style="width:17px;height:17px;accent-color:var(--gold);flex-shrink:0" ${d[key]?'checked':''}
+            onchange="_ncWizard.docs['${key}']=this.checked">
+          <span style="font-size:0.85rem;color:var(--text)">${label}</span>
+        </label>`).join('')}
+
+      <!-- Passaporte -->
+      <div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="doc_pass" style="width:17px;height:17px;accent-color:var(--gold);flex-shrink:0" ${d.passaporte?'checked':''}
+            onchange="_ncWizard.docs.passaporte=this.checked;document.getElementById('doc_pass_det').style.display=this.checked?'flex':'none'">
+          <span style="font-size:0.85rem;color:var(--text)">Passaporte</span>
+        </label>
+        <div id="doc_pass_det" style="display:${d.passaporte?'flex':'none'};align-items:center;gap:8px;margin:6px 0 0 27px">
+          <span style="font-size:0.78rem;color:var(--text3)">Quantos:</span>
+          <input type="number" id="doc_pass_qtd" min="1" max="9" value="${d.passaporteQtd||1}"
+            style="width:55px;background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;color:var(--text);font-size:0.82rem"
+            onchange="_ncWizard.docs.passaporteQtd=this.value">
+        </div>
+      </div>
+
+      <!-- Comprovante 4 anos -->
+      <div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="doc_4a" style="width:17px;height:17px;accent-color:var(--gold);flex-shrink:0" ${d.comp4anos?'checked':''}
+            onchange="_ncWizard.docs.comp4anos=this.checked;document.getElementById('doc_4a_det').style.display=this.checked?'block':'none'">
+          <span style="font-size:0.85rem;color:var(--text)">Comprovante dos Últimos 4 Anos no País</span>
+        </label>
+        <div id="doc_4a_det" style="display:${d.comp4anos?'block':'none'};margin:6px 0 0 27px">
+          <input id="doc_4a_desc" placeholder="Quais documentos? Ex: IRPF 2020-2023, extratos bancários..." value="${d.comp4anosDesc||''}"
+            style="width:100%;background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.8rem;box-sizing:border-box"
+            oninput="_ncWizard.docs.comp4anosDesc=this.value">
+        </div>
+      </div>
+
+      <!-- Antecedente Criminal -->
+      <div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="doc_ant" style="width:17px;height:17px;accent-color:var(--gold);flex-shrink:0" ${d.antecedente?'checked':''}
+            onchange="_ncWizard.docs.antecedente=this.checked;document.getElementById('doc_ant_det').style.display=this.checked?'flex':'none'">
+          <span style="font-size:0.85rem;color:var(--text)">Antecedente Criminal</span>
+        </label>
+        <div id="doc_ant_det" style="display:${d.antecedente?'flex':'none'};gap:12px;flex-wrap:wrap;margin:8px 0 0 27px;align-items:flex-end">
+          <div>
+            <div style="font-size:0.72rem;color:var(--text3);margin-bottom:3px">Tipo</div>
+            <select id="doc_ant_tipo" onchange="_ncWizard.docs.antecedenteTipo=this.value"
+              style="background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;color:var(--text);font-size:0.8rem">
+              <option value="Legalizado" ${(d.antecedenteTipo||'')==='Legalizado'?'selected':''}>Legalizado</option>
+              <option value="Apostilado" ${(d.antecedenteTipo||'')==='Apostilado'?'selected':''}>Apostilado</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:0.72rem;color:var(--text3);margin-bottom:3px">Data de Validade</div>
+            <input type="date" id="doc_ant_val" value="${d.antecedenteVal||''}"
+              style="background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;color:var(--text);font-size:0.8rem"
+              onchange="_ncWizard.docs.antecedenteVal=this.value">
+          </div>
+        </div>
+      </div>
+
+      <!-- Senha GOV -->
+      <div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="doc_govsenha" style="width:17px;height:17px;accent-color:var(--gold);flex-shrink:0" ${d.senhaGov?'checked':''}
+            onchange="_ncWizard.docs.senhaGov=this.checked;document.getElementById('doc_gov_det').style.display=this.checked?'block':'none'">
+          <span style="font-size:0.85rem;color:var(--text)">Senha do GOV.BR</span>
+        </label>
+        <div id="doc_gov_det" style="display:${d.senhaGov?'block':'none'};margin:6px 0 0 27px">
+          <input type="password" id="doc_gov_val" placeholder="Mínimo 16 caracteres" minlength="16" value="${d.senhaGovVal||''}"
+            style="width:100%;background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.82rem;box-sizing:border-box;font-family:'DM Mono',monospace"
+            oninput="_ncWizard.docs.senhaGovVal=this.value;const ok=this.value.length>=16;this.style.borderColor=this.value.length>0?(ok?'var(--green)':'var(--red)'):'var(--border2)';document.getElementById('gov_hint').textContent=this.value.length>0?(ok?'✅ OK':'⚠️ '+this.value.length+'/16 mínimos'):'Mínimo 16 caracteres'">
+          <div id="gov_hint" style="font-size:0.72rem;color:var(--text3);margin-top:3px">Mínimo 16 caracteres</div>
+        </div>
+      </div>
+
+      <!-- COMPLEMENTARES -->
+      <div style="padding-top:10px;border-top:1px solid var(--border2);font-size:0.7rem;letter-spacing:1.3px;text-transform:uppercase;color:var(--text3)">Documentos Complementares (se houver)</div>
+
+      <!-- Certidão Nascimento filhos -->
+      <div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="doc_nasc" style="width:17px;height:17px;accent-color:var(--gold);flex-shrink:0" ${d.certNasc?'checked':''}
+            onchange="_ncWizard.docs.certNasc=this.checked;document.getElementById('doc_nasc_det').style.display=this.checked?'block':'none'">
+          <span style="font-size:0.85rem;color:var(--text)">Certidão de Nascimento <span style="color:var(--text3);font-size:0.78rem">(filhos brasileiros)</span></span>
+        </label>
+        <div id="doc_nasc_det" style="display:${d.certNasc?'block':'none'};margin:6px 0 0 27px">
+          <input id="doc_nasc_desc" placeholder="Ex: 2 filhos — João e Maria" value="${d.certNascDesc||''}"
+            style="width:100%;background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.8rem;box-sizing:border-box"
+            oninput="_ncWizard.docs.certNascDesc=this.value">
+        </div>
+      </div>
+
+      <!-- Certidão Casamento -->
+      <div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="doc_cas" style="width:17px;height:17px;accent-color:var(--gold);flex-shrink:0" ${d.casamento?'checked':''}
+            onchange="_ncWizard.docs.casamento=this.checked;document.getElementById('doc_cas_det').style.display=this.checked?'block':'none'">
+          <span style="font-size:0.85rem;color:var(--text)">Certidão de Casamento / União Estável</span>
+        </label>
+        <div id="doc_cas_det" style="display:${d.casamento?'block':'none'};margin:6px 0 0 27px">
+          <select id="doc_cas_tipo" onchange="_ncWizard.docs.casamentoTipo=this.value"
+            style="background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;color:var(--text);font-size:0.8rem">
+            <option value="Casamento" ${(d.casamentoTipo||'')==='Casamento'?'selected':''}>Certidão de Casamento</option>
+            <option value="União Estável" ${(d.casamentoTipo||'')==='União Estável'?'selected':''}>União Estável</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Carteira de Trabalho / CNPJ / MEI -->
+      <div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="doc_trab" style="width:17px;height:17px;accent-color:var(--gold);flex-shrink:0" ${d.trabalho?'checked':''}
+            onchange="_ncWizard.docs.trabalho=this.checked;document.getElementById('doc_trab_det').style.display=this.checked?'flex':'none'">
+          <span style="font-size:0.85rem;color:var(--text)">Carteira de Trabalho / CNPJ / MEI</span>
+        </label>
+        <div id="doc_trab_det" style="display:${d.trabalho?'flex':'none'};gap:14px;flex-wrap:wrap;margin:8px 0 0 27px">
+          ${['Carteira de Trabalho','CNPJ','MEI'].map(t=>`
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text2);cursor:pointer">
+              <input type="checkbox" style="accent-color:var(--gold)" ${(d.trabalhoTipos||[]).includes(t)?'checked':''}
+                onchange="_ncWizard.docs.trabalhoTipos=_ncWizard.docs.trabalhoTipos||[];if(this.checked){if(!_ncWizard.docs.trabalhoTipos.includes('${t}'))_ncWizard.docs.trabalhoTipos.push('${t}');}else{_ncWizard.docs.trabalhoTipos=_ncWizard.docs.trabalhoTipos.filter(x=>x!=='${t}');}"> ${t}
+            </label>`).join('')}
+        </div>
+      </div>
+
+    </div>
+    <div id="nc_erro" style="color:var(--red);font-size:0.8rem;margin-top:10px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="wizardProximo(1)">Próximo: Contrato →</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>`; }
+
+  // ── ETAPA 2 ────────────────────────────────────────────────────
+  else if (etapa===2) {
+    const parcOpts = ['À vista (sem parcelas)',...Array.from({length:10},(_,i)=>`${i+1}x`)]
+      .map((l,i)=>`<option value="${i}" ${(_ncWizard.parcelas||0)===i?'selected':''}>${l}</option>`).join('');
+    body = `
+    <div style="font-size:0.7rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:14px">💰 Valores do Contrato</div>
+    <div style="background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.18);border-radius:12px;padding:20px">
+      <div class="form-grid">
+        <div class="form-field form-full">
+          <label>Valor Total do Contrato (R$) <span style="color:var(--red)">*</span></label>
+          <input id="nc_vt" data-mask="moeda" inputmode="numeric" placeholder="R$ 0,00" value="${_ncWizard.valorTotal||''}"
+            oninput="_ncWizard.valorTotal=this.value;calcParcelas()" style="font-size:1.1rem;font-weight:700;color:var(--gold)">
+        </div>
+        <div class="form-field">
+          <label>Valor de Entrada (R$)</label>
+          <input id="nc_ve" data-mask="moeda" inputmode="numeric" placeholder="R$ 0,00" value="${_ncWizard.valorEntrada||''}"
+            oninput="_ncWizard.valorEntrada=this.value;calcParcelas()">
+        </div>
+        <div class="form-field">
+          <label>Número de Parcelas</label>
+          <select id="nc_parc" onchange="_ncWizard.parcelas=parseInt(this.value);calcParcelas()">${parcOpts}</select>
+        </div>
+        <div class="form-field" id="nc_vp_wrap" style="display:${(_ncWizard.parcelas||0)>0?'flex':'none'}">
+          <label>Valor de Cada Parcela (R$)</label>
+          <input id="nc_vp" data-mask="moeda" inputmode="numeric" placeholder="R$ 0,00" value="${_ncWizard.valorParcela||''}"
+            oninput="_ncWizard.valorParcela=this.value">
+        </div>
+      </div>
+
+      <div id="nc_resumo" style="display:none;margin-top:16px;background:var(--navy3);border-radius:10px;padding:14px">
+        <div style="font-size:0.7rem;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Resumo</div>
+        <div id="nc_resumo_linhas"></div>
+      </div>
+
+      <div style="margin-top:18px;font-size:0.7rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Status de Pagamento</div>
+      <div style="display:flex;gap:10px">
+        ${[['false','⏳ Pendente','var(--orange)'],['true','✅ Pago','var(--green)']].map(([val,label,cor])=>`
+          <label style="flex:1;display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 14px;border-radius:8px;
+            border:1px solid ${(_ncWizard.pago||'false')===val?cor:'var(--border2)'};
+            background:${(_ncWizard.pago||'false')===val?`rgba(0,0,0,0.1)`:'transparent'}">
+            <input type="radio" name="nc_pago_r" value="${val}" ${(_ncWizard.pago||'false')===val?'checked':''}
+              onchange="_ncWizard.pago=this.value" style="accent-color:${cor}">
+            <span style="font-size:0.85rem">${label}</span>
+          </label>`).join('')}
+      </div>
+    </div>
+    <div id="nc_erro" style="color:var(--red);font-size:0.8rem;margin-top:10px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="wizardVoltar(2)">← Voltar</button>
+      <button class="btn btn-gold" onclick="wizardProximo(2)">Próximo: Acesso & Curso →</button>
+    </div>`; }
+
+  // ── ETAPA 3 ────────────────────────────────────────────────────
+  else if (etapa===3) { body = `
+    <div style="font-size:0.7rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:10px">🔐 Acesso ao Portal WB</div>
+    <div style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px;margin-bottom:18px">
+      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Credenciais que o cliente usará para entrar no portal e acompanhar o processo.</div>
       <div class="form-grid">
         <div class="form-field">
           <label>Login (e-mail) do Portal</label>
-          <input id="nc_portal_login" placeholder="Preenchido ao digitar o e-mail">
+          <input id="nc_portal_login" value="${_ncWizard.portalLogin||_ncWizard.email||''}" placeholder="E-mail de acesso">
         </div>
         <div class="form-field">
           <label>Senha do Portal</label>
           <div style="display:flex;gap:8px;align-items:center">
-            <input id="nc_portal_senha" placeholder="Gerada automaticamente" style="flex:1">
-            <button type="button" onclick="document.getElementById('nc_portal_senha').value=gerarSenhaPortal(document.getElementById('nc_nome').value||'Cliente')"
+            <input id="nc_portal_senha" value="${_ncWizard.portalSenha||''}" placeholder="Gerada automaticamente" style="flex:1">
+            <button type="button" onclick="const s=gerarSenhaPortal('${(_ncWizard.nome||'Cliente').replace(/'/g,'')}');document.getElementById('nc_portal_senha').value=s;_ncWizard.portalSenha=s"
               style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;color:var(--text3);cursor:pointer;font-size:0.8rem;white-space:nowrap;flex-shrink:0">🔄 Gerar</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ── Curso de Proficiência ── -->
-    <div style="margin:18px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:#10b981">📚 Curso de Proficiência em Língua Portuguesa</div>
+    <div style="font-size:0.7rem;letter-spacing:1.5px;text-transform:uppercase;color:#10b981;margin-bottom:10px">📚 Curso de Proficiência em Língua Portuguesa</div>
     <div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px">
       <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Parceria WB · Preencha as credenciais de acesso do cliente na plataforma do curso.</div>
       <div class="form-grid">
         <div class="form-field">
           <label>Login do Curso</label>
-          <input id="nc_curso_login" placeholder="Ex: email ou usuário na plataforma">
+          <input id="nc_curso_login" value="${_ncWizard.cursoLogin||''}" placeholder="E-mail ou usuário">
         </div>
         <div class="form-field">
           <label>Senha do Curso</label>
-          <input id="nc_curso_senha" placeholder="Senha de acesso ao curso">
+          <input id="nc_curso_senha" value="${_ncWizard.cursoSenha||''}" placeholder="Senha de acesso ao curso">
         </div>
         <div class="form-field form-full">
-          <label>Link da Plataforma do Curso</label>
-          <input id="nc_curso_link" placeholder="https://..." value="${configEmpresa.cursoLink||''}">
-          <div style="font-size:0.7rem;color:var(--text3);margin-top:3px">Este link aparecerá no portal do cliente. Pode ser salvo como padrão em Configurações.</div>
+          <label>Link da Plataforma</label>
+          <input id="nc_curso_link" value="${_ncWizard.cursoLink||configEmpresa.cursoLink||''}" placeholder="https://...">
         </div>
       </div>
     </div>
-
-    <div id="nc_erro" style="color:var(--red);font-size:0.8rem;margin-top:12px;display:none"></div>
+    <div id="nc_erro" style="color:var(--red);font-size:0.8rem;margin-top:10px;display:none"></div>
     <div class="modal-actions">
+      <button class="btn btn-outline" onclick="wizardVoltar(3)">← Voltar</button>
       <button class="btn btn-gold" onclick="salvarNovoCliente()">✅ Cadastrar Cliente</button>
-      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-    </div>
-  `);
+    </div>`; }
+
+  openModal(`<div class="modal-title">Novo Cliente</div>${stepBar}${body}`);
+  setTimeout(()=>{ document.querySelectorAll('[data-mask]').forEach(applyMask); if(etapa===2) calcParcelas(); }, 60);
+  if (etapa===3 && !_ncWizard.portalSenha && _ncWizard.nome) {
+    setTimeout(()=>{ const el=document.getElementById('nc_portal_senha'); if(el&&!el.value){const s=gerarSenhaPortal(_ncWizard.nome);el.value=s;_ncWizard.portalSenha=s;} },80);
+  }
+}
+
+function wizardProximo(etapa) {
+  const erro = document.getElementById('nc_erro');
+  if (etapa===1) {
+    const nome  = document.getElementById('nc_nome')?.value?.trim();
+    const email = document.getElementById('nc_email')?.value?.trim();
+    if (!nome)  { if(erro){erro.textContent='⚠️ Nome é obrigatório.';erro.style.display='block';} return; }
+    if (!email) { if(erro){erro.textContent='⚠️ E-mail é obrigatório.';erro.style.display='block';} return; }
+    const d = _ncWizard.docs||{};
+    if (d.senhaGov && (d.senhaGovVal||'').length < 16) {
+      if(erro){erro.textContent='⚠️ Senha do GOV.BR deve ter no mínimo 16 caracteres.';erro.style.display='block';} return;
+    }
+    _ncWizard.nome       = nome;
+    _ncWizard.email      = email;
+    _ncWizard.tel        = document.getElementById('nc_tel')?.value?.trim()||'';
+    _ncWizard.cpf        = document.getElementById('nc_cpf')?.value?.trim()||'';
+    _ncWizard.rnm        = document.getElementById('nc_rnm')?.value?.trim()||'';
+    _ncWizard.pais       = document.getElementById('nc_pais')?.value?.trim()||'';
+    _ncWizard.servico    = document.getElementById('nc_servico')?.value||'Naturalização Brasileira';
+    _ncWizard.resp       = document.getElementById('nc_resp')?.value||'';
+    _ncWizard.prioridade = document.getElementById('nc_prio')?.value||'normal';
+    _ncWizard.obs        = document.getElementById('nc_obs')?.value?.trim()||'';
+    // coleta docs extras
+    _ncWizard.docs.rnm           = document.getElementById('doc_rnm')?.checked||false;
+    _ncWizard.docs.cpfDoc        = document.getElementById('doc_cpf_d')?.checked||false;
+    _ncWizard.docs.enderecoAtual = document.getElementById('doc_end')?.checked||false;
+    _ncWizard.docs.certLingua    = document.getElementById('doc_certlp')?.checked||false;
+    _ncWizard.docs.certProva     = document.getElementById('doc_certpp')?.checked||false;
+    _ncWizard.docs.passaporte    = document.getElementById('doc_pass')?.checked||false;
+    _ncWizard.docs.passaporteQtd = document.getElementById('doc_pass_qtd')?.value||'1';
+    _ncWizard.docs.comp4anos     = document.getElementById('doc_4a')?.checked||false;
+    _ncWizard.docs.comp4anosDesc = document.getElementById('doc_4a_desc')?.value||'';
+    _ncWizard.docs.antecedente   = document.getElementById('doc_ant')?.checked||false;
+    _ncWizard.docs.antecedenteTipo = document.getElementById('doc_ant_tipo')?.value||'Legalizado';
+    _ncWizard.docs.antecedenteVal  = document.getElementById('doc_ant_val')?.value||'';
+    _ncWizard.docs.senhaGov      = document.getElementById('doc_govsenha')?.checked||false;
+    _ncWizard.docs.senhaGovVal   = document.getElementById('doc_gov_val')?.value||'';
+    _ncWizard.docs.certNasc      = document.getElementById('doc_nasc')?.checked||false;
+    _ncWizard.docs.certNascDesc  = document.getElementById('doc_nasc_desc')?.value||'';
+    _ncWizard.docs.casamento     = document.getElementById('doc_cas')?.checked||false;
+    _ncWizard.docs.casamentoTipo = document.getElementById('doc_cas_tipo')?.value||'Casamento';
+    _ncWizard.docs.trabalho      = document.getElementById('doc_trab')?.checked||false;
+  }
+  if (etapa===2) {
+    _ncWizard.valorTotal   = document.getElementById('nc_vt')?.value||'';
+    _ncWizard.valorEntrada = document.getElementById('nc_ve')?.value||'';
+    _ncWizard.parcelas     = parseInt(document.getElementById('nc_parc')?.value)||0;
+    _ncWizard.valorParcela = document.getElementById('nc_vp')?.value||'';
+    document.querySelectorAll('input[name="nc_pago_r"]').forEach(r=>{ if(r.checked) _ncWizard.pago=r.value; });
+  }
+  renderWizardEtapa(etapa+1);
+}
+
+function wizardVoltar(etapa) { renderWizardEtapa(etapa-1); }
+
+function calcParcelas() {
+  const total  = parseMoeda(document.getElementById('nc_vt')?.value||'0');
+  const ent    = parseMoeda(document.getElementById('nc_ve')?.value||'0');
+  const parc   = parseInt(document.getElementById('nc_parc')?.value)||0;
+  const wrap   = document.getElementById('nc_vp_wrap');
+  const resumo = document.getElementById('nc_resumo');
+  const linhas = document.getElementById('nc_resumo_linhas');
+  if (wrap) wrap.style.display = parc>0 ? 'flex' : 'none';
+  if (parc>0 && total>0) {
+    const vlr = (total-ent)/parc;
+    const el  = document.getElementById('nc_vp');
+    if (el) { el.value = fmtMoeda(vlr); _ncWizard.valorParcela = el.value; }
+  }
+  if (resumo && linhas && total>0) {
+    resumo.style.display='block';
+    let h=`<div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:4px 0;border-bottom:1px solid var(--border2)"><span style="color:var(--text3)">Valor Total</span><span style="color:var(--gold);font-weight:700">${fmtMoeda(total)}</span></div>`;
+    if (ent>0) h+=`<div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:4px 0;border-bottom:1px solid var(--border2)"><span style="color:var(--text3)">Entrada</span><span style="color:var(--text)">${fmtMoeda(ent)}</span></div>`;
+    if (parc>0) h+=`<div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:4px 0"><span style="color:var(--text3)">Parcelas</span><span style="color:var(--text)">${parc}x de ${fmtMoeda((total-ent)/parc)}</span></div>`;
+    else h+=`<div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:4px 0"><span style="color:var(--text3)">Forma</span><span style="color:var(--text)">À vista</span></div>`;
+    linhas.innerHTML=h;
+  } else if (resumo) resumo.style.display='none';
 }
 
 function salvarNovoCliente() {
-  const nome  = document.getElementById('nc_nome').value.trim();
-  const email = document.getElementById('nc_email').value.trim();
-  const serv  = document.getElementById('nc_servico').value;
-  const erro  = document.getElementById('nc_erro');
+  if (!_ncWizard.nome||!_ncWizard.email) {
+    const e=document.getElementById('nc_erro'); if(e){e.textContent='⚠️ Dados obrigatórios ausentes.';e.style.display='block';} return;
+  }
+  const portalLogin = document.getElementById('nc_portal_login')?.value?.trim() || _ncWizard.email;
+  const portalSenha = document.getElementById('nc_portal_senha')?.value?.trim() || gerarSenhaPortal(_ncWizard.nome);
+  const cursoLogin  = document.getElementById('nc_curso_login')?.value?.trim()  || '';
+  const cursoSenha  = document.getElementById('nc_curso_senha')?.value?.trim()  || '';
+  const cursoLink   = document.getElementById('nc_curso_link')?.value?.trim()   || configEmpresa.cursoLink||'';
+  const serv        = _ncWizard.servico||'Naturalização Brasileira';
+  const totalEtapas = serv.includes('Naturaliz')?6:serv.includes('RNM')?5:4;
+  const hoje        = new Date().toLocaleDateString('pt-BR');
+  const d           = _ncWizard.docs||{};
 
-  if (!nome)  { erro.textContent='⚠️ Nome é obrigatório.';  erro.style.display='block'; return; }
-  if (!email) { erro.textContent='⚠️ E-mail é obrigatório.'; erro.style.display='block'; return; }
-
-  const totalEtapas = serv.includes('Naturaliz') ? 6 : serv.includes('RNM') ? 5 : 4;
-  const hoje = new Date().toLocaleDateString('pt-BR');
-
-  // Credenciais do portal — garante que sempre existe
-  const portalLogin = document.getElementById('nc_portal_login')?.value?.trim() || email;
-  const portalSenha = document.getElementById('nc_portal_senha')?.value?.trim() || gerarSenhaPortal(nome);
+  // Monta lista de docs marcados
+  const docsOk = [
+    d.rnm          && 'RNM',
+    d.cpfDoc       && 'CPF',
+    d.enderecoAtual&& 'Comprovante de Endereço Atualizado',
+    d.passaporte   && `Passaporte (${d.passaporteQtd||1}x)`,
+    d.comp4anos    && `Comprovante 4 anos no país${d.comp4anosDesc?' — '+d.comp4anosDesc:''}`,
+    d.antecedente  && `Antecedente Criminal (${d.antecedenteTipo||'Legalizado'})${d.antecedenteVal?' — val. '+new Date(d.antecedenteVal+'T12:00').toLocaleDateString('pt-BR'):''}`,
+    d.certLingua   && 'Certificado de Língua Portuguesa',
+    d.certProva    && 'Certificado de Prova Presencial',
+    d.certNasc     && `Certidão de Nascimento (filhos)${d.certNascDesc?' — '+d.certNascDesc:''}`,
+    d.casamento    && (d.casamentoTipo||'Certidão de Casamento'),
+    d.trabalho     && `Carteira de Trabalho/CNPJ/MEI${(d.trabalhoTipos||[]).length?' ('+d.trabalhoTipos.join(', ')+')':''}`,
+  ].filter(Boolean);
 
   const novo = {
-    id           : _clienteId++,
-    nome,
-    email,
-    tel          : document.getElementById('nc_tel').value.trim() || '—',
-    cpf          : document.getElementById('nc_cpf').value.trim() || '—',
-    pais         : document.getElementById('nc_pais').value.trim() || '—',
-    servico      : serv,
-    status       : 'Pendente Documentação',
-    etapa        : 0,
-    totalEtapas,
-    responsavel  : document.getElementById('nc_resp').value,
-    prioridade   : document.getElementById('nc_prio').value,
-    dataCadastro : hoje,
-    valor        : parseFloat(document.getElementById('nc_valor').value) || 0,
-    pago         : document.getElementById('nc_pago').value === 'true',
-    docs         : [],
-    docsPendentes: [],
-    obs          : document.getElementById('nc_obs').value.trim(),
-    // Acesso portal
-    portalLogin,
-    portalSenha,
-    // Curso de proficiência
-    cursoLogin   : document.getElementById('nc_curso_login')?.value?.trim() || '',
-    cursoSenha   : document.getElementById('nc_curso_senha')?.value?.trim() || '',
-    cursoLink    : document.getElementById('nc_curso_link')?.value?.trim()  || configEmpresa.cursoLink || '',
+    id:_clienteId++, nome:_ncWizard.nome, email:_ncWizard.email,
+    tel:_ncWizard.tel||'—', cpf:_ncWizard.cpf||'—', rnm:_ncWizard.rnm||'—', pais:_ncWizard.pais||'—',
+    servico:serv, status:'Pendente Documentação', etapa:0, totalEtapas,
+    responsavel:_ncWizard.resp||(colaboradores[0]?.nome||''),
+    prioridade:_ncWizard.prioridade||'normal', dataCadastro:hoje,
+    valor:parseMoeda(_ncWizard.valorTotal||'0'),
+    valorEntrada:parseMoeda(_ncWizard.valorEntrada||'0'),
+    parcelas:_ncWizard.parcelas||0,
+    valorParcela:parseMoeda(_ncWizard.valorParcela||'0'),
+    pago:(_ncWizard.pago||'false')==='true',
+    docs:docsOk, docsPendentes:[], docsDetalhes:{...d},
+    obs:_ncWizard.obs||'',
+    portalLogin, portalSenha, cursoLogin, cursoSenha, cursoLink,
+    senhaGov:d.senhaGov?d.senhaGovVal:'',
   };
 
   clientes.push(novo);
-  saveData();
-  closeModal();
+  if (cursoLink&&!configEmpresa.cursoLink) configEmpresa.cursoLink=cursoLink;
+  saveData(); closeModal(); _ncWizard={};
   navigateTo('clientes');
-  setTimeout(() => {
-    showToast(`✅ Cliente "${nome}" cadastrado! Login: ${portalLogin}`);
-    // Salva link do curso como padrão se preenchido
-    const link = novo.cursoLink;
-    if (link && !configEmpresa.cursoLink) { configEmpresa.cursoLink = link; saveData(); }
-  }, 100);
+  setTimeout(()=>showToast(`✅ "${novo.nome}" cadastrado! ${docsOk.length} doc(s) marcado(s).`),100);
 }
 
 function openNovaTarefa() {
