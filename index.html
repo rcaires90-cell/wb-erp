@@ -2,7 +2,13 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WB ERP">
+<meta name="description" content="WB Assessoria Migratória — Sistema de Gestão">
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;WB Assessoria Migrat%C3%B3ria&quot;,&quot;short_name&quot;:&quot;WB ERP&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%230a0f1e&quot;,&quot;theme_color&quot;:&quot;%230a0f1e&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230a0f1e'/%3E%3Ctext y='130' x='32' font-size='120' font-family='serif'%3E%F0%9F%87%A7%F0%9F%87%B7%3C/text%3E%3C/svg%3E&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}">
 <title>WB Assessoria Migratória — ERP</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -475,6 +481,11 @@ let modelosPersonalizados = [];
 let notasFiscais  = [];
 let guiasISS      = [];
 let printsProcesso = []; // { id, clienteId, autor, autorRole, data, hora, descricao, base64, tamanho }
+let leads         = []; // CRM pipeline
+let promocoes     = []; // Promoções & Cupons
+let npsRespostas  = []; // NPS respostas
+let _leadId       = 1;
+let _promoId      = 1;
 let configEmpresa = {
   razao    : 'WB Assessoria Migratória LTDA',
   cnpj     : '52.241.467/0001-27',
@@ -527,9 +538,10 @@ function getPayload() {
   return { clientes, tarefas, colaboradores, agendamentos,
            indeferimentos, propostas, parceiros, lancamentos, parcelasData,
            modelosPersonalizados, notasFiscais, guiasISS, printsProcesso,
+           leads, promocoes, npsRespostas,
            configEmpresa, configNotif,
            _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId,
-           _lancId, _parcelasId, _modeloId, _nfId, _guiaId };
+           _lancId, _parcelasId, _modeloId, _nfId, _guiaId, _leadId, _promoId };
 }
 
 // ── Aplicar dados carregados ─────────────────────────────────────
@@ -548,6 +560,9 @@ function applyData(d) {
   if (d.notasFiscais)            notasFiscais            = d.notasFiscais;
   if (d.guiasISS)                guiasISS                = d.guiasISS;
   if (d.printsProcesso)          printsProcesso          = d.printsProcesso;
+  if (d.leads)                   leads                   = d.leads;
+  if (d.promocoes)               promocoes               = d.promocoes;
+  if (d.npsRespostas)            npsRespostas            = d.npsRespostas;
   if (d.configEmpresa)           configEmpresa           = d.configEmpresa;
   if (d.configNotif)             configNotif             = d.configNotif;
   if (d._clienteId)              _clienteId              = d._clienteId;
@@ -561,6 +576,8 @@ function applyData(d) {
   if (d._modeloId)               _modeloId               = d._modeloId;
   if (d._nfId)                   _nfId                   = d._nfId;
   if (d._guiaId)                 _guiaId                 = d._guiaId;
+  if (d._leadId)                 _leadId                 = d._leadId;
+  if (d._promoId)                _promoId                = d._promoId;
 }
 
 // ── Salvar (POST no-cors + localStorage) ─────────────────────────
@@ -934,15 +951,18 @@ function buildNav() {
   if (currentRole === 'cliente') {
     html = `
       <div class="nav-section">Minha Área</div>
-      ${navItem('meu-processo','📋','Meu Processo')}
-      ${navItem('meus-documentos','📁','Meus Documentos')}
-      ${navItem('meu-financeiro','💳','Financeiro & PIX')}
-      ${navItem('mensagens-cliente','💬','Mensagens')}
-      ${navItem('agendamentos-cliente','📅','Meus Agendamentos')}
-      ${navItem('meu-curso','📚','Curso de Português')}
+      ${navItem('meu-processo','📋',t('meu_processo'))}
+      ${navItem('meus-documentos','📁',t('meus_docs'))}
+      ${navItem('meu-financeiro','💳',t('financeiro'))}
+      ${navItem('mensagens-cliente','💬',t('mensagens'))}
+      ${navItem('agendamento-online','📅',t('agendar'))}
+      ${navItem('agendamentos-cliente','🗓️',t('agendamentos'))}
+      ${navItem('meu-curso','📚',t('curso'))}
+      ${navItem('minhas-indicacoes','🤝',t('indicacoes'))}
       <div class="nav-section">Informações</div>
-      ${navItem('faq-cliente','📚','Dúvidas Frequentes')}
-      ${navItem('calculadora-cliente','🧮','Sou Elegível?')}
+      ${navItem('faq-cliente','📚',t('faq'))}
+      ${navItem('calculadora-cliente','🧮',t('sou_elegivel'))}
+      <div style="padding:12px 16px">${seletorIdioma()}</div>
     `;
   } else if (currentRole === 'colaborador') {
     html = `
@@ -996,6 +1016,13 @@ function buildNav() {
       ${navItem('editor','✏️','Editor de Documentos')}
       ${navItem('radar','🎯','Radar de Processos')}
       ${navItem('linha-do-tempo','📅','Linha do Tempo')}
+      <div class="nav-section">📈 Crescimento</div>
+      ${navItem('crm-leads','🎯','CRM de Leads')}
+      ${navItem('landing-captacao','🌐','Landing Page')}
+      ${navItem('promocoes','🎁','Promoções & Cupons')}
+      ${navItem('indicacoes','🤝','Programa de Indicações')}
+      ${navItem('disparo-massa','💌','Disparo WhatsApp')}
+      ${navItem('relatorio-conversao','📊','Conversão & NPS')}
       <div class="nav-section">Serviços</div>
       ${navItem('servico-nat','🇧🇷','Naturalização')}
       ${navItem('servico-rnm','🪪','RNM / RNE')}
@@ -1076,6 +1103,8 @@ function renderPage(page) {
     'meu-curso': renderMeuCurso,
     'meu-financeiro': renderMeuFinanceiro,
     'minha-avaliacao': renderMinhaAvaliacao,
+    'minhas-indicacoes': renderMinhasIndicacoes,
+    'agendamento-online': renderAgendamentoOnline,
     'calculadora': renderCalculadora,
     'calculadora-cliente': renderCalculadora,
     'prazos': renderPrazos,
@@ -1092,6 +1121,12 @@ function renderPage(page) {
     'radar': renderRadar,
     'linha-do-tempo': renderLinhaDoTempo,
     'editor': renderEditor,
+    'crm-leads': renderCrmLeads,
+    'landing-captacao': renderLandingCaptacao,
+    'promocoes': renderPromocoes,
+    'indicacoes': renderIndicacoes,
+    'disparo-massa': renderDisparoMassa,
+    'relatorio-conversao': renderRelatorioConversao,
   };
   if (pages[page]) { c.innerHTML = ''; c.innerHTML = pages[page](); }
   else c.innerHTML = `<div style="color:var(--text3);text-align:center;padding:60px">Página em construção</div>`;
@@ -1119,6 +1154,7 @@ function renderDashboard() {
   const maxR     = grafico.length ? Math.max(...grafico.map(f=>f.receita), 1) : 1;
 
   return `
+    ${widgetAniversarios()}
     <div class="stat-grid">
       <div class="stat-card gold"><div class="stat-icon">👥</div><div class="stat-label">Total de Clientes</div><div class="stat-value">${total}</div><div class="stat-sub">Todos os serviços</div></div>
       <div class="stat-card blue"><div class="stat-icon">⚙️</div><div class="stat-label">Processos Ativos</div><div class="stat-value">${ativos}</div><div class="stat-sub">Em andamento</div></div>
@@ -1426,7 +1462,11 @@ function renderRelatorios() {
     <div class="panel" style="margin-bottom:24px">
       <div class="panel-header">
         <span class="panel-title">Relatório de Processos por Serviço</span>
-        <button class="btn btn-outline btn-sm" onclick="showToast('📄 Gerando PDF... (em breve)','info')">📄 Exportar PDF</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="exportarRelatorio('clientes')">📤 Clientes</button>
+          <button class="btn btn-outline btn-sm" onclick="exportarRelatorio('financeiro')">📤 Financeiro</button>
+          <button class="btn btn-outline btn-sm" onclick="exportarRelatorio('nps')">📤 NPS</button>
+        </div>
       </div>
       <div class="panel-body">
         ${[['🇧🇷 Naturalização Brasileira', nat, clientes.filter(c=>c.servico.includes('Naturalização')&&c.status==='Concluído').length],
@@ -2010,14 +2050,13 @@ function toggleNotifConfig(key) {
 // ─── CLIENTE: MEU PROCESSO ───
 // ── Constante do WhatsApp WB ────────────────────────────────────
 const WB_WHATSAPP = '5511914258886';
+const WB_WA_LINK  = 'https://wa.link/pp2gw8';
 const WB_PIX_KEY  = 'wbassessoria.contato@gmail.com';
 
 function abrirWhatsAppWB(msg) {
-  const txt = encodeURIComponent(msg || 'Olá! Gostaria de informações sobre meu processo na WB Assessoria Migratória.');
-  const url  = `https://wa.me/${WB_WHATSAPP}?text=${txt}`;
-  // Funciona em mobile e desktop
+  // Link direto WB — funciona em qualquer dispositivo
   const a = document.createElement('a');
-  a.href = url; a.target = '_blank'; a.rel = 'noopener';
+  a.href = WB_WA_LINK; a.target = '_blank'; a.rel = 'noopener noreferrer';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
@@ -2955,6 +2994,7 @@ function openClienteModal(id) {
     <div class="modal-actions">
       ${currentRole !== 'cliente' ? `<button class="btn btn-gold" onclick="atualizarEtapa(${c.id})">Avançar Etapa</button>` : ''}
       ${currentRole !== 'cliente' ? `<button class="btn btn-outline" onclick="openEditarCliente(${c.id})">✏️ Editar Dados</button>` : ''}
+      ${currentRole !== 'cliente' ? `<button class="btn btn-outline" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.4);color:#4ade80" onclick="closeModal();openChatInterno(${c.id})">💬 Chat</button>` : ''}
       ${currentRole !== 'cliente' ? `<button class="btn btn-outline" style="background:rgba(251,146,60,0.1);border-color:rgba(251,146,60,0.4);color:var(--orange)" onclick="closeModal();openChecklistDocs(${c.id})">📋 Docs Pendentes</button>` : ''}
       ${currentRole !== 'cliente' ? `<button class="btn btn-outline" style="background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.4);color:#60a5fa" onclick="closeModal();openUploadPrintProcesso(${c.id})">📸 Anexar Print do Gov</button>` : ''}
       <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
@@ -2976,6 +3016,8 @@ function openEditarCliente(id) {
       <div class="form-field"><label>Telefone</label><input id="ec2_tel" data-mask="tel" value="${c.tel==='—'?'':c.tel}"></div>
       <div class="form-field"><label>CPF / Passaporte</label><input id="ec2_cpf" data-mask="cpf" value="${c.cpf==='—'?'':c.cpf}"></div>
       <div class="form-field"><label>País de Origem</label><input id="ec2_pais" value="${c.pais==='—'?'':c.pais}"></div>
+      <div class="form-field"><label>🎂 Data de Nascimento</label><input id="ec2_nasc" type="text" placeholder="DD/MM/AAAA" value="${c.dataNascimento||''}"></div>
+      <div class="form-field"><label>🔗 Indicado por (código)</label><input id="ec2_indicado" placeholder="Ex: WB-CARL42" value="${c.indicadoPor||''}"></div>
       <div class="form-field"><label>Serviço</label>
         <select id="ec2_servico">
           <option value="Naturalização Brasileira" ${c.servico.includes('Naturaliz')?'selected':''}>Naturalização Brasileira</option>
@@ -3066,6 +3108,10 @@ function salvarEdicaoCliente(id) {
   c.tel         = document.getElementById('ec2_tel').value.trim()   || '—';
   c.cpf         = document.getElementById('ec2_cpf').value.trim()   || '—';
   c.pais        = document.getElementById('ec2_pais').value.trim()  || '—';
+  c.dataNascimento = document.getElementById('ec2_nasc')?.value?.trim() || c.dataNascimento || '';
+  c.indicadoPor    = document.getElementById('ec2_indicado')?.value?.trim() || c.indicadoPor || '';
+  // Garante código de indicação próprio
+  if (!c.codigoIndicacao) c.codigoIndicacao = gerarCodigoIndicacao(c.nome);
   c.servico     = document.getElementById('ec2_servico').value;
   c.status      = document.getElementById('ec2_status').value;
   c.responsavel = document.getElementById('ec2_resp').value;
@@ -5395,6 +5441,8 @@ function renderFinanceiroAvancado() {
       <div class="stat-card blue"><div class="stat-icon">📊</div><div class="stat-label">Volume Contratado</div><div class="stat-value">R$${((totalRecebido+totalPendente+totalAtrasado)/1000).toFixed(1)}k</div><div class="stat-sub">${parcelasData.length} contratos</div></div>
     </div>
 
+    ${renderProjecaoFinanceira()}
+
     ${inadimplentes.length > 0 ? `
     <div style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.25);border-radius:16px;padding:20px 24px;margin-bottom:24px">
       <div style="font-size:0.75rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#f87171;margin-bottom:12px">🚨 Clientes Inadimplentes</div>
@@ -7652,4 +7700,1599 @@ function excluirPrint(id) {
   showToast('🗑️ Print excluído.','info');
 }
 
+</script>
+<script>
+// ══════════════════════════════════════════════════════════════════
+// 📈 CRM DE LEADS
+// ══════════════════════════════════════════════════════════════════
+const LEAD_COLUNAS = [
+  { id:'novo',     label:'🆕 Novo Lead',        cor:'rgba(96,165,250,0.15)',  borda:'rgba(96,165,250,0.4)'  },
+  { id:'contato',  label:'📞 Contato Feito',    cor:'rgba(251,146,60,0.12)', borda:'rgba(251,146,60,0.4)'  },
+  { id:'proposta', label:'📄 Proposta Enviada', cor:'rgba(201,168,76,0.12)', borda:'rgba(201,168,76,0.4)'  },
+  { id:'fechado',  label:'✅ Fechado',           cor:'rgba(16,185,129,0.12)', borda:'rgba(16,185,129,0.4)'  },
+  { id:'perdido',  label:'❌ Perdido',           cor:'rgba(239,68,68,0.1)',   borda:'rgba(239,68,68,0.3)'   },
+];
+
+function renderCrmLeads() {
+  const por = id => leads.filter(l=>l.status===id);
+  const totalLeads = leads.length;
+  const fechados   = por('fechado').length;
+  const conv       = totalLeads ? Math.round(fechados/totalLeads*100) : 0;
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:1.2rem;font-weight:800;color:var(--text);margin:0">🎯 CRM de Leads</h2>
+        <div style="font-size:0.78rem;color:var(--text3);margin-top:3px">${totalLeads} leads · ${conv}% conversão</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-gold" onclick="openNovoLead()">+ Novo Lead</button>
+        <button class="btn btn-outline" onclick="navigateTo('landing-captacao')" style="font-size:0.8rem">🌐 Ver Landing Page</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;align-items:flex-start">
+      ${LEAD_COLUNAS.map(col => `
+        <div style="min-width:220px;flex:1;background:${col.cor};border:1px solid ${col.borda};border-radius:14px;padding:14px">
+          <div style="font-size:0.78rem;font-weight:700;margin-bottom:12px;color:var(--text)">${col.label} <span style="opacity:0.6">(${por(col.id).length})</span></div>
+          ${por(col.id).length===0 ? `<div style="font-size:0.75rem;color:var(--text3);text-align:center;padding:20px 0;opacity:0.5">Nenhum</div>` : ''}
+          ${por(col.id).map(l=>`
+            <div onclick="openEditLead(${l.id})" style="background:var(--navy2);border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;transition:transform 0.15s"
+              onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+              <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:4px">${l.nome}</div>
+              <div style="font-size:0.72rem;color:var(--text3);margin-bottom:6px">${l.servico||'Serviço não definido'}</div>
+              ${l.tel ? `<button onclick="event.stopPropagation();const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a)"
+                style="display:flex;align-items:center;gap:5px;background:#25d366;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.7rem;cursor:pointer;width:100%">
+                💬 ${l.tel}
+              </button>` : ''}
+              <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.68rem;color:var(--text3)">
+                <span>${l.origem||'Direto'}</span>
+                <span>${l.data||''}</span>
+              </div>
+            </div>`).join('')}
+          <button onclick="openNovoLead('${col.id}')" style="width:100%;margin-top:6px;background:transparent;border:1.5px dashed ${col.borda};border-radius:8px;padding:7px;color:var(--text3);font-size:0.75rem;cursor:pointer">+ Adicionar</button>
+        </div>`).join('')}
+    </div>`;
+}
+
+function openNovoLead(status='novo') {
+  const respOpts = colaboradores.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');
+  openModal(`
+    <div class="modal-title">🎯 Novo Lead</div>
+    <div class="form-grid">
+      <div class="form-field form-full"><label>Nome *</label><input id="ld_nome" placeholder="Nome completo"></div>
+      <div class="form-field"><label>Telefone</label><input id="ld_tel" data-mask="tel" placeholder="(XX) 9 XXXX-XXXX"></div>
+      <div class="form-field"><label>E-mail</label><input id="ld_email" type="email" placeholder="email@email.com"></div>
+      <div class="form-field"><label>País de Origem</label><input id="ld_pais" placeholder="Ex: Portugal, Argentina..."></div>
+      <div class="form-field"><label>Serviço de Interesse</label>
+        <select id="ld_servico">
+          <option>Naturalização Brasileira</option>
+          <option>Autorização de Residência (RNM)</option>
+          <option>Visto de Turismo (EUA)</option>
+          <option>Outro</option>
+        </select>
+      </div>
+      <div class="form-field"><label>Origem</label>
+        <select id="ld_origem">
+          <option>Indicação de cliente</option>
+          <option>Instagram</option>
+          <option>Google</option>
+          <option>WhatsApp direto</option>
+          <option>Site / Landing Page</option>
+          <option>Outro</option>
+        </select>
+      </div>
+      <div class="form-field"><label>Responsável</label><select id="ld_resp">${respOpts}</select></div>
+      <div class="form-field"><label>Etapa</label>
+        <select id="ld_status">
+          ${LEAD_COLUNAS.map(c=>`<option value="${c.id}" ${c.id===status?'selected':''}>${c.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field form-full"><label>Observações</label><textarea id="ld_obs" placeholder="Anotações sobre o lead..."></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="salvarLead()">✅ Salvar Lead</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>`);
+  setTimeout(()=>document.querySelectorAll('[data-mask]').forEach(applyMask),60);
+}
+
+function salvarLead() {
+  const nome = document.getElementById('ld_nome')?.value?.trim();
+  if (!nome) { showToast('⚠️ Nome é obrigatório','warn'); return; }
+  leads.push({
+    id: _leadId++, nome,
+    tel:     document.getElementById('ld_tel')?.value?.trim()||'',
+    email:   document.getElementById('ld_email')?.value?.trim()||'',
+    pais:    document.getElementById('ld_pais')?.value?.trim()||'',
+    servico: document.getElementById('ld_servico')?.value||'',
+    origem:  document.getElementById('ld_origem')?.value||'',
+    resp:    document.getElementById('ld_resp')?.value||'',
+    status:  document.getElementById('ld_status')?.value||'novo',
+    obs:     document.getElementById('ld_obs')?.value?.trim()||'',
+    data:    new Date().toLocaleDateString('pt-BR'),
+  });
+  saveData(); closeModal(); navigateTo('crm-leads');
+  showToast('✅ Lead cadastrado!');
+}
+
+function openEditLead(id) {
+  const l = leads.find(x=>x.id===id);
+  if (!l) return;
+  const respOpts = colaboradores.map(c=>`<option value="${c.nome}" ${l.resp===c.nome?'selected':''}>${c.nome}</option>`).join('');
+  openModal(`
+    <div class="modal-title">✏️ Editar Lead — ${l.nome}</div>
+    <div class="form-grid">
+      <div class="form-field form-full"><label>Nome</label><input id="eld_nome" value="${l.nome}"></div>
+      <div class="form-field"><label>Telefone</label><input id="eld_tel" data-mask="tel" value="${l.tel}"></div>
+      <div class="form-field"><label>E-mail</label><input id="eld_email" value="${l.email}"></div>
+      <div class="form-field"><label>País</label><input id="eld_pais" value="${l.pais}"></div>
+      <div class="form-field"><label>Serviço</label>
+        <select id="eld_servico">
+          ${['Naturalização Brasileira','Autorização de Residência (RNM)','Visto de Turismo (EUA)','Outro'].map(s=>`<option ${l.servico===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field"><label>Origem</label>
+        <select id="eld_origem">
+          ${['Indicação de cliente','Instagram','Google','WhatsApp direto','Site / Landing Page','Outro'].map(o=>`<option ${l.origem===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field"><label>Responsável</label><select id="eld_resp">${respOpts}</select></div>
+      <div class="form-field"><label>Etapa</label>
+        <select id="eld_status">
+          ${LEAD_COLUNAS.map(c=>`<option value="${c.id}" ${l.status===c.id?'selected':''}>${c.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field form-full"><label>Observações</label><textarea id="eld_obs">${l.obs||''}</textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="salvarEdicaoLead(${id})">💾 Salvar</button>
+      <button class="btn btn-outline" style="color:var(--red);border-color:var(--red)" onclick="excluirLead(${id})">🗑️ Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+    ${l.tel ? `<div style="margin-top:12px"><button onclick="const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a)"
+      style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;padding:11px;font-size:0.85rem;font-weight:600;cursor:pointer">
+      💬 Entrar em contato via WhatsApp
+    </button></div>` : ''}`);
+  setTimeout(()=>document.querySelectorAll('[data-mask]').forEach(applyMask),60);
+}
+
+function salvarEdicaoLead(id) {
+  const l = leads.find(x=>x.id===id);
+  if (!l) return;
+  l.nome    = document.getElementById('eld_nome')?.value?.trim()||l.nome;
+  l.tel     = document.getElementById('eld_tel')?.value?.trim()||'';
+  l.email   = document.getElementById('eld_email')?.value?.trim()||'';
+  l.pais    = document.getElementById('eld_pais')?.value?.trim()||'';
+  l.servico = document.getElementById('eld_servico')?.value||'';
+  l.origem  = document.getElementById('eld_origem')?.value||'';
+  l.resp    = document.getElementById('eld_resp')?.value||'';
+  l.status  = document.getElementById('eld_status')?.value||'novo';
+  l.obs     = document.getElementById('eld_obs')?.value?.trim()||'';
+  // Se fechou, converte em cliente automaticamente
+  if (l.status==='fechado') {
+    const jaCliente = clientes.find(c=>c.nome.toLowerCase()===l.nome.toLowerCase());
+    if (!jaCliente && confirm(`"${l.nome}" foi fechado! Deseja cadastrar como cliente agora?`)) {
+      closeModal(); openNovoCliente(l.servico); return;
+    }
+  }
+  saveData(); closeModal(); navigateTo('crm-leads');
+  showToast('✅ Lead atualizado!');
+}
+
+function excluirLead(id) {
+  if (!confirm('Excluir este lead?')) return;
+  leads = leads.filter(x=>x.id!==id);
+  saveData(); closeModal(); navigateTo('crm-leads');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🌐 LANDING PAGE DE CAPTAÇÃO
+// ══════════════════════════════════════════════════════════════════
+function renderLandingCaptacao() {
+  const lpUrl = window.location.href.split('?')[0] + '?landing=1';
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:1.2rem;font-weight:800;margin:0">🌐 Landing Page de Captação</h2>
+        <div style="font-size:0.78rem;color:var(--text3);margin-top:3px">Formulário público — todo envio vira lead no CRM</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gold" onclick="navigator.clipboard.writeText('${lpUrl}').then(()=>showToast('📋 Link copiado!'))">📋 Copiar Link</button>
+        <button class="btn btn-outline" onclick="window.open('${lpUrl}','_blank')">👁️ Visualizar</button>
+      </div>
+    </div>
+
+    <div class="grid-2" style="gap:20px">
+      <!-- Preview da landing -->
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">📱 Preview da Página</span></div>
+        <div class="panel-body" style="padding:0;overflow:hidden;border-radius:0 0 12px 12px">
+          <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:28px;text-align:center">
+            <div style="font-size:2rem;margin-bottom:8px">🇧🇷</div>
+            <div style="font-size:1.1rem;font-weight:800;color:var(--gold);margin-bottom:4px">WB Assessoria Migratória</div>
+            <div style="font-size:0.82rem;color:rgba(255,255,255,0.7)">Realize seu sonho de se tornar brasileiro</div>
+          </div>
+          <div style="padding:20px;background:var(--navy2)">
+            <div style="font-size:0.78rem;color:var(--text3);margin-bottom:14px">Campos do formulário:</div>
+            ${['Nome completo','Telefone (WhatsApp)','E-mail','País de origem','Serviço de interesse','Como nos encontrou'].map(f=>`
+              <div style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:0.78rem;color:var(--text2)">${f}</div>`).join('')}
+            <div style="background:var(--gold);border-radius:8px;padding:10px;text-align:center;margin-top:10px;font-size:0.85rem;font-weight:700;color:#111">🚀 Quero me Naturalizar!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats e últimos leads da landing -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">📊 Captações pela Landing</span></div>
+          <div class="panel-body">
+            ${(() => {
+              const lp = leads.filter(l=>l.origem==='Site / Landing Page');
+              const conv = lp.filter(l=>l.status==='fechado').length;
+              return `
+                <div style="display:flex;gap:16px;flex-wrap:wrap">
+                  <div style="flex:1;text-align:center;background:var(--navy3);border-radius:10px;padding:14px">
+                    <div style="font-size:1.6rem;font-weight:800;color:var(--gold)">${lp.length}</div>
+                    <div style="font-size:0.7rem;color:var(--text3)">Leads captados</div>
+                  </div>
+                  <div style="flex:1;text-align:center;background:var(--navy3);border-radius:10px;padding:14px">
+                    <div style="font-size:1.6rem;font-weight:800;color:var(--green)">${conv}</div>
+                    <div style="font-size:0.7rem;color:var(--text3)">Convertidos</div>
+                  </div>
+                  <div style="flex:1;text-align:center;background:var(--navy3);border-radius:10px;padding:14px">
+                    <div style="font-size:1.6rem;font-weight:800;color:#60a5fa">${lp.length?Math.round(conv/lp.length*100):0}%</div>
+                    <div style="font-size:0.7rem;color:var(--text3)">Conversão</div>
+                  </div>
+                </div>`;
+            })()}
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">🔗 Compartilhar</span></div>
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:8px">
+            <div style="background:var(--navy3);border-radius:8px;padding:10px 12px;font-size:0.75rem;color:var(--text3);word-break:break-all;font-family:monospace">${lpUrl}</div>
+            <button onclick="navigator.clipboard.writeText('${lpUrl}').then(()=>showToast('📋 Copiado!'))"
+              style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:9px;color:var(--text2);font-size:0.82rem;cursor:pointer">📋 Copiar link</button>
+            <button onclick="const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a)"
+              style="background:#25d366;color:#fff;border:none;border-radius:8px;padding:9px;font-size:0.82rem;font-weight:600;cursor:pointer">
+              💬 Compartilhar via WhatsApp
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// Renderizar landing pública (chamada quando ?landing=1 na URL)
+function renderLandingPublica() {
+  document.body.innerHTML = `
+    <div style="min-height:100vh;background:linear-gradient(135deg,#0a0f1e,#0f172a,#1e3a5f);display:flex;align-items:center;justify-content:center;padding:24px;font-family:'Inter',sans-serif">
+      <div style="width:100%;max-width:440px">
+        <!-- Header -->
+        <div style="text-align:center;margin-bottom:32px">
+          <div style="font-size:3rem;margin-bottom:12px">🇧🇷</div>
+          <div style="font-size:1.5rem;font-weight:900;color:#c9a84c;margin-bottom:8px">WB Assessoria Migratória</div>
+          <div style="font-size:0.95rem;color:rgba(255,255,255,0.7);line-height:1.5">Realize seu sonho de obter a <strong style="color:#fff">cidadania brasileira</strong> com segurança e agilidade.</div>
+        </div>
+        <!-- Card -->
+        <div style="background:rgba(255,255,255,0.04);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:28px">
+          <div style="font-size:0.85rem;font-weight:700;color:#c9a84c;letter-spacing:1px;text-transform:uppercase;margin-bottom:20px">Quero saber mais →</div>
+          <div id="lp_form" style="display:flex;flex-direction:column;gap:14px">
+            ${[
+              ['lp_nome','text','Nome completo *','Seu nome'],
+              ['lp_tel','tel','WhatsApp *','(XX) 9 XXXX-XXXX'],
+              ['lp_email','email','E-mail','seu@email.com'],
+              ['lp_pais','text','País de origem','Ex: Portugal, Itália, Argentina...'],
+            ].map(([id,type,label,ph])=>`
+              <div>
+                <label style="display:block;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:5px;letter-spacing:0.5px">${label}</label>
+                <input id="${id}" type="${type}" placeholder="${ph}"
+                  style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;
+                  padding:12px 14px;color:#fff;font-size:0.88rem;box-sizing:border-box;outline:none"
+                  onfocus="this.style.borderColor='#c9a84c'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'">
+              </div>`).join('')}
+            <div>
+              <label style="display:block;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:5px">Serviço de interesse</label>
+              <select id="lp_servico" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;color:#fff;font-size:0.88rem;box-sizing:border-box">
+                <option value="Naturalização Brasileira">🇧🇷 Naturalização Brasileira</option>
+                <option value="Autorização de Residência (RNM)">🪪 Autorização de Residência (RNM)</option>
+                <option value="Visto de Turismo (EUA)">✈️ Visto de Turismo (EUA)</option>
+                <option value="Ainda não sei">🤔 Ainda não sei</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:5px">Como nos encontrou?</label>
+              <select id="lp_origem" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;color:#fff;font-size:0.88rem;box-sizing:border-box">
+                <option>Instagram</option><option>Google</option><option>Indicação de amigo</option><option>WhatsApp</option><option>Outro</option>
+              </select>
+            </div>
+            <button onclick="enviarFormLanding()"
+              style="background:linear-gradient(135deg,#c9a84c,#f59e0b);color:#111;border:none;border-radius:12px;padding:15px;font-size:1rem;font-weight:800;cursor:pointer;margin-top:4px;transition:transform 0.2s"
+              onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+              🚀 Quero me Naturalizar!
+            </button>
+          </div>
+          <div id="lp_sucesso" style="display:none;text-align:center;padding:20px">
+            <div style="font-size:3rem;margin-bottom:12px">🎉</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#4ade80;margin-bottom:8px">Solicitação enviada!</div>
+            <div style="font-size:0.85rem;color:rgba(255,255,255,0.7);margin-bottom:20px">Nossa equipe entrará em contato em breve pelo WhatsApp.</div>
+            <a href="${window.location.href.split('?')[0]}" style="color:#c9a84c;font-size:0.82rem">← Voltar ao portal</a>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:20px;font-size:0.72rem;color:rgba(255,255,255,0.3)">© WB Assessoria Migratória · (11) 91425-8886</div>
+      </div>
+    </div>`;
+}
+
+function enviarFormLanding() {
+  const nome = document.getElementById('lp_nome')?.value?.trim();
+  const tel  = document.getElementById('lp_tel')?.value?.trim();
+  if (!nome||!tel) { alert('Por favor preencha Nome e WhatsApp.'); return; }
+  // Salva no localStorage para o sistema buscar
+  const lead = {
+    id: Date.now(), nome, tel,
+    email:   document.getElementById('lp_email')?.value?.trim()||'',
+    pais:    document.getElementById('lp_pais')?.value?.trim()||'',
+    servico: document.getElementById('lp_servico')?.value||'',
+    origem:  'Site / Landing Page',
+    status:  'novo',
+    data:    new Date().toLocaleDateString('pt-BR'),
+    obs:     'Captado pela Landing Page',
+  };
+  // Persiste no LS compartilhado
+  try {
+    const raw = localStorage.getItem('wb_erp_dados');
+    const d = raw ? JSON.parse(raw) : {};
+    d.leads = d.leads||[];
+    d.leads.push(lead);
+    localStorage.setItem('wb_erp_dados', JSON.stringify(d));
+  } catch(e){}
+  document.getElementById('lp_form').style.display='none';
+  document.getElementById('lp_sucesso').style.display='block';
+  // Abre WA da empresa
+  setTimeout(()=>{
+    const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);
+  },1500);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🎁 PROMOÇÕES & CUPONS
+// ══════════════════════════════════════════════════════════════════
+function renderPromocoes() {
+  const hoje = new Date();
+  const ativas  = promocoes.filter(p=>!p.validade||new Date(p.validade+'T23:59')>=hoje);
+  const vencidas = promocoes.filter(p=>p.validade&&new Date(p.validade+'T23:59')<hoje);
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:1.2rem;font-weight:800;margin:0">🎁 Promoções & Cupons</h2>
+        <div style="font-size:0.78rem;color:var(--text3);margin-top:3px">${ativas.length} ativa(s) · ${vencidas.length} vencida(s)</div>
+      </div>
+      <button class="btn btn-gold" onclick="openNovaPromo()">+ Nova Promoção</button>
+    </div>
+
+    ${ativas.length===0 && vencidas.length===0 ? `
+      <div style="text-align:center;padding:60px;color:var(--text3)">
+        <div style="font-size:3rem;margin-bottom:12px">🎁</div>
+        <div style="margin-bottom:16px">Nenhuma promoção cadastrada ainda.</div>
+        <button class="btn btn-gold" onclick="openNovaPromo()">Criar primeira promoção</button>
+      </div>` : ''}
+
+    ${ativas.length>0?`
+    <div style="font-size:0.7rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:12px">✅ Ativas (${ativas.length})</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:24px">
+      ${ativas.map(p=>cardPromo(p)).join('')}
+    </div>`:''}
+
+    ${vencidas.length>0?`
+    <div style="font-size:0.7rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">⌛ Vencidas</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;opacity:0.5">
+      ${vencidas.map(p=>cardPromo(p)).join('')}
+    </div>`:''}`;
+}
+
+function cardPromo(p) {
+  const usos = p.usos||0;
+  const limite = p.limite||0;
+  const pct = limite>0?Math.round(usos/limite*100):0;
+  return `
+    <div style="background:var(--navy2);border:1px solid rgba(201,168,76,0.3);border-radius:14px;padding:18px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:-10px;right:-10px;font-size:5rem;opacity:0.05">🎁</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div style="background:rgba(201,168,76,0.15);border:1px solid var(--gold);border-radius:8px;padding:5px 12px;font-family:'DM Mono',monospace;font-size:0.9rem;font-weight:700;color:var(--gold)">${p.codigo}</div>
+        <div style="font-size:1.3rem;font-weight:800;color:var(--green)">${p.tipo==='pct'?p.valor+'%':'R$ '+p.valor}</div>
+      </div>
+      <div style="font-size:0.85rem;font-weight:600;color:var(--text);margin-bottom:4px">${p.nome}</div>
+      <div style="font-size:0.72rem;color:var(--text3);margin-bottom:10px">${p.descricao||''}</div>
+      <div style="font-size:0.72rem;color:var(--text3);display:flex;justify-content:space-between;margin-bottom:8px">
+        <span>Usos: ${usos}${limite>0?' / '+limite:''}</span>
+        <span>${p.validade?'Válido até '+new Date(p.validade+'T12:00').toLocaleDateString('pt-BR'):'Sem vencimento'}</span>
+      </div>
+      ${limite>0?`<div style="background:var(--navy3);border-radius:4px;height:4px"><div style="background:var(--gold);height:100%;border-radius:4px;width:${pct}%"></div></div>`:''}
+      <div style="display:flex;gap:6px;margin-top:12px">
+        <button onclick="navigator.clipboard.writeText('${p.codigo}').then(()=>showToast('📋 Código copiado!'))"
+          style="flex:1;background:var(--navy3);border:1px solid var(--border2);border-radius:7px;padding:7px;font-size:0.75rem;color:var(--text2);cursor:pointer">📋 Copiar</button>
+        <button onclick="dispararPromoWA(${p.id})"
+          style="flex:1;background:#25d366;color:#fff;border:none;border-radius:7px;padding:7px;font-size:0.75rem;font-weight:600;cursor:pointer">💬 Disparar</button>
+        <button onclick="excluirPromo(${p.id})"
+          style="background:var(--navy3);border:1px solid var(--border2);border-radius:7px;padding:7px;font-size:0.75rem;color:var(--red);cursor:pointer">🗑️</button>
+      </div>
+    </div>`;
+}
+
+function openNovaPromo() {
+  openModal(`
+    <div class="modal-title">🎁 Nova Promoção</div>
+    <div class="form-grid">
+      <div class="form-field form-full"><label>Nome da Promoção *</label><input id="pr_nome" placeholder="Ex: Black Friday Naturalização"></div>
+      <div class="form-field"><label>Código do Cupom *</label>
+        <div style="display:flex;gap:8px">
+          <input id="pr_codigo" placeholder="WBNATURALIZA" style="flex:1;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+          <button type="button" onclick="document.getElementById('pr_codigo').value='WB'+Math.random().toString(36).slice(2,6).toUpperCase()"
+            style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;color:var(--text3);cursor:pointer;font-size:0.8rem">🎲</button>
+        </div>
+      </div>
+      <div class="form-field"><label>Tipo de Desconto</label>
+        <select id="pr_tipo">
+          <option value="pct">% Percentual</option>
+          <option value="fixo">R$ Valor Fixo</option>
+        </select>
+      </div>
+      <div class="form-field"><label>Valor do Desconto</label><input id="pr_valor" type="number" min="1" placeholder="Ex: 10 (para 10% ou R$10)"></div>
+      <div class="form-field"><label>Válido até</label><input id="pr_validade" type="date"></div>
+      <div class="form-field"><label>Limite de Usos (0 = ilimitado)</label><input id="pr_limite" type="number" min="0" value="0"></div>
+      <div class="form-field form-full"><label>Descrição</label><textarea id="pr_desc" placeholder="Ex: Válido para novos clientes de naturalização até 31/12"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="salvarPromo()">✅ Criar Promoção</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>`);
+}
+
+function salvarPromo() {
+  const nome   = document.getElementById('pr_nome')?.value?.trim();
+  const codigo = document.getElementById('pr_codigo')?.value?.trim().toUpperCase();
+  const valor  = parseFloat(document.getElementById('pr_valor')?.value)||0;
+  if (!nome||!codigo||!valor) { showToast('⚠️ Preencha todos os campos obrigatórios','warn'); return; }
+  if (promocoes.find(p=>p.codigo===codigo)) { showToast('⚠️ Código já existe!','warn'); return; }
+  promocoes.push({
+    id: _promoId++, nome, codigo, valor,
+    tipo:     document.getElementById('pr_tipo')?.value||'pct',
+    validade: document.getElementById('pr_validade')?.value||'',
+    limite:   parseInt(document.getElementById('pr_limite')?.value)||0,
+    descricao:document.getElementById('pr_desc')?.value?.trim()||'',
+    usos: 0,
+    criado: new Date().toLocaleDateString('pt-BR'),
+  });
+  saveData(); closeModal(); navigateTo('promocoes');
+  showToast('✅ Promoção criada!');
+}
+
+function excluirPromo(id) {
+  if (!confirm('Excluir esta promoção?')) return;
+  promocoes = promocoes.filter(p=>p.id!==id);
+  saveData(); navigateTo('promocoes');
+}
+
+function dispararPromoWA(id) {
+  const p = promocoes.find(x=>x.id===id);
+  if (!p) return;
+  const desc = p.tipo==='pct' ? `${p.valor}% de desconto` : `R$ ${p.valor} de desconto`;
+  const msg = `🎉 *Promoção Especial WB Assessoria Migratória!*\n\n${p.nome}\n\n✨ ${desc} no seu processo!\n\nUse o cupom: *${p.codigo}*\n\n${p.validade?`⏰ Válido até ${new Date(p.validade+'T12:00').toLocaleDateString('pt-BR')}\n\n`:''}Entre em contato agora e garanta sua vaga!\n\n_WB Assessoria Migratória_`;
+  navigator.clipboard.writeText(msg).then(()=>showToast('📋 Mensagem copiada! Agora abra o WhatsApp.'));
+  setTimeout(()=>{const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);},800);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🤝 PROGRAMA DE INDICAÇÕES
+// ══════════════════════════════════════════════════════════════════
+function gerarCodigoIndicacao(nome) {
+  const parte = nome.trim().split(' ')[0].toUpperCase().replace(/[^A-Z]/g,'').slice(0,4);
+  return 'WB-' + parte + Math.floor(10+Math.random()*90);
+}
+
+function renderIndicacoes() {
+  // Garante código para todos os clientes
+  clientes.forEach(c=>{ if(!c.codigoIndicacao) c.codigoIndicacao=gerarCodigoIndicacao(c.nome); });
+  const ranking = clientes.map(c=>{
+    const indicados = clientes.filter(x=>x.indicadoPor===c.codigoIndicacao).length;
+    return {...c, indicados};
+  }).filter(c=>c.indicados>0).sort((a,b)=>b.indicados-a.indicados);
+  const totalIndicacoes = clientes.filter(c=>c.indicadoPor).length;
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:1.2rem;font-weight:800;margin:0">🤝 Programa de Indicações</h2>
+        <div style="font-size:0.78rem;color:var(--text3);margin-top:3px">${totalIndicacoes} cliente(s) indicado(s) · ${ranking.length} indicador(es) ativo(s)</div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="gap:20px;margin-bottom:24px">
+      <div class="panel" style="border-color:rgba(201,168,76,0.3)">
+        <div class="panel-header"><span class="panel-title">🏆 Top Indicadores</span></div>
+        <div class="panel-body">
+          ${ranking.length===0 ? '<div style="text-align:center;color:var(--text3);padding:20px">Nenhuma indicação ainda.</div>' : ranking.slice(0,5).map((c,i)=>`
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border2)">
+              <div style="font-size:1.3rem">${['🥇','🥈','🥉','4️⃣','5️⃣'][i]||'·'}</div>
+              <div style="flex:1">
+                <div style="font-size:0.85rem;font-weight:600">${c.nome}</div>
+                <div style="font-size:0.72rem;color:var(--text3)">${c.codigoIndicacao}</div>
+              </div>
+              <div style="background:rgba(201,168,76,0.15);border:1px solid var(--gold);border-radius:8px;padding:4px 10px;font-size:0.82rem;font-weight:700;color:var(--gold)">${c.indicados} indicação(ões)</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">🔗 Links por Cliente</span></div>
+        <div class="panel-body" style="max-height:300px;overflow-y:auto">
+          ${clientes.slice(0,20).map(c=>{
+            const base = window.location.href.split('?')[0];
+            const link = base+'?ref='+c.codigoIndicacao;
+            return `
+            <div style="padding:8px 0;border-bottom:1px solid var(--border2)">
+              <div style="font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:4px">${c.nome}</div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <code style="font-size:0.7rem;color:var(--gold);background:rgba(201,168,76,0.1);padding:2px 8px;border-radius:5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.codigoIndicacao}</code>
+                <button onclick="navigator.clipboard.writeText('${link}').then(()=>showToast('📋 Link copiado!'))"
+                  style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;font-size:0.7rem;color:var(--text3);cursor:pointer;white-space:nowrap">📋 Copiar</button>
+                <button onclick="enviarLinkIndicacaoWA('${c.nome}','${link}')"
+                  style="background:#25d366;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:0.7rem;cursor:pointer;white-space:nowrap">💬 WA</button>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- Clientes indicados -->
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">👥 Clientes Indicados</span></div>
+      <div class="panel-body">
+        ${clientes.filter(c=>c.indicadoPor).length===0
+          ? '<div style="text-align:center;color:var(--text3);padding:20px">Nenhum cliente indicado registrado ainda.<br><small>Para registrar, edite o cliente e informe o código de indicação.</small></div>'
+          : clientes.filter(c=>c.indicadoPor).map(c=>{
+              const indicador = clientes.find(x=>x.codigoIndicacao===c.indicadoPor);
+              return `
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border2)">
+                <div style="font-size:0.85rem;flex:1"><strong>${c.nome}</strong> — indicado por <span style="color:var(--gold)">${indicador?.nome||c.indicadoPor}</span></div>
+                <span class="badge badge-green">✅ ${c.status||'Ativo'}</span>
+              </div>`;
+            }).join('')}
+      </div>
+    </div>`;
+}
+
+function enviarLinkIndicacaoWA(nome, link) {
+  const msg = `Olá ${nome.split(' ')[0]}! 🎉\n\nTemos um presente para você: seu *link exclusivo de indicação* da WB Assessoria Migratória!\n\n🔗 ${link}\n\nCompartilhe com amigos e familiares que precisam de assessoria migratória. Cada indicação que fechar contrato garante um *benefício especial* para você!\n\n_WB Assessoria Migratória_`;
+  navigator.clipboard.writeText(msg).then(()=>showToast('📋 Mensagem copiada!'));
+  setTimeout(()=>{const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);},600);
+}
+
+// Portal do cliente — aba indicações
+function renderMinhasIndicacoes() {
+  const c = clienteLogado();
+  if (!c) return '';
+  if (!c.codigoIndicacao) c.codigoIndicacao = gerarCodigoIndicacao(c.nome);
+  const base = window.location.href.split('?')[0];
+  const link = base+'?ref='+c.codigoIndicacao;
+  const indicados = clientes.filter(x=>x.indicadoPor===c.codigoIndicacao);
+  return `
+    <div style="max-width:520px;margin:0 auto">
+      <div style="background:linear-gradient(135deg,#1e3a5f,#162032);border-radius:18px;padding:24px;margin-bottom:20px;text-align:center">
+        <div style="font-size:2rem;margin-bottom:8px">🤝</div>
+        <div style="font-size:1.1rem;font-weight:800;color:var(--gold)">Indique e Ganhe!</div>
+        <div style="font-size:0.82rem;color:rgba(255,255,255,0.7);margin-top:6px">Compartilhe seu link exclusivo. A cada amigo que fechar contrato, você ganha um benefício especial!</div>
+      </div>
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-header"><span class="panel-title">🔗 Seu Link de Indicação</span></div>
+        <div class="panel-body">
+          <div style="background:var(--navy3);border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:12px;margin-bottom:12px">
+            <div style="font-size:0.7rem;color:var(--text3);margin-bottom:4px">Seu código exclusivo:</div>
+            <div style="font-size:1.1rem;font-weight:800;color:var(--gold);font-family:'DM Mono',monospace">${c.codigoIndicacao}</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button onclick="navigator.clipboard.writeText('${link}').then(()=>showToast('📋 Link copiado!'))"
+              style="flex:1;background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:10px;font-size:0.82rem;color:var(--text2);cursor:pointer">📋 Copiar Link</button>
+            <button onclick="enviarLinkIndicacaoWA('${c.nome}','${link}')"
+              style="flex:1;background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px;font-size:0.82rem;font-weight:600;cursor:pointer">💬 Compartilhar WA</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">👥 Amigos Indicados (${indicados.length})</span></div>
+        <div class="panel-body">
+          ${indicados.length===0
+            ? '<div style="text-align:center;color:var(--text3);padding:20px;font-size:0.85rem">Você ainda não indicou ninguém.<br>Compartilhe seu link e comece a ganhar!</div>'
+            : indicados.map(x=>`
+              <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2);font-size:0.82rem">
+                <span>${x.nome}</span>
+                <span class="badge badge-green">✅ Cadastrado</span>
+              </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    ${barraWhatsApp(c.nome, c.servico)}`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 💌 DISPARO EM MASSA WHATSAPP
+// ══════════════════════════════════════════════════════════════════
+function renderDisparoMassa() {
+  return `
+    <div style="margin-bottom:20px">
+      <h2 style="font-size:1.2rem;font-weight:800;margin:0 0 4px">💌 Disparo em Massa — WhatsApp</h2>
+      <div style="font-size:0.78rem;color:var(--text3)">Selecione o público, personalize a mensagem e dispare para todos de uma vez.</div>
+    </div>
+
+    <div class="grid-2" style="gap:20px">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">🎯 Público-Alvo</span></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px">
+          ${[
+            ['todos-clientes','👥 Todos os clientes ativos','clientes.filter(c=>c.status!=="Concluído")'],
+            ['concluidos','✅ Clientes com processo concluído','clientes.filter(c=>c.status==="Concluído")'],
+            ['pendentes','⚠️ Clientes com docs pendentes','clientes.filter(c=>(c.docsPendentes||[]).length>0)'],
+            ['leads-novos','🆕 Leads novos no CRM','leads.filter(l=>l.status==="novo")'],
+            ['todos-leads','📋 Todos os leads','leads'],
+            ['naturalizacao','🇧🇷 Clientes de Naturalização','clientes.filter(c=>c.servico&&c.servico.includes("Naturaliz"))'],
+          ].map(([id,label,expr])=>{
+            let count=0;
+            try{count=eval(expr).length;}catch(e){}
+            return `
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:var(--navy3);border-radius:8px;border:1px solid var(--border2)">
+              <input type="radio" name="disp_publico" value="${id}" style="accent-color:var(--gold)">
+              <div style="flex:1">
+                <div style="font-size:0.85rem;color:var(--text)">${label}</div>
+              </div>
+              <span style="background:rgba(201,168,76,0.15);color:var(--gold);border:1px solid rgba(201,168,76,0.3);border-radius:6px;padding:2px 8px;font-size:0.75rem;font-weight:700">${count}</span>
+            </label>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">✍️ Mensagem</span></div>
+        <div class="panel-body">
+          <div style="font-size:0.72rem;color:var(--text3);margin-bottom:8px">Use {nome} para personalizar com o nome do contato.</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+            ${[
+              ['Promoção', '🎉 *Promoção Especial WB!*\n\nOlá {nome}! Temos uma oferta exclusiva para você!\n\nEntre em contato e saiba mais.\n\n_WB Assessoria Migratória_'],
+              ['Lembrete Docs', '📄 Olá {nome}!\n\nSua equipe WB verificou que ainda há documentos pendentes para o seu processo.\n\nAcesse seu portal ou entre em contato.\n\n_WB Assessoria Migratória_'],
+              ['Follow-up Lead', '👋 Olá {nome}!\n\nA WB Assessoria Migratória entrou em contato anteriormente sobre seu processo de naturalização.\n\nPodemos ajudá-lo? Estamos à disposição!\n\n_WB Assessoria Migratória_'],
+              ['Parabéns', '🎉 Parabéns {nome}!\n\nSeu processo foi concluído com sucesso!\n\nFoi um prazer trabalhar com você. Conte conosco sempre!\n\n_WB Assessoria Migratória_'],
+            ].map(([l,m])=>`
+              <button onclick="document.getElementById('disp_msg').value=${JSON.stringify(m)}"
+                style="background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:0.72rem;color:var(--text3);cursor:pointer">${l}</button>`).join('')}
+          </div>
+          <textarea id="disp_msg" rows="7" placeholder="Digite sua mensagem aqui. Use {nome} para personalizar."
+            style="width:100%;box-sizing:border-box;background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:0.83rem;resize:vertical"></textarea>
+          <button onclick="prepararDisparo()"
+            style="width:100%;margin-top:12px;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none;border-radius:10px;padding:13px;font-size:0.9rem;font-weight:700;cursor:pointer">
+            💬 Preparar Disparo via WhatsApp
+          </button>
+          <div style="font-size:0.7rem;color:var(--text3);margin-top:8px;text-align:center">
+            Gera uma lista de links — clique em cada um para enviar individualmente.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="disparo_lista" style="margin-top:20px"></div>`;
+}
+
+function prepararDisparo() {
+  const radio = document.querySelector('input[name="disp_publico"]:checked');
+  const msg   = document.getElementById('disp_msg')?.value?.trim();
+  if (!radio)  { showToast('⚠️ Selecione o público-alvo','warn'); return; }
+  if (!msg)    { showToast('⚠️ Digite a mensagem','warn'); return; }
+
+  const publicos = {
+    'todos-clientes':  clientes.filter(c=>c.status!=='Concluído'),
+    'concluidos':      clientes.filter(c=>c.status==='Concluído'),
+    'pendentes':       clientes.filter(c=>(c.docsPendentes||[]).length>0),
+    'leads-novos':     leads.filter(l=>l.status==='novo'),
+    'todos-leads':     leads,
+    'naturalizacao':   clientes.filter(c=>c.servico&&c.servico.includes('Naturaliz')),
+  };
+  const lista = (publicos[radio.value]||[]).filter(x=>x.tel);
+  if (lista.length===0) { showToast('⚠️ Nenhum contato com telefone cadastrado neste grupo','warn'); return; }
+
+  const html = `
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📋 Lista de Disparo (${lista.length} contatos)</span>
+        <span style="font-size:0.75rem;color:var(--text3)">Clique em cada botão para enviar</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto">
+          ${lista.map((x,i)=>{
+            const nome1 = x.nome.split(' ')[0];
+            const msgP  = msg.replace(/\{nome\}/g, nome1);
+            const tel   = (x.tel||'').replace(/\D/g,'');
+            const fone  = tel.length>=10?(tel.startsWith('55')?tel:'55'+tel):null;
+            const waUrl = fone ? `https://wa.me/${fone}?text=${encodeURIComponent(msgP)}` : WB_WA_LINK;
+            return `
+            <div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--navy3);border-radius:8px">
+              <div style="font-size:0.82rem;font-weight:600;flex:1">${i+1}. ${x.nome}</div>
+              <div style="font-size:0.75rem;color:var(--text3);flex:1">${x.tel||'—'}</div>
+              <button onclick="const a=document.createElement('a');a.href='${waUrl}';a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a)"
+                style="background:#25d366;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:0.78rem;font-weight:600;cursor:pointer;white-space:nowrap">
+                💬 Enviar
+              </button>
+            </div>`;
+          }).join('')}
+        </div>
+        <button onclick="copiarTodasMensagens(${JSON.stringify(lista.map(x=>x.nome.split(' ')[0]))})"
+          style="width:100%;margin-top:14px;background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:10px;color:var(--text2);font-size:0.82rem;cursor:pointer">
+          📋 Copiar mensagem base (para colar e editar)
+        </button>
+      </div>
+    </div>`;
+  document.getElementById('disparo_lista').innerHTML = html;
+  document.getElementById('disparo_lista').scrollIntoView({behavior:'smooth'});
+}
+
+function copiarTodasMensagens(nomes) {
+  const msg = document.getElementById('disp_msg')?.value||'';
+  navigator.clipboard.writeText(msg).then(()=>showToast('📋 Mensagem copiada!'));
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 📊 RELATÓRIO DE CONVERSÃO & NPS
+// ══════════════════════════════════════════════════════════════════
+function renderRelatorioConversao() {
+  const totalLeads    = leads.length;
+  const leadsConv     = leads.filter(l=>l.status==='fechado').length;
+  const leadsPerdi    = leads.filter(l=>l.status==='perdido').length;
+  const taxaConv      = totalLeads ? Math.round(leadsConv/totalLeads*100) : 0;
+  const ticketMedio   = clientes.filter(c=>c.valor>0).length
+    ? Math.round(clientes.reduce((s,c)=>s+(c.valor||0),0)/clientes.filter(c=>c.valor>0).length)
+    : 0;
+  const receitaTotal  = clientes.reduce((s,c)=>s+(c.valor||0),0);
+  const clientesPagos = clientes.filter(c=>c.pago).length;
+
+  // NPS
+  const avaliacoes   = clientes.filter(c=>c.avaliacao);
+  const mediaStars   = avaliacoes.length ? (avaliacoes.reduce((s,c)=>s+(c.avaliacao.estrelas||0),0)/avaliacoes.length).toFixed(1) : '—';
+  const promotores   = avaliacoes.filter(c=>c.avaliacao.estrelas>=4).length;
+  const detratores   = avaliacoes.filter(c=>c.avaliacao.estrelas<=2).length;
+  const nps          = avaliacoes.length ? Math.round(((promotores-detratores)/avaliacoes.length)*100) : 0;
+
+  // Origens
+  const origens = {};
+  leads.forEach(l=>{ origens[l.origem||'Direto']=(origens[l.origem||'Direto']||0)+1; });
+  const top3Origens = Object.entries(origens).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // Indicações
+  const totalInd = clientes.filter(c=>c.indicadoPor).length;
+  const pctInd   = clientes.length ? Math.round(totalInd/clientes.length*100) : 0;
+
+  const stat = (icon,val,label,cor='var(--gold)') => `
+    <div style="background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:18px;text-align:center">
+      <div style="font-size:1.5rem;margin-bottom:6px">${icon}</div>
+      <div style="font-size:1.6rem;font-weight:800;color:${cor}">${val}</div>
+      <div style="font-size:0.72rem;color:var(--text3);margin-top:4px">${label}</div>
+    </div>`;
+
+  return `
+    <h2 style="font-size:1.2rem;font-weight:800;margin:0 0 20px">📊 Conversão, NPS & Crescimento</h2>
+
+    <!-- Stats principais -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:24px">
+      ${stat('🎯', totalLeads, 'Total de Leads')}
+      ${stat('✅', taxaConv+'%', 'Taxa de Conversão', '#4ade80')}
+      ${stat('💰', 'R$'+Math.round(receitaTotal/1000)+'k', 'Receita Total', 'var(--green)')}
+      ${stat('🧾', 'R$'+Math.round(ticketMedio).toLocaleString('pt-BR'), 'Ticket Médio')}
+      ${stat('⭐', mediaStars, 'Nota Média (NPS)', '#fbbf24')}
+      ${stat('🤝', totalInd+' ('+pctInd+'%)', 'Clientes por Indicação', '#60a5fa')}
+    </div>
+
+    <div class="grid-2" style="gap:20px">
+      <!-- Funil de leads -->
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">🔽 Funil de Leads</span></div>
+        <div class="panel-body">
+          ${LEAD_COLUNAS.map(col=>{
+            const n = leads.filter(l=>l.status===col.id).length;
+            const pct = totalLeads ? Math.round(n/totalLeads*100) : 0;
+            return `
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">
+                <span>${col.label}</span>
+                <span style="color:var(--text3)">${n} (${pct}%)</span>
+              </div>
+              <div style="background:var(--navy3);border-radius:6px;height:8px">
+                <div style="background:${col.borda};height:100%;border-radius:6px;width:${pct}%;transition:width 0.8s"></div>
+              </div>
+            </div>`;
+          }).join('')}
+          <div style="margin-top:16px;padding:12px;background:rgba(16,185,129,0.07);border-radius:8px;border:1px solid rgba(16,185,129,0.2);text-align:center">
+            <div style="font-size:1.3rem;font-weight:800;color:var(--green)">${taxaConv}%</div>
+            <div style="font-size:0.72rem;color:var(--text3)">Taxa de conversão geral</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NPS e avaliações -->
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">⭐ NPS & Satisfação</span></div>
+        <div class="panel-body">
+          <div style="text-align:center;padding:12px 0;margin-bottom:16px">
+            <div style="font-size:3rem;font-weight:900;color:${nps>=50?'#4ade80':nps>=0?'#fbbf24':'#ef4444'}">${nps}</div>
+            <div style="font-size:0.78rem;color:var(--text3)">NPS Score · ${avaliacoes.length} avaliação(ões)</div>
+            <div style="font-size:0.9rem;margin-top:4px">${nps>=70?'😍 Excelente':nps>=50?'😊 Bom':nps>=0?'😐 Regular':'😞 Precisa melhorar'}</div>
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:16px">
+            ${[['Promotores',promotores,'#4ade80'],['Neutros',avaliacoes.filter(c=>c.avaliacao.estrelas===3).length,'#fbbf24'],['Detratores',detratores,'#ef4444']].map(([l,n,c])=>`
+              <div style="flex:1;text-align:center;background:var(--navy3);border-radius:8px;padding:10px">
+                <div style="font-size:1.2rem;font-weight:800;color:${c}">${n}</div>
+                <div style="font-size:0.68rem;color:var(--text3)">${l}</div>
+              </div>`).join('')}
+          </div>
+          ${avaliacoes.slice(-3).reverse().map(c=>`
+            <div style="padding:8px;background:var(--navy3);border-radius:8px;margin-bottom:6px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+                <span style="font-size:0.78rem;font-weight:600">${c.nome.split(' ')[0]}</span>
+                <span>${'⭐'.repeat(c.avaliacao.estrelas)}</span>
+              </div>
+              <div style="font-size:0.72rem;color:var(--text3);font-style:italic">"${(c.avaliacao.texto||'').slice(0,80)}${(c.avaliacao.texto||'').length>80?'...':''}"</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- Origens dos leads -->
+    <div class="panel" style="margin-top:20px">
+      <div class="panel-header"><span class="panel-title">📡 Origem dos Leads</span></div>
+      <div class="panel-body">
+        ${top3Origens.length===0 ? '<div style="text-align:center;color:var(--text3)">Nenhum lead cadastrado ainda.</div>' :
+          top3Origens.map(([origem,n])=>{
+            const pct = totalLeads?Math.round(n/totalLeads*100):0;
+            return `
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:4px">
+                <span>${origem}</span><span style="color:var(--text3)">${n} leads (${pct}%)</span>
+              </div>
+              <div style="background:var(--navy3);border-radius:6px;height:8px">
+                <div style="background:var(--gold);height:100%;border-radius:6px;width:${pct}%"></div>
+              </div>
+            </div>`;
+          }).join('')}
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INICIALIZAÇÃO — detecta landing page e referral
+// ══════════════════════════════════════════════════════════════════
+(function checkLandingOrRef() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('landing') === '1') {
+    // Mostra landing pública após DOM carregar
+    window.addEventListener('DOMContentLoaded', ()=>setTimeout(renderLandingPublica, 100));
+  }
+  const ref = params.get('ref');
+  if (ref) {
+    // Guarda código de referral no session para usar no cadastro
+    try { sessionStorage.setItem('wb_referral', ref); } catch(e) {}
+  }
+})();
+</script>
+<script>
+// ══════════════════════════════════════════════════════════════════
+// 🌍 i18n — SISTEMA MULTILÍNGUE (PT, EN, ES, HT, FR, FA)
+// ══════════════════════════════════════════════════════════════════
+const IDIOMAS = {
+  pt: { flag:'🇧🇷', nome:'Português' },
+  en: { flag:'🇺🇸', nome:'English' },
+  es: { flag:'🇪🇸', nome:'Español' },
+  ht: { flag:'🇭🇹', nome:'Kreyòl' },
+  fr: { flag:'🇫🇷', nome:'Français' },
+  fa: { flag:'🇮🇷', nome:'فارسی' },
+};
+const T = {
+  // Portal do cliente — textos
+  bem_vindo:   { pt:'Olá, {n}! 👋', en:'Hello, {n}! 👋', es:'¡Hola, {n}! 👋', ht:'Bonjou, {n}! 👋', fr:'Bonjour, {n}! 👋', fa:'سلام، {n}! 👋' },
+  meu_processo:{ pt:'Meu Processo', en:'My Process', es:'Mi Proceso', ht:'Pwosesis Mwen', fr:'Mon Processus', fa:'پرونده من' },
+  meus_docs:   { pt:'Meus Documentos', en:'My Documents', es:'Mis Documentos', ht:'Dokiman Mwen', fr:'Mes Documents', fa:'اسناد من' },
+  financeiro:  { pt:'Financeiro & PIX', en:'Payments & PIX', es:'Pagos & PIX', ht:'Peman & PIX', fr:'Paiements & PIX', fa:'پرداخت و PIX' },
+  mensagens:   { pt:'Mensagens', en:'Messages', es:'Mensajes', ht:'Mesaj', fr:'Messages', fa:'پیام‌ها' },
+  agendamentos:{ pt:'Meus Agendamentos', en:'My Appointments', es:'Mis Citas', ht:'Randevou Mwen', fr:'Mes Rendez-vous', fa:'نوبت‌های من' },
+  curso:       { pt:'Curso de Português', en:'Portuguese Course', es:'Curso de Portugués', ht:'Kou Pòtigè', fr:'Cours de Portugais', fa:'دوره پرتغالی' },
+  indicacoes:  { pt:'Indique & Ganhe', en:'Refer & Earn', es:'Referir & Ganar', ht:'Refere & Genyen', fr:'Référer & Gagner', fa:'معرفی و درآمد' },
+  faq:         { pt:'Dúvidas Frequentes', en:'FAQ', es:'Preguntas Frecuentes', ht:'Kesyon Souvan', fr:'Questions Fréquentes', fa:'سوالات متداول' },
+  sou_elegivel:{ pt:'Sou Elegível?', en:'Am I Eligible?', es:'¿Soy Elegible?', ht:'Èske mwen Elijib?', fr:'Suis-je Éligible?', fa:'واجد شرایط هستم؟' },
+  pct_concluido:{ pt:'% concluído', en:'% complete', es:'% completado', ht:'% konplete', fr:'% complété', fa:'% تکمیل شده' },
+  docs_ok:     { pt:'✅ Sem pendências!', en:'✅ No pending items!', es:'✅ ¡Sin pendientes!', ht:'✅ Pa gen anyen annatant!', fr:'✅ Rien en attente!', fa:'✅ هیچ مورد معلقی نیست!' },
+  falar_wb:    { pt:'Falar com a WB pelo WhatsApp', en:'Talk to WB on WhatsApp', es:'Hablar con WB por WhatsApp', ht:'Pale ak WB nan WhatsApp', fr:'Parler à WB par WhatsApp', fa:'صحبت با WB در واتساپ' },
+  ligar_wb:    { pt:'📞 Ligar agora', en:'📞 Call now', es:'📞 Llamar ahora', ht:'📞 Rele kounye a', fr:'📞 Appeler maintenant', fa:'📞 همین الان تماس بگیر' },
+  agendar:     { pt:'📅 Agendar Reunião', en:'📅 Schedule Meeting', es:'📅 Programar Reunión', ht:'📅 Pwograme Reyinyon', fr:'📅 Planifier Réunion', fa:'📅 تنظیم جلسه' },
+  enviar_docs: { pt:'📤 Enviar documentos →', en:'📤 Send documents →', es:'📤 Enviar documentos →', ht:'📤 Voye dokiman →', fr:'📤 Envoyer documents →', fa:'📤 ارسال مدارک →' },
+  status:      { pt:'Status', en:'Status', es:'Estado', ht:'Estati', fr:'Statut', fa:'وضعیت' },
+  responsavel: { pt:'Responsável', en:'Responsible', es:'Responsable', ht:'Responsab', fr:'Responsable', fa:'مسئول' },
+  cadastrado:  { pt:'Cadastrado em', en:'Registered on', es:'Registrado el', ht:'Anrejistre nan', fr:'Enregistré le', fa:'ثبت‌نام در' },
+  etapas:      { pt:'📍 Etapas do Processo', en:'📍 Process Steps', es:'📍 Etapas del Proceso', ht:'📍 Etap Pwosesis', fr:'📍 Étapes du Processus', fa:'📍 مراحل پرونده' },
+  concluida:   { pt:'✅ Concluída', en:'✅ Done', es:'✅ Completada', ht:'✅ Fini', fr:'✅ Terminée', fa:'✅ انجام شد' },
+  em_andamento:{ pt:'▶ Em andamento', en:'▶ In progress', es:'▶ En progreso', ht:'▶ Ap travay', fr:'▶ En cours', fa:'▶ در حال انجام' },
+  aguardando:  { pt:'⏳ Aguardando', en:'⏳ Waiting', es:'⏳ Esperando', ht:'⏳ Ap tann', fr:'⏳ En attente', fa:'⏳ در انتظار' },
+  chave_pix:   { pt:'Chave PIX da WB', en:'WB PIX Key', es:'Clave PIX de WB', ht:'Kle PIX WB', fr:'Clé PIX WB', fa:'کلید PIX WB' },
+  copiar_pix:  { pt:'📋 Copiar chave PIX', en:'📋 Copy PIX key', es:'📋 Copiar clave PIX', ht:'📋 Kopye kle PIX', fr:'📋 Copier clé PIX', fa:'📋 کپی کلید PIX' },
+  avisar_pag:  { pt:'💬 Avisar WB após o pagamento', en:'💬 Notify WB after payment', es:'💬 Notificar WB tras el pago', ht:'💬 Avize WB apre peman', fr:'💬 Notifier WB après paiement', fa:'💬 اطلاع به WB بعد از پرداخت' },
+  avaliar:     { pt:'⭐ Avaliar WB', en:'⭐ Rate WB', es:'⭐ Calificar WB', ht:'⭐ Evalye WB', fr:'⭐ Évaluer WB', fa:'⭐ ارزیابی WB' },
+  agendar_online: { pt:'📅 Agendar Atendimento Online', en:'📅 Schedule Online Appointment', es:'📅 Agendar Atención Online', ht:'📅 Pwograme Sèvis Anliy', fr:'📅 Planifier Consultation en Ligne', fa:'📅 رزرو آنلاین' },
+};
+
+let _idioma = 'pt';
+try { _idioma = localStorage.getItem('wb_idioma') || 'pt'; } catch(e) {}
+
+function t(key, vars={}) {
+  let str = (T[key]||{})[_idioma] || (T[key]||{}).pt || key;
+  Object.entries(vars).forEach(([k,v])=>{ str = str.replace('{'+k+'}',v); });
+  return str;
+}
+function setIdioma(lang) {
+  _idioma = lang;
+  try { localStorage.setItem('wb_idioma', lang); } catch(e) {}
+  if (currentPage) navigateTo(currentPage);
+}
+
+function seletorIdioma() {
+  return `
+    <div style="position:relative;display:inline-block" id="idioma_wrap">
+      <button onclick="document.getElementById('idioma_menu').style.display=document.getElementById('idioma_menu').style.display==='block'?'none':'block'"
+        style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:5px 10px;color:var(--text2);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:5px">
+        ${IDIOMAS[_idioma]?.flag} ${IDIOMAS[_idioma]?.nome}
+        <span style="font-size:0.65rem;opacity:0.6">▼</span>
+      </button>
+      <div id="idioma_menu" style="display:none;position:absolute;right:0;top:110%;background:var(--navy2);border:1px solid var(--border2);border-radius:10px;padding:6px;z-index:999;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,0.5)">
+        ${Object.entries(IDIOMAS).map(([k,v])=>`
+          <div onclick="setIdioma('${k}');document.getElementById('idioma_menu').style.display='none'"
+            style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:0.82rem;color:var(--text);
+            background:${_idioma===k?'rgba(201,168,76,0.1)':'transparent'};direction:${k==='fa'?'rtl':'ltr'}"
+            onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background='${_idioma===k?'rgba(201,168,76,0.1)':'transparent'}'">
+            <span>${v.flag}</span><span>${v.nome}</span>${_idioma===k?'<span style="margin-left:auto;color:var(--gold)">✓</span>':''}
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🎂 ALERTAS DE ANIVERSÁRIO
+// ══════════════════════════════════════════════════════════════════
+function checkAniversarios() {
+  const hoje = new Date();
+  const dia  = String(hoje.getDate()).padStart(2,'0');
+  const mes  = String(hoje.getMonth()+1).padStart(2,'0');
+  const aniv = clientes.filter(c=>{
+    if (!c.dataNascimento) return false;
+    const parts = c.dataNascimento.split(/[-\/]/);
+    if (parts.length < 3) return false;
+    // Aceita DD/MM/YYYY ou YYYY-MM-DD
+    const [d,m] = parts[0].length===4 ? [parts[2],parts[1]] : [parts[0],parts[1]];
+    return d===dia && m===mes;
+  });
+  if (aniv.length > 0) {
+    aniv.forEach(c=>{
+      setTimeout(()=>{
+        showToast(`🎂 Aniversário hoje: ${c.nome.split(' ')[0]}!`, 'info');
+      }, 1500);
+    });
+  }
+  return aniv;
+}
+
+function enviarPainsAniversario(clienteId) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  const nome1 = c.nome.split(' ')[0];
+  const tel   = (c.tel||'').replace(/\D/g,'');
+  const fone  = tel.length>=10?(tel.startsWith('55')?tel:'55'+tel):null;
+  const msg   = `🎂 *Feliz Aniversário, ${nome1}!*\n\nA equipe WB Assessoria Migratória deseja um dia especial cheio de realizações e conquistas!\n\nConte sempre conosco no seu processo migratório. 🇧🇷\n\n_Com carinho, Equipe WB_ ❤️`;
+  if (fone) {
+    const url = `https://wa.me/${fone}?text=${encodeURIComponent(msg)}`;
+    const a = document.createElement('a'); a.href=url; a.target='_blank'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  } else {
+    navigator.clipboard.writeText(msg).then(()=>showToast('📋 Mensagem copiada!'));
+  }
+}
+
+// Widget de aniversários para o Dashboard
+function widgetAniversarios() {
+  const aniv = checkAniversarios();
+  const prox = clientes.filter(c=>{
+    if (!c.dataNascimento) return false;
+    const hoje = new Date();
+    const parts = c.dataNascimento.split(/[-\/]/);
+    if (parts.length < 3) return false;
+    const [d,m] = parts[0].length===4 ? [parts[2],parts[1]] : [parts[0],parts[1]];
+    const proxData = new Date(hoje.getFullYear(), parseInt(m)-1, parseInt(d));
+    if (proxData < hoje) proxData.setFullYear(proxData.getFullYear()+1);
+    const diff = Math.ceil((proxData-hoje)/(1000*60*60*24));
+    return diff <= 7 && diff > 0;
+  });
+  if (aniv.length===0 && prox.length===0) return '';
+  return `
+    <div class="panel" style="margin-bottom:20px;border-color:rgba(251,191,36,0.4)">
+      <div class="panel-header" style="background:rgba(251,191,36,0.06)">
+        <span class="panel-title" style="color:#fbbf24">🎂 Aniversários</span>
+      </div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:8px">
+        ${aniv.map(c=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(251,191,36,0.08);border-radius:8px;border:1px solid rgba(251,191,36,0.3)">
+            <span style="font-size:1.5rem">🎂</span>
+            <div style="flex:1"><div style="font-size:0.88rem;font-weight:700;color:var(--text)">${c.nome}</div><div style="font-size:0.72rem;color:#fbbf24">🎉 Aniversário HOJE!</div></div>
+            <button onclick="enviarPainsAniversario(${c.id})" style="background:#25d366;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:0.75rem;font-weight:600;cursor:pointer">💬 Parabenizar</button>
+          </div>`).join('')}
+        ${prox.map(c=>{
+          const hoje = new Date();
+          const parts = c.dataNascimento.split(/[-\/]/);
+          const [d,m] = parts[0].length===4 ? [parts[2],parts[1]] : [parts[0],parts[1]];
+          const proxData = new Date(hoje.getFullYear(), parseInt(m)-1, parseInt(d));
+          if (proxData < hoje) proxData.setFullYear(proxData.getFullYear()+1);
+          const diff = Math.ceil((proxData-hoje)/(1000*60*60*24));
+          return `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--navy3);border-radius:8px">
+            <span style="font-size:1.2rem">🎈</span>
+            <div style="flex:1"><div style="font-size:0.82rem;font-weight:600">${c.nome.split(' ')[0]}</div><div style="font-size:0.7rem;color:var(--text3)">Em ${diff} dia(s) — ${d}/${m}</div></div>
+            <button onclick="enviarPainsAniversario(${c.id})" style="background:var(--navy4);border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:5px 10px;font-size:0.7rem;cursor:pointer">💬 WA</button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 📅 AGENDAMENTO ONLINE — PORTAL DO CLIENTE
+// ══════════════════════════════════════════════════════════════════
+function renderAgendamentoOnline() {
+  const c    = clienteLogado();
+  const nome = c?.nome?.split(' ')[0] || '';
+  const lang = _idioma;
+
+  // Horários disponíveis (fixos por enquanto — pode ser configurado depois)
+  const horariosDisp = ['09:00','09:30','10:00','10:30','11:00','14:00','14:30','15:00','15:30','16:00','16:30'];
+  const hoje = new Date();
+  const diasSemana = lang==='en' ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : lang==='es' ? ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'] : ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+  // Próximos 14 dias úteis
+  const diasUteis = [];
+  let d = new Date(hoje); d.setDate(d.getDate()+1);
+  while (diasUteis.length < 12) {
+    if (d.getDay()!==0 && d.getDay()!==6) diasUteis.push(new Date(d));
+    d.setDate(d.getDate()+1);
+  }
+
+  return `
+    <div style="max-width:580px;margin:0 auto">
+      <div style="background:linear-gradient(135deg,#1e3a5f,#162032);border-radius:18px;padding:24px;margin-bottom:20px;text-align:center">
+        <div style="font-size:2rem;margin-bottom:8px">📅</div>
+        <div style="font-size:1.1rem;font-weight:800;color:var(--gold)">${t('agendar_online')}</div>
+        <div style="font-size:0.82rem;color:rgba(255,255,255,0.6);margin-top:6px">Escolha o dia e horário — a equipe WB confirmará via WhatsApp</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">📆 Selecione o Dia</span></div>
+        <div class="panel-body">
+          <div id="ag_dias" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+            ${diasUteis.map((dia,i)=>`
+              <div id="agd_${i}" onclick="selecionarDiaAg(${i},'${dia.toLocaleDateString('pt-BR')}')"
+                style="text-align:center;padding:10px 6px;background:var(--navy3);border:1.5px solid var(--border2);border-radius:10px;cursor:pointer;transition:all 0.2s"
+                onmouseover="if(!this.dataset.sel)this.style.borderColor='var(--gold)'" onmouseout="if(!this.dataset.sel)this.style.borderColor='var(--border2)'">
+                <div style="font-size:0.65rem;color:var(--text3);margin-bottom:2px">${diasSemana[dia.getDay()]}</div>
+                <div style="font-size:1rem;font-weight:700;color:var(--text)">${dia.getDate()}</div>
+                <div style="font-size:0.65rem;color:var(--text3)">${dia.toLocaleDateString('pt-BR',{month:'short'})}</div>
+              </div>`).join('')}
+          </div>
+
+          <div id="ag_horarios_wrap" style="display:none">
+            <div style="font-size:0.78rem;font-weight:600;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">🕐 Horários disponíveis</div>
+            <div id="ag_horarios" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+              ${horariosDisp.map(h=>`
+                <div onclick="selecionarHoraAg('${h}',this)"
+                  style="padding:8px 14px;background:var(--navy3);border:1.5px solid var(--border2);border-radius:8px;cursor:pointer;font-size:0.82rem;color:var(--text2);transition:all 0.2s"
+                  onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="if(!this.dataset.sel){this.style.borderColor='var(--border2)';this.style.color='var(--text2)'}">
+                  ${h}
+                </div>`).join('')}
+            </div>
+          </div>
+
+          <div id="ag_form" style="display:none">
+            <div class="form-field">
+              <label>Tipo de atendimento</label>
+              <select id="ag_tipo">
+                <option>Consulta sobre Naturalização</option>
+                <option>Reunião de Documentação</option>
+                <option>Acompanhamento de Processo</option>
+                <option>Dúvidas Financeiras</option>
+                <option>Outro assunto</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Observações (opcional)</label>
+              <textarea id="ag_obs" placeholder="Descreva brevemente o motivo do atendimento..." rows="2"></textarea>
+            </div>
+            <button onclick="confirmarAgendamento('${nome}')"
+              style="width:100%;margin-top:8px;background:linear-gradient(135deg,var(--gold),#f59e0b);color:#111;border:none;border-radius:12px;padding:14px;font-size:0.95rem;font-weight:800;cursor:pointer">
+              ✅ Confirmar Agendamento
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    ${c ? barraWhatsApp(c.nome, c.servico) : ''}`;
+}
+
+let _agDiaSel = '';
+let _agHoraSel = '';
+function selecionarDiaAg(idx, dataStr) {
+  document.querySelectorAll('[id^="agd_"]').forEach(el=>{
+    el.style.background='var(--navy3)'; el.style.borderColor='var(--border2)'; el.style.color='var(--text)'; delete el.dataset.sel;
+  });
+  const el = document.getElementById('agd_'+idx);
+  if (el) { el.style.background='rgba(201,168,76,0.15)'; el.style.borderColor='var(--gold)'; el.style.color='var(--gold)'; el.dataset.sel='1'; }
+  _agDiaSel = dataStr;
+  _agHoraSel = '';
+  document.getElementById('ag_horarios_wrap').style.display='block';
+  document.getElementById('ag_form').style.display='none';
+  document.querySelectorAll('#ag_horarios > div').forEach(el=>{ delete el.dataset.sel; el.style.borderColor='var(--border2)'; el.style.color='var(--text2)'; el.style.background='var(--navy3)'; });
+}
+function selecionarHoraAg(hora, el) {
+  document.querySelectorAll('#ag_horarios > div').forEach(x=>{ delete x.dataset.sel; x.style.borderColor='var(--border2)'; x.style.color='var(--text2)'; x.style.background='var(--navy3)'; });
+  el.style.borderColor='var(--gold)'; el.style.color='var(--gold)'; el.style.background='rgba(201,168,76,0.1)'; el.dataset.sel='1';
+  _agHoraSel = hora;
+  document.getElementById('ag_form').style.display='block';
+}
+function confirmarAgendamento(nomeCliente) {
+  if (!_agDiaSel||!_agHoraSel) { showToast('⚠️ Selecione dia e horário','warn'); return; }
+  const tipo = document.getElementById('ag_tipo')?.value||'Consulta';
+  const obs  = document.getElementById('ag_obs')?.value?.trim()||'';
+  const c    = clienteLogado();
+  // Registra no sistema
+  agendamentos.push({ id:_agendId++, data:_agDiaSel, hora:_agHoraSel, cliente:c?.nome||nomeCliente, tipo, colaborador:'Equipe WB', obs, origem:'portal' });
+  saveData();
+  // Avisa WB via WA
+  const msg = `📅 *Novo agendamento solicitado pelo portal!*\n\nCliente: ${c?.nome||nomeCliente}\nData: ${_agDiaSel} às ${_agHoraSel}\nTipo: ${tipo}${obs?'\nObs: '+obs:''}`;
+  const a = document.createElement('a');
+  a.href = `https://wa.me/${WB_WHATSAPP}?text=${encodeURIComponent(msg)}`;
+  a.target='_blank'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  showToast('✅ Agendamento solicitado! WB receberá pelo WhatsApp.');
+  navigateTo('agendamentos-cliente');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 📞 BOTÃO LIGAR AGORA
+// ══════════════════════════════════════════════════════════════════
+const WB_TELEFONE = '+5511914258886';
+function ligarWB() {
+  const a = document.createElement('a');
+  a.href = 'tel:'+WB_TELEFONE; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+function btnLigar(tamanho='normal') {
+  const pequeno = tamanho==='sm';
+  return `<button onclick="ligarWB()"
+    style="display:inline-flex;align-items:center;gap:${pequeno?'6px':'10px'};background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);
+    border-radius:${pequeno?'7px':'10px'};padding:${pequeno?'6px 12px':'11px 16px'};color:#60a5fa;font-size:${pequeno?'0.75rem':'0.85rem'};font-weight:600;cursor:pointer;transition:all 0.2s"
+    onmouseover="this.style.background='rgba(59,130,246,0.25)'" onmouseout="this.style.background='rgba(59,130,246,0.15)'">
+    📞 ${t('ligar_wb')}
+  </button>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 💬 CHAT AO VIVO — cliente ↔ equipe WB
+// ══════════════════════════════════════════════════════════════════
+function renderChatPortal() {
+  const c = clienteLogado();
+  if (!c) return barraWhatsApp('','');
+  const msgs = c.chat || [];
+  const lang = _idioma;
+
+  return `
+    <div style="max-width:600px;margin:0 auto;display:flex;flex-direction:column;height:calc(100vh - 180px)">
+      <div style="background:linear-gradient(135deg,#128c7e,#25d366);border-radius:14px;padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
+        <div style="width:38px;height:38px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem">🇧🇷</div>
+        <div>
+          <div style="font-weight:700;color:#fff;font-size:0.92rem">WB Assessoria Migratória</div>
+          <div style="font-size:0.72rem;color:rgba(255,255,255,0.85)">● Online · Respondemos rapidamente</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          ${btnLigar('sm')}
+          <button onclick="const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a)"
+            style="background:rgba(255,255,255,0.2);border:none;border-radius:7px;padding:6px 10px;color:#fff;font-size:0.72rem;cursor:pointer">
+            💬 WA
+          </button>
+        </div>
+      </div>
+
+      <div id="chat_msgs" style="flex:1;overflow-y:auto;padding:12px;background:var(--navy2);border:1px solid var(--border2);border-radius:12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px">
+        ${msgs.length===0 ? `
+          <div style="text-align:center;padding:40px 20px;color:var(--text3)">
+            <div style="font-size:2.5rem;margin-bottom:10px">💬</div>
+            <div style="font-size:0.85rem">Inicie uma conversa com a equipe WB!</div>
+          </div>` : msgs.map(m=>`
+          <div style="display:flex;flex-direction:column;align-items:${m.de==='cliente'?'flex-end':'flex-start'}">
+            <div style="max-width:80%;background:${m.de==='cliente'?'var(--gold)':'var(--navy3)'};color:${m.de==='cliente'?'#111':'var(--text)'};
+              border-radius:${m.de==='cliente'?'14px 14px 4px 14px':'14px 14px 14px 4px'};padding:10px 14px;font-size:0.83rem;line-height:1.4">
+              ${m.msg}
+            </div>
+            <div style="font-size:0.65rem;color:var(--text3);margin-top:3px">${m.de==='cliente'?'Você':'WB'} · ${m.hora}</div>
+          </div>`).join('')}
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <input id="chat_input" placeholder="${lang==='en'?'Type a message...':lang==='es'?'Escribe un mensaje...':lang==='fa'?'پیام خود را بنویسید...':'Digite uma mensagem...'}"
+          style="flex:1;background:var(--navy2);border:1px solid var(--border2);border-radius:10px;padding:11px 14px;color:var(--text);font-size:0.85rem"
+          onkeydown="if(event.key==='Enter')enviarChatCliente(${c.id})" dir="${lang==='fa'?'rtl':'ltr'}">
+        <button onclick="enviarChatCliente(${c.id})"
+          style="background:var(--gold);color:#111;border:none;border-radius:10px;padding:11px 18px;font-weight:700;cursor:pointer;font-size:0.88rem">
+          ➤
+        </button>
+      </div>
+    </div>
+    ${barraWhatsApp(c.nome, c.servico)}`;
+}
+
+function enviarChatCliente(clienteId) {
+  const inp = document.getElementById('chat_input');
+  const msg = inp?.value?.trim();
+  if (!msg) return;
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  c.chat = c.chat || [];
+  c.chat.push({ de:'cliente', msg, hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), data: new Date().toLocaleDateString('pt-BR') });
+  inp.value = '';
+  saveData();
+  navigateTo('mensagens-cliente');
+  // Notifica WB via WA
+  setTimeout(()=>{
+    const waMsg = `💬 *Nova mensagem no portal!*\n\nCliente: ${c.nome}\n\n"${msg}"\n\nAcesse o sistema para responder.`;
+    const a=document.createElement('a');
+    a.href=`https://wa.me/${WB_WHATSAPP}?text=${encodeURIComponent(waMsg)}`;
+    a.target='_blank'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  },300);
+}
+
+// Responder chat pelo painel interno
+function openChatInterno(clienteId) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  const msgs = c.chat||[];
+  openModal(`
+    <div class="modal-title">💬 Chat — ${c.nome}</div>
+    <div style="height:300px;overflow-y:auto;padding:10px;background:var(--navy3);border-radius:10px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
+      ${msgs.length===0?'<div style="text-align:center;color:var(--text3);padding:20px">Sem mensagens ainda.</div>':
+        msgs.map(m=>`
+          <div style="display:flex;flex-direction:column;align-items:${m.de==='cliente'?'flex-start':'flex-end'}">
+            <div style="max-width:85%;background:${m.de==='cliente'?'var(--navy4)':'rgba(201,168,76,0.15)'};border:1px solid ${m.de==='cliente'?'var(--border2)':'rgba(201,168,76,0.3)'};
+              border-radius:10px;padding:8px 12px;font-size:0.82rem;color:var(--text)">${m.msg}</div>
+            <div style="font-size:0.65rem;color:var(--text3);margin-top:2px">${m.de==='cliente'?c.nome.split(' ')[0]:'WB'} · ${m.hora}</div>
+          </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px">
+      <input id="chat_resp_input" placeholder="Responder como WB..." style="flex:1;background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:0.83rem"
+        onkeydown="if(event.key==='Enter')enviarRespostaChat(${clienteId})">
+      <button onclick="enviarRespostaChat(${clienteId})" class="btn btn-gold">Enviar</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+    </div>`);
+}
+
+function enviarRespostaChat(clienteId) {
+  const inp = document.getElementById('chat_resp_input');
+  const msg = inp?.value?.trim();
+  if (!msg) return;
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  c.chat = c.chat||[];
+  c.chat.push({ de:'wb', msg, hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), data: new Date().toLocaleDateString('pt-BR') });
+  saveData();
+  closeModal();
+  showToast('✅ Resposta enviada ao cliente!');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 📈 PROJEÇÃO FINANCEIRA
+// ══════════════════════════════════════════════════════════════════
+function renderProjecaoFinanceira() {
+  const hoje = new Date();
+  const meses = [];
+  for (let i=0; i<6; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth()+i, 1);
+    meses.push({ label: d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}), date: d, receita:0, previsto:0 });
+  }
+
+  // Receita realizada (clientes pagos)
+  clientes.filter(c=>c.pago && c.valor>0).forEach(c=>{
+    const idx = 0; // mês atual
+    if (meses[idx]) meses[idx].receita += c.valor||0;
+  });
+
+  // Previsão de parcelas futuras
+  clientes.forEach(c=>{
+    const nParc = c.parcelas||0;
+    const vlrParc = c.valorParcela||0;
+    const parcsReg = c.parcelasRegistradas||[];
+    for (let p=1; p<=nParc; p++) {
+      const paga = parcsReg.find(x=>x.n===p);
+      if (!paga) {
+        // Distribui parcelas pendentes nos próximos meses
+        const mesIdx = Math.min(p, meses.length-1);
+        if (meses[mesIdx]) meses[mesIdx].previsto += vlrParc;
+      }
+    }
+  });
+
+  const maxVal = Math.max(...meses.map(m=>Math.max(m.receita,m.previsto)), 1);
+
+  return `
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">📈 Projeção Financeira — Próximos 6 Meses</span></div>
+      <div class="panel-body">
+        <div style="display:flex;align-items:flex-end;gap:8px;height:160px;margin-bottom:12px;padding:0 8px">
+          ${meses.map((m,i)=>{
+            const hR = m.receita>0?Math.max(8,Math.round(m.receita/maxVal*140)):0;
+            const hP = m.previsto>0?Math.max(8,Math.round(m.previsto/maxVal*140)):0;
+            return `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+              <div style="display:flex;gap:2px;align-items:flex-end;width:100%">
+                ${hR>0?`<div style="flex:1;height:${hR}px;background:var(--green);border-radius:4px 4px 0 0;transition:height 0.6s" title="Realizado: R$${m.receita.toLocaleString('pt-BR')}"></div>`:'<div style="flex:1"></div>'}
+                ${hP>0?`<div style="flex:1;height:${hP}px;background:rgba(201,168,76,0.5);border:1px dashed var(--gold);border-radius:4px 4px 0 0;transition:height 0.6s" title="Previsto: R$${m.previsto.toLocaleString('pt-BR')}"></div>`:'<div style="flex:1"></div>'}
+              </div>
+              <div style="font-size:0.65rem;color:var(--text3);text-align:center;margin-top:4px">${m.label}</div>
+            </div>`; }).join('')}
+        </div>
+        <div style="display:flex;gap:16px;justify-content:center;font-size:0.72rem">
+          <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;background:var(--green);border-radius:2px"></div> Realizado</div>
+          <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;background:rgba(201,168,76,0.5);border:1px dashed var(--gold);border-radius:2px"></div> Previsto (parcelas)</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px">
+          ${meses.slice(0,3).map(m=>`
+            <div style="background:var(--navy3);border-radius:8px;padding:10px;text-align:center">
+              <div style="font-size:0.65rem;color:var(--text3);margin-bottom:3px">${m.label}</div>
+              ${m.receita>0?`<div style="font-size:0.82rem;font-weight:700;color:var(--green)">R$${m.receita.toLocaleString('pt-BR')}</div>`:''}
+              ${m.previsto>0?`<div style="font-size:0.75rem;color:var(--gold)">+R$${m.previsto.toLocaleString('pt-BR')}</div>`:''}
+              ${!m.receita&&!m.previsto?`<div style="font-size:0.72rem;color:var(--text3)">—</div>`:''}
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🖊️ ASSINATURA DIGITAL DE CONTRATOS
+// ══════════════════════════════════════════════════════════════════
+function openAssinaturaDigital(clienteId, contratoTipo) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  openModal(`
+    <div class="modal-title">🖊️ Assinatura Digital — ${c.nome}</div>
+    <div style="font-size:0.78rem;color:var(--text3);margin-bottom:14px">
+      Contrato: <strong style="color:var(--text)">${contratoTipo||'Prestação de Serviços Migratórios'}</strong><br>
+      Cliente: <strong style="color:var(--text)">${c.nome}</strong> · Data: ${new Date().toLocaleDateString('pt-BR')}
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.78rem;color:var(--text3);display:block;margin-bottom:6px">✍️ Assine no espaço abaixo:</label>
+      <canvas id="sig_canvas" width="500" height="160"
+        style="width:100%;background:#fff;border:2px solid var(--border2);border-radius:10px;cursor:crosshair;touch-action:none"></canvas>
+      <div style="display:flex;justify-content:space-between;margin-top:6px">
+        <div style="font-size:0.7rem;color:var(--text3)">Desenhe sua assinatura acima</div>
+        <button onclick="limparAssinatura()" style="background:transparent;border:none;color:var(--text3);font-size:0.75rem;cursor:pointer;text-decoration:underline">Limpar</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="salvarAssinatura(${clienteId},'${(contratoTipo||'Contrato').replace(/'/g,'')}')">✅ Confirmar Assinatura</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>`);
+  setTimeout(()=>initAssinaturaCanvas(),100);
+}
+
+function initAssinaturaCanvas() {
+  const canvas = document.getElementById('sig_canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+  ctx.strokeStyle = '#0a0f1e'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+  const getPos = e => {
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches?.[0]||e;
+    return { x:(src.clientX-r.left)*(canvas.width/r.width), y:(src.clientY-r.top)*(canvas.height/r.height) };
+  };
+  canvas.onmousedown = canvas.ontouchstart = e=>{ e.preventDefault(); drawing=true; const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+  canvas.onmousemove = canvas.ontouchmove = e=>{ e.preventDefault(); if(!drawing)return; const p=getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); };
+  canvas.onmouseup = canvas.ontouchend = ()=>{ drawing=false; };
+}
+function limparAssinatura() {
+  const c = document.getElementById('sig_canvas');
+  if(c) c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+function salvarAssinatura(clienteId, contratoTipo) {
+  const canvas = document.getElementById('sig_canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const pixels = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  const hasContent = pixels.some(v=>v!==0);
+  if (!hasContent) { showToast('⚠️ Por favor, assine antes de confirmar','warn'); return; }
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  c.assinaturas = c.assinaturas||[];
+  c.assinaturas.push({
+    contrato: contratoTipo,
+    data:     new Date().toLocaleDateString('pt-BR'),
+    hora:     new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+    img:      canvas.toDataURL('image/png'),
+    ip:       '—',
+  });
+  saveData();
+  closeModal();
+  showToast(`✅ Contrato "${contratoTipo}" assinado digitalmente!`);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 📤 EXPORTAR RELATÓRIO PDF (via impressão)
+// ══════════════════════════════════════════════════════════════════
+function exportarRelatorio(tipo) {
+  const data = new Date().toLocaleDateString('pt-BR');
+  let conteudo = '';
+
+  if (tipo==='clientes') {
+    conteudo = `
+      <h2>📋 Relatório de Clientes — ${data}</h2>
+      <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead style="background:#1a1f35;color:#c9a84c"><tr>
+          <th>Nome</th><th>Serviço</th><th>Status</th><th>Responsável</th><th>Valor</th><th>Cadastro</th>
+        </tr></thead>
+        <tbody>${clientes.map(c=>`<tr>
+          <td>${c.nome}</td><td>${c.servico}</td><td>${c.status}</td>
+          <td>${c.responsavel||'—'}</td><td>R$ ${(c.valor||0).toLocaleString('pt-BR')}</td><td>${c.dataCadastro||'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+      <p style="font-size:11px;color:#666;margin-top:16px">Total: ${clientes.length} clientes · Gerado em ${data}</p>`;
+  } else if (tipo==='financeiro') {
+    const total = clientes.reduce((s,c)=>s+(c.valor||0),0);
+    const pagos  = clientes.filter(c=>c.pago).reduce((s,c)=>s+(c.valor||0),0);
+    conteudo = `
+      <h2>💰 Relatório Financeiro — ${data}</h2>
+      <div style="display:flex;gap:20px;margin-bottom:20px">
+        <div style="background:#f0f9f0;border:1px solid #10b981;border-radius:8px;padding:12px;flex:1;text-align:center">
+          <div style="font-size:20px;font-weight:800;color:#10b981">R$ ${total.toLocaleString('pt-BR')}</div><div style="font-size:11px">Receita Total</div>
+        </div>
+        <div style="background:#f0f9f0;border:1px solid #10b981;border-radius:8px;padding:12px;flex:1;text-align:center">
+          <div style="font-size:20px;font-weight:800;color:#10b981">R$ ${pagos.toLocaleString('pt-BR')}</div><div style="font-size:11px">Pago</div>
+        </div>
+        <div style="background:#fff8e1;border:1px solid #f59e0b;border-radius:8px;padding:12px;flex:1;text-align:center">
+          <div style="font-size:20px;font-weight:800;color:#f59e0b">R$ ${(total-pagos).toLocaleString('pt-BR')}</div><div style="font-size:11px">Pendente</div>
+        </div>
+      </div>
+      <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead style="background:#1a1f35;color:#c9a84c"><tr><th>Cliente</th><th>Serviço</th><th>Valor</th><th>Pago</th><th>Parcelas</th></tr></thead>
+        <tbody>${clientes.filter(c=>c.valor>0).map(c=>`<tr>
+          <td>${c.nome}</td><td>${c.servico}</td>
+          <td>R$ ${(c.valor||0).toLocaleString('pt-BR')}</td>
+          <td style="color:${c.pago?'green':'orange'}">${c.pago?'✅ Sim':'⚠️ Pendente'}</td>
+          <td>${c.parcelas>0?c.parcelas+'x R$ '+(c.valorParcela||0).toLocaleString('pt-BR'):'À vista'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+  } else if (tipo==='nps') {
+    const avals = clientes.filter(c=>c.avaliacao);
+    const media = avals.length?(avals.reduce((s,c)=>s+c.avaliacao.estrelas,0)/avals.length).toFixed(1):'—';
+    conteudo = `
+      <h2>⭐ Relatório de NPS & Satisfação — ${data}</h2>
+      <div style="margin-bottom:16px"><strong>Nota Média: ${media}/5</strong> · ${avals.length} avaliação(ões)</div>
+      <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead style="background:#1a1f35;color:#c9a84c"><tr><th>Cliente</th><th>Serviço</th><th>Nota</th><th>Comentário</th><th>Data</th></tr></thead>
+        <tbody>${avals.map(c=>`<tr>
+          <td>${c.nome}</td><td>${c.servico}</td>
+          <td>${'★'.repeat(c.avaliacao.estrelas)}${'☆'.repeat(5-c.avaliacao.estrelas)}</td>
+          <td>${c.avaliacao.texto||'—'}</td><td>${c.avaliacao.data||'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+  }
+
+  const win = window.open('','_blank','width=900,height=700');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <title>WB — Relatório ${tipo}</title>
+    <meta charset="UTF-8">
+    <style>
+      body { font-family: Arial, sans-serif; padding: 32px; color: #111; }
+      h1 { color: #0a0f1e; font-size: 18px; margin-bottom: 4px; }
+      h2 { color: #0a0f1e; border-bottom: 2px solid #c9a84c; padding-bottom: 8px; }
+      table { margin-top: 16px; }
+      thead tr { color: #c9a84c !important; }
+      @media print { body { padding: 16px; } }
+    </style>
+  </head><body>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div>
+        <h1 style="font-size:20px;margin:0">🇧🇷 WB Assessoria Migratória</h1>
+        <div style="font-size:12px;color:#666">CNPJ: 52.241.467/0001-27 · wbassessoria.contato@gmail.com</div>
+      </div>
+      <div style="font-size:12px;color:#666;text-align:right">Gerado em ${data}<br>por ${currentUser?.name||'Sistema'}</div>
+    </div>
+    ${conteudo}
+    <script>setTimeout(()=>window.print(),500)<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 📲 PWA — Botão de instalar app
+// ══════════════════════════════════════════════════════════════════
+let _pwaInstallEvent = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaInstallEvent = e;
+  // Mostra botão de instalar
+  const btn = document.getElementById('pwa_install_btn');
+  if (btn) btn.style.display = 'flex';
+});
+function instalarPWA() {
+  if (!_pwaInstallEvent) {
+    showToast('💡 Para instalar: use "Adicionar à tela inicial" no menu do navegador', 'info');
+    return;
+  }
+  _pwaInstallEvent.prompt();
+  _pwaInstallEvent.userChoice.then(r=>{
+    if (r.outcome==='accepted') showToast('✅ App instalado na tela inicial!');
+    _pwaInstallEvent = null;
+    const btn = document.getElementById('pwa_install_btn');
+    if (btn) btn.style.display = 'none';
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PATCHES — Injetar novos campos e botões no sistema existente
+// ══════════════════════════════════════════════════════════════════
+
+// Patch: adicionar campo Data de Nascimento ao wizard de cadastro de cliente
+const _origSalvarNovoCliente = typeof salvarNovoCliente === 'function' ? salvarNovoCliente : null;
+
+// Patch: adicionar botões ao barraWhatsApp — inclui ligar agora
+const _origBarraWhatsApp = barraWhatsApp;
+barraWhatsApp = function(nomeCliente, servico) {
+  return `
+    <div style="position:fixed;bottom:28px;right:28px;z-index:999;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+      ${btnLigar('sm')}
+      <div onclick="abrirWhatsAppWB()"
+        style="display:flex;align-items:center;gap:10px;background:#25d366;color:#fff;padding:12px 20px;border-radius:50px;cursor:pointer;
+        box-shadow:0 4px 20px rgba(37,211,102,0.45);font-weight:700;font-size:0.88rem;transition:transform 0.2s,box-shadow 0.2s"
+        onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform=''">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
+        Falar com a WB
+      </div>
+    </div>`;
+};
+
+// Patch: mensagens do cliente agora usam chat real
+const _origRenderMensagens = renderMensagensCliente;
+renderMensagensCliente = function() {
+  const c = clienteLogado();
+  const base = _origRenderMensagens();
+  // Substitui o painel de anotações pelo chat ao vivo
+  return renderChatPortal();
+};
+
+// Patch: adicionar seletor de idioma e botão ligar no header do cliente
+const _origBuildHeader = typeof buildHeader === 'function' ? buildHeader : null;
+
+// Adiciona verificação de aniversários no login
+const _origAfterLogin = typeof afterLogin === 'function' ? afterLogin : null;
+document.addEventListener('DOMContentLoaded', ()=>{
+  setTimeout(()=>{
+    if (currentRole && currentRole !== 'cliente') checkAniversarios();
+    // Botão PWA na topbar se disponível
+    const topbar = document.querySelector('.topbar-right, .top-bar');
+    if (topbar && !document.getElementById('pwa_install_btn')) {
+      const btn = document.createElement('button');
+      btn.id = 'pwa_install_btn';
+      btn.style.cssText = 'display:none;align-items:center;gap:6px;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);border-radius:8px;padding:5px 12px;color:var(--gold);font-size:0.75rem;cursor:pointer;font-weight:600';
+      btn.innerHTML = '📲 Instalar App';
+      btn.onclick = instalarPWA;
+      topbar.appendChild(btn);
+    }
+  }, 2000);
+});
 </script>
