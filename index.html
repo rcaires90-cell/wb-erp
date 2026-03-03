@@ -581,15 +581,25 @@ function applyData(d) {
 }
 
 // ── Salvar (POST no-cors + localStorage) ─────────────────────────
+// ══════════════════════════════════════════════════════════════════
+// 💾 SYNC ENGINE — Google Sheets + LocalStorage
+// POST usa no-cors (funciona sempre).
+// GET usa JSONP — único método que contorna CORS no Apps Script.
+// ══════════════════════════════════════════════════════════════════
+
 async function saveData() {
   const payload = getPayload();
+
+  // Sempre salva local primeiro — dados nunca se perdem
   try { localStorage.setItem(LS_KEY, JSON.stringify(payload)); } catch(e) {}
-  if (!SHEETS_URL) return;
+
+  if (!SHEETS_URL) { setSyncStatus('local'); setTimeout(atualizarNotificacoes,100); return; }
   if (_saving) { _saveQueue = true; return; }
   _saving = true;
   setSyncStatus('saving');
+
   try {
-    // no-cors: evita bloqueio CORS; não lemos a resposta mas os dados chegam
+    // POST com no-cors: Google Apps Script aceita, sem CORS
     await fetch(SHEETS_URL, {
       method : 'POST',
       mode   : 'no-cors',
@@ -597,43 +607,71 @@ async function saveData() {
     });
     setSyncStatus('ok');
   } catch(e) {
+    // Offline — dados já estão no localStorage, sincroniza quando voltar
     setSyncStatus('error');
-    console.warn('Sheets save error:', e);
+    console.warn('[WB] save error:', e.message);
   } finally {
     _saving = false;
     if (_saveQueue) { _saveQueue = false; saveData(); }
-    // Atualiza notificações após qualquer salvamento
     setTimeout(atualizarNotificacoes, 100);
   }
 }
 
-// ── Carregar do Sheets ────────────────────────────────────────────
-async function loadFromSheets() {
-  if (!SHEETS_URL) return false;
-  setSyncStatus('loading');
-  try {
-    const url  = SHEETS_URL + '?action=load&t=' + Date.now();
-    const resp = await fetch(url, { redirect: 'follow' });
-    const json = await resp.json();
-    if (json.ok && json.data) {
-      applyData(json.data);
-      try { localStorage.setItem(LS_KEY, JSON.stringify(json.data)); } catch(e) {}
-      setSyncStatus('ok');
-      return true;
-    } else if (json.ok && !json.data) {
-      // Planilha vazia — primeira vez, salva os dados atuais
-      setSyncStatus('ok');
-      saveData();
-      return true;
-    }
-  } catch(e) {
-    console.warn('Sheets load error:', e);
-    setSyncStatus('error');
-  }
-  return false;
+// JSONP — contorna o bloqueio de CORS no GET do Apps Script
+function loadFromSheets() {
+  return new Promise(resolve => {
+    if (!SHEETS_URL) { resolve(false); return; }
+    setSyncStatus('loading');
+
+    const cb    = '__wbCb' + Date.now();
+    const sc    = document.createElement('script');
+    let   done  = false;
+
+    const fim = (ok) => {
+      if (done) return; done = true;
+      clearTimeout(timer);
+      try { document.head.removeChild(sc); } catch(e){}
+      try { delete window[cb]; } catch(e){}
+      resolve(ok);
+    };
+
+    const timer = setTimeout(() => {
+      console.warn('[WB] Sheets timeout — usando cache local');
+      setSyncStatus('error');
+      loadFromLocalStorage();
+      fim(false);
+    }, 15000);
+
+    window[cb] = (json) => {
+      try {
+        if (json && json.ok && json.data) {
+          applyData(json.data);
+          try { localStorage.setItem(LS_KEY, JSON.stringify(json.data)); } catch(e){}
+          setSyncStatus('ok');
+          fim(true);
+        } else if (json && json.ok) {
+          // Sheets vazio (primeira vez): sobe dados locais
+          setSyncStatus('ok');
+          fim(true);
+          saveData();
+        } else {
+          setSyncStatus('error');
+          loadFromLocalStorage();
+          fim(false);
+        }
+      } catch(e) {
+        setSyncStatus('error');
+        loadFromLocalStorage();
+        fim(false);
+      }
+    };
+
+    sc.onerror = () => { setSyncStatus('error'); loadFromLocalStorage(); fim(false); };
+    sc.src = SHEETS_URL + '?action=load&callback=' + cb + '&t=' + Date.now();
+    document.head.appendChild(sc);
+  });
 }
 
-// ── Carregar localStorage como fallback ───────────────────────────
 function loadFromLocalStorage() {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -642,34 +680,37 @@ function loadFromLocalStorage() {
   return false;
 }
 
-// ── Indicador de sync na topbar ───────────────────────────────────
 function setSyncStatus(s) {
   const el = document.getElementById('sync-status');
   if (!el) return;
   const map = {
-    ok:      { icon:'☁️', tip:'Sincronizado com Google Sheets',   color:'var(--green)' },
-    saving:  { icon:'🔄', tip:'Salvando...',                       color:'var(--gold)'  },
-    loading: { icon:'⏳', tip:'Carregando dados...',               color:'var(--gold)'  },
-    error:   { icon:'⚠️', tip:'Erro de sincronização (cache local)', color:'var(--orange)'},
-    local:   { icon:'💾', tip:'Modo local (sem Google Sheets)',    color:'var(--text3)' },
+    ok:      { icon:'☁️', tip:'Sincronizado com Google Sheets', color:'var(--green)'  },
+    saving:  { icon:'🔄', tip:'Salvando no Sheets...',           color:'var(--gold)'   },
+    loading: { icon:'⏳', tip:'Carregando do Sheets...',         color:'var(--gold)'   },
+    error:   { icon:'⚠️', tip:'Sheets indisponível — dados locais OK', color:'var(--orange)'},
+    local:   { icon:'💾', tip:'Armazenamento local',             color:'var(--text3)'  },
   };
   const st = map[s] || map.local;
-  el.textContent = st.icon;
-  el.title = st.tip;
+  el.innerHTML = st.icon;
+  el.title     = st.tip;
   el.style.color = st.color;
 }
 
-// ── Inicialização ─────────────────────────────────────────────────
 async function initData() {
-  // 1. Carrega localStorage imediatamente (dados em cache)
-  loadFromLocalStorage();
+  // 1. Mostra dados locais imediatamente (sistema carrega rápido)
+  const temLocal = loadFromLocalStorage();
+  if (temLocal) setSyncStatus('local');
 
-  // 2. Se tem URL configurada, busca do Sheets em background
+  // 2. Busca do Sheets em paralelo
   if (SHEETS_URL) {
-    const fromSheets = await loadFromSheets();
-    if (!fromSheets) {
-      showToast('⚠️ Usando dados locais — Google Sheets inacessível', 'warn');
-    }
+    loadFromSheets().then(ok => {
+      if (ok && typeof currentUser !== 'undefined' && currentUser && typeof currentPage !== 'undefined') {
+        navigateTo(currentPage); // re-renderiza com dados frescos
+      }
+      if (!ok && !temLocal) {
+        showToast('⚠️ Sem conexão com Google Sheets — trabalhando offline', 'warn');
+      }
+    });
   } else {
     setSyncStatus('local');
   }
