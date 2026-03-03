@@ -936,6 +936,7 @@ function buildNav() {
       <div class="nav-section">Minha Área</div>
       ${navItem('meu-processo','📋','Meu Processo')}
       ${navItem('meus-documentos','📁','Meus Documentos')}
+      ${navItem('meu-financeiro','💳','Financeiro & PIX')}
       ${navItem('mensagens-cliente','💬','Mensagens')}
       ${navItem('agendamentos-cliente','📅','Meus Agendamentos')}
       ${navItem('meu-curso','📚','Curso de Português')}
@@ -1029,7 +1030,7 @@ function navigateTo(page) {
     'servico-nat':'Naturalização Brasileira', 'servico-rnm':'Autorização de Residência (RNM/RNE)',
     'servico-visto':'Visto de Turismo (EUA)',
     'meu-processo':'Meu Processo', 'meus-documentos':'Meus Documentos',
-    'mensagens-cliente':'Mensagens', 'agendamentos-cliente':'Meus Agendamentos', 'meu-curso':'📚 Curso de Proficiência',
+    'mensagens-cliente':'Mensagens', 'agendamentos-cliente':'Meus Agendamentos', 'meu-curso':'📚 Curso de Proficiência', 'meu-financeiro':'💳 Financeiro & PIX', 'minha-avaliacao':'⭐ Avaliação',
     'calculadora':'Calculadora de Elegibilidade', 'calculadora-cliente':'Sou Elegível?',
     'prazos':'Prazos & Alertas de Vencimento',
     'modelos':'Modelos de Documentos',
@@ -1073,6 +1074,8 @@ function renderPage(page) {
     'mensagens-cliente': renderMensagensCliente,
     'agendamentos-cliente': renderAgendamentosCliente,
     'meu-curso': renderMeuCurso,
+    'meu-financeiro': renderMeuFinanceiro,
+    'minha-avaliacao': renderMinhaAvaliacao,
     'calculadora': renderCalculadora,
     'calculadora-cliente': renderCalculadora,
     'prazos': renderPrazos,
@@ -2007,10 +2010,15 @@ function toggleNotifConfig(key) {
 // ─── CLIENTE: MEU PROCESSO ───
 // ── Constante do WhatsApp WB ────────────────────────────────────
 const WB_WHATSAPP = '5511914258886';
+const WB_PIX_KEY  = 'wbassessoria.contato@gmail.com';
 
 function abrirWhatsAppWB(msg) {
   const txt = encodeURIComponent(msg || 'Olá! Gostaria de informações sobre meu processo na WB Assessoria Migratória.');
-  window.open(`https://wa.me/${WB_WHATSAPP}?text=${txt}`, '_blank');
+  const url  = `https://wa.me/${WB_WHATSAPP}?text=${txt}`;
+  // Funciona em mobile e desktop
+  const a = document.createElement('a');
+  a.href = url; a.target = '_blank'; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
 // ── Barra flutuante WhatsApp (exibida no portal do cliente) ──────
@@ -2082,21 +2090,31 @@ function renderMeuProcesso() {
       <div style="font-size:0.85rem;color:var(--text3);margin-bottom:24px">Seu processo ainda está sendo configurado pela nossa equipe.<br>Em caso de dúvidas, fale diretamente conosco:</div>
       <button onclick="abrirWhatsAppWB('Olá! Acabei de acessar o portal e gostaria de informações sobre meu processo na WB Assessoria Migratória.')"
         style="display:inline-flex;align-items:center;gap:10px;background:#25d366;color:#fff;border:none;border-radius:12px;padding:14px 28px;font-size:1rem;font-weight:700;cursor:pointer">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
-        Falar com a WB pelo WhatsApp
+        💬 Falar com a WB pelo WhatsApp
       </button>
     </div>
-    ${barraWhatsApp('', '')}
-  `;
+    ${barraWhatsApp('', '')}`;
 
   const pct    = Math.round((c.etapa || 0) / (c.totalEtapas || 1) * 100);
   const etapas = getEtapasCliente(c.servico);
-  const msg    = `Olá! Sou ${c.nome.split(' ')[0]} e gostaria de falar sobre meu processo de ${c.servico} na WB Assessoria Migratória.`;
+  const nome1  = c.nome.split(' ')[0];
+  const msg    = `Olá! Sou ${nome1} e gostaria de falar sobre meu processo de ${c.servico} na WB Assessoria Migratória.`;
+  const concluido = c.status === 'Concluído';
+
+  // Prazo estimado por etapa (meses médios por serviço)
+  const prazosMedios = { 'Naturaliz': [18,24], 'RNM': [4,8], 'Visto': [2,4] };
+  const chavePrazo   = Object.keys(prazosMedios).find(k => c.servico?.includes(k)) || 'Naturaliz';
+  const [pMin, pMax] = prazosMedios[chavePrazo];
+  const etapasRestantes = (c.totalEtapas||6) - (c.etapa||0);
+  const mesesRest = Math.round(etapasRestantes / (c.totalEtapas||6) * pMax);
+  const prevMin = new Date(); prevMin.setMonth(prevMin.getMonth() + Math.max(1, mesesRest - 2));
+  const prevMax = new Date(); prevMax.setMonth(prevMax.getMonth() + mesesRest + 2);
+  const fmtMes = d => d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
 
   return `
-    <!-- Header do cliente -->
+    <!-- Header -->
     <div class="client-header" style="margin-bottom:24px">
-      <div class="client-name">Olá, ${c.nome.split(' ')[0]}! 👋</div>
+      <div class="client-name">Olá, ${nome1}! 👋</div>
       <div class="client-process">Acompanhe seu processo em tempo real</div>
       <div style="margin-top:20px">
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:0.82rem">
@@ -2106,22 +2124,26 @@ function renderMeuProcesso() {
         <div class="progress-bar" style="height:12px;border-radius:6px">
           <div class="progress-fill" style="width:${pct}%;border-radius:6px;transition:width 0.8s ease"></div>
         </div>
+        ${!concluido ? `<div style="font-size:0.72rem;color:rgba(255,255,255,0.6);margin-top:8px">
+          📅 Previsão estimada: <strong style="color:rgba(255,255,255,0.9)">${fmtMes(prevMin)} – ${fmtMes(prevMax)}</strong>
+          <span style="opacity:0.7"> (prazo médio, sujeito ao governo)</span>
+        </div>` : `<div style="font-size:0.82rem;color:#4ade80;margin-top:8px;font-weight:700">🎉 Processo concluído! Parabéns!</div>`}
       </div>
     </div>
 
-    <!-- Botão WhatsApp destaque -->
-    <div onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
+    <!-- Botão WhatsApp -->
+    <button onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
       style="display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#128c7e,#25d366);
-      border-radius:14px;padding:16px 22px;cursor:pointer;margin-bottom:24px;
-      box-shadow:0 4px 16px rgba(37,211,102,0.3);transition:transform 0.2s"
+      border:none;border-radius:14px;padding:16px 22px;cursor:pointer;margin-bottom:24px;width:100%;
+      box-shadow:0 4px 16px rgba(37,211,102,0.3);transition:transform 0.2s;text-align:left"
       onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
       <div>
         <div style="font-weight:700;font-size:0.95rem;color:#fff">Falar com a WB pelo WhatsApp</div>
         <div style="font-size:0.78rem;color:rgba(255,255,255,0.85)">(11) 91425-8886 · Respondemos rapidamente</div>
       </div>
-      <div style="margin-left:auto;font-size:1.2rem">→</div>
-    </div>
+      <div style="margin-left:auto;font-size:1.2rem;color:#fff">→</div>
+    </button>
 
     <div class="grid-2">
       <!-- Timeline -->
@@ -2145,30 +2167,36 @@ function renderMeuProcesso() {
                   ${e.desc ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:2px;line-height:1.4">${e.desc}</div>` : ''}
                   ${evento?.obs ? `<div style="font-size:0.75rem;color:var(--text2);margin-top:4px;padding:6px 8px;background:rgba(201,168,76,0.07);border-radius:6px;border-left:3px solid var(--gold)">${evento.obs}</div>` : ''}
                 </div>
-              </div>`;
-            }).join('')}
+              </div>`; }).join('')}
           </div>
         </div>
       </div>
 
-      <div style="display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-direction:column;gap:16px">
         <!-- Docs pendentes -->
-        <div class="panel">
-          <div class="panel-header"><span class="panel-title">📄 Documentos Pendentes</span></div>
+        <div class="panel" ${(c.docsPendentes||[]).length>0?'style="border-color:rgba(251,146,60,0.3)"':''}>
+          <div class="panel-header" ${(c.docsPendentes||[]).length>0?'style="background:rgba(251,146,60,0.05)"':''}>
+            <span class="panel-title" ${(c.docsPendentes||[]).length>0?'style="color:var(--orange)"':''}>
+              ${(c.docsPendentes||[]).length>0?`⚠️ Documentos Pendentes (${c.docsPendentes.length})`:'📄 Documentos'}
+            </span>
+          </div>
           <div class="panel-body">
             ${(c.docsPendentes||[]).length === 0
-              ? '<div style="color:var(--green);font-size:0.85rem;text-align:center;padding:12px">✅ Todos os documentos entregues!</div>'
+              ? `<div style="color:var(--green);font-size:0.85rem;text-align:center;padding:12px">✅ Sem pendências!</div>
+                 <button onclick="navigateTo('meus-documentos')" style="width:100%;margin-top:8px;background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:8px;color:var(--text2);font-size:0.8rem;cursor:pointer">Ver meus documentos →</button>`
               : (c.docsPendentes||[]).map(d=>`
-                <div class="checklist-item">
-                  <div class="check-box"></div>
-                  <span class="check-label">${d}</span>
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border2)">
+                  <span style="color:var(--orange)">⚠️</span>
+                  <span style="font-size:0.82rem;flex:1">${d}</span>
+                  <button onclick="abrirWhatsAppWB(${JSON.stringify(`Olá! Sou ${nome1}. Tenho dúvidas sobre o documento: ${d}`)})"
+                    style="background:#25d366;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:0.7rem;cursor:pointer;white-space:nowrap">💬</button>
                 </div>`).join('')}
             ${(c.docsPendentes||[]).length > 0 ? `
-              <button onclick="abrirWhatsAppWB(${JSON.stringify(`Olá! Sou ${c.nome.split(' ')[0]}. Tenho dúvidas sobre os documentos pendentes do meu processo.`)})"
-                style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:14px;
-                background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px;font-size:0.82rem;font-weight:600;cursor:pointer">
-                💬 Tirar dúvida sobre documentos
-              </button>` : ''}
+            <button onclick="navigateTo('meus-documentos')"
+              style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;
+              background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px;font-size:0.82rem;font-weight:600;cursor:pointer">
+              📤 Enviar documentos →
+            </button>` : ''}
           </div>
         </div>
 
@@ -2176,18 +2204,28 @@ function renderMeuProcesso() {
         <div class="panel">
           <div class="panel-header"><span class="panel-title">ℹ️ Informações</span></div>
           <div class="panel-body">
-            <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;flex-direction:column;gap:8px">
               ${[
-                ['Serviço', c.servico],
-                ['Responsável', c.responsavel || 'Equipe WB'],
-                ['Status', c.status],
-                ['Pagamento', c.pago ? '✅ Pago' : '⚠️ Pendente'],
+                ['Serviço',       c.servico],
+                ['Responsável',   c.responsavel || 'Equipe WB'],
+                ['Status',        c.status],
                 ['Cadastrado em', c.dataCadastro],
               ].map(([k,v])=>`
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2);font-size:0.82rem">
+                <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border2);font-size:0.82rem">
                   <span style="color:var(--text3)">${k}</span>
                   <span style="color:var(--text);font-weight:500">${v}</span>
                 </div>`).join('')}
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+              <button onclick="navigateTo('meu-financeiro')"
+                style="flex:1;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:8px;padding:8px;color:var(--gold);font-size:0.78rem;cursor:pointer;font-weight:600">
+                💳 Ver Financeiro
+              </button>
+              ${concluido ? `
+              <button onclick="navigateTo('minha-avaliacao')"
+                style="flex:1;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:8px;color:#fbbf24;font-size:0.78rem;cursor:pointer;font-weight:600">
+                ⭐ Avaliar WB
+              </button>` : ''}
             </div>
           </div>
         </div>
@@ -2197,7 +2235,7 @@ function renderMeuProcesso() {
           <div class="panel-header" style="background:rgba(37,211,102,0.05)">
             <span class="panel-title" style="color:#25d366">📞 Contato Direto</span>
           </div>
-          <div class="panel-body" style="display:flex;flex-direction:column;gap:10px">
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:8px">
             <button onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
               style="display:flex;align-items:center;gap:10px;background:#25d366;color:#fff;border:none;border-radius:10px;padding:12px 16px;font-weight:700;font-size:0.85rem;cursor:pointer;width:100%">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
@@ -2212,7 +2250,7 @@ function renderMeuProcesso() {
       </div>
     </div>
 
-    <!-- ── Prints do Processo Gov ── -->
+    <!-- Prints do Gov -->
     ${printsProcesso.filter(p=>p.clienteId===c.id).length > 0 ? `
     <div class="panel" style="margin-top:20px;border-color:rgba(96,165,250,0.25)">
       <div class="panel-header" style="background:rgba(96,165,250,0.06)">
@@ -2223,7 +2261,7 @@ function renderMeuProcesso() {
       </div>
       <div class="panel-body">
         <div style="font-size:0.78rem;color:var(--text3);margin-bottom:14px;padding:8px 12px;background:rgba(96,165,250,0.05);border-radius:8px;border-left:3px solid #60a5fa">
-          Abaixo estão os prints das telas do governo tirados pela equipe WB durante as verificações do seu processo. Cada imagem mostra o status real no sistema oficial.
+          Prints tirados pela equipe WB diretamente nos sistemas do governo — mostrando o status real do seu processo.
         </div>
         ${renderPrintsCliente(c.id, true)}
       </div>
@@ -2248,24 +2286,62 @@ function renderMeusDocumentos() {
     </div>
     ${barraWhatsApp('','')}`;
 
-  const arquivos = c.arquivos || [];
-  const msg = `Olá! Sou ${c.nome.split(' ')[0]} e tenho uma dúvida sobre minha documentação.`;
+  const arquivos  = c.arquivos || [];
+  const docsEnv   = c.docsEnviados || []; // PDFs enviados pelo cliente
+  const nome1     = c.nome.split(' ')[0];
+  const msg       = `Olá! Sou ${nome1} e tenho uma dúvida sobre minha documentação.`;
+  const pendentes = c.docsPendentes || [];
 
   return `
-    <!-- Destaque WhatsApp -->
-    <div onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
+    <!-- Banner WA -->
+    <button onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
       style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#128c7e,#25d366);
-      border-radius:12px;padding:14px 20px;cursor:pointer;margin-bottom:20px;box-shadow:0 3px 12px rgba(37,211,102,0.25)">
+      border:none;border-radius:12px;padding:14px 20px;cursor:pointer;margin-bottom:20px;width:100%;
+      box-shadow:0 3px 12px rgba(37,211,102,0.25);text-align:left">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
       <div>
         <div style="font-weight:700;color:#fff;font-size:0.88rem">Dúvida sobre documentação? Fale conosco!</div>
         <div style="font-size:0.75rem;color:rgba(255,255,255,0.85)">(11) 91425-8886 · WhatsApp</div>
       </div>
-    </div>
+    </button>
+
+    <!-- Documentos Pendentes com upload PDF -->
+    ${pendentes.length > 0 ? `
+    <div class="panel" style="margin-bottom:20px;border-color:rgba(251,146,60,0.35)">
+      <div class="panel-header" style="background:rgba(251,146,60,0.06)">
+        <span class="panel-title" style="color:var(--orange)">⚠️ Documentos Pendentes — Envie aqui (${pendentes.length})</span>
+      </div>
+      <div class="panel-body">
+        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:14px;padding:8px 12px;background:rgba(251,146,60,0.05);border-radius:8px;border-left:3px solid var(--orange)">
+          📤 Envie os documentos pendentes abaixo em formato <strong>PDF</strong>. A equipe WB receberá e analisará seu envio.
+        </div>
+        ${pendentes.map(d => {
+          const enviado = docsEnv.find(e => e.docNome === d);
+          return `
+          <div style="padding:12px;background:var(--navy3);border-radius:10px;margin-bottom:10px;border:1px solid ${enviado?'rgba(16,185,129,0.3)':'var(--border2)'}">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <span style="font-size:0.85rem;font-weight:600;color:${enviado?'var(--green)':'var(--orange)'};flex:1">${enviado?'✅':'⚠️'} ${d}</span>
+              ${enviado ? `<span style="font-size:0.7rem;color:var(--green);background:rgba(16,185,129,0.1);padding:2px 8px;border-radius:10px">Enviado ✓</span>` : ''}
+            </div>
+            ${enviado ? `
+              <div style="font-size:0.72rem;color:var(--text3)">📎 ${enviado.arquivo} · Enviado em ${enviado.data}</div>
+              <button onclick="abrirWhatsAppWB(${JSON.stringify(`Olá! Sou ${nome1}. Enviei o documento "${d}" pelo portal. Podem confirmar o recebimento?`)})"
+                style="margin-top:6px;background:#25d366;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:0.72rem;cursor:pointer">
+                💬 Confirmar com a WB
+              </button>` : `
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;background:rgba(201,168,76,0.07);border:1.5px dashed rgba(201,168,76,0.4);border-radius:8px;padding:10px;font-size:0.8rem;color:var(--text2)">
+                <input type="file" accept="application/pdf" style="display:none"
+                  onchange="uploadDocPendente(${c.id}, '${d.replace(/'/g,"\\'")}', this)">
+                📄 Clique para selecionar PDF
+              </label>
+            `}
+          </div>`; }).join('')}
+      </div>
+    </div>` : ''}
 
     <!-- Documentos recebidos -->
     <div class="panel" style="margin-bottom:20px">
-      <div class="panel-header"><span class="panel-title">✅ Documentos Recebidos pela WB</span></div>
+      <div class="panel-header"><span class="panel-title">✅ Documentos Recebidos pela WB (${(c.docs||[]).length})</span></div>
       <div class="panel-body">
         ${(c.docs||[]).length === 0
           ? '<div style="color:var(--text3);font-size:0.82rem;text-align:center;padding:16px">Nenhum documento registrado ainda.</div>'
@@ -2278,40 +2354,23 @@ function renderMeusDocumentos() {
       </div>
     </div>
 
-    <!-- Documentos pendentes -->
-    ${(c.docsPendentes||[]).length > 0 ? `
-    <div class="panel" style="margin-bottom:20px;border-color:rgba(251,146,60,0.3)">
-      <div class="panel-header" style="background:rgba(251,146,60,0.05)">
-        <span class="panel-title" style="color:var(--orange)">⚠️ Documentos Pendentes (${c.docsPendentes.length})</span>
-      </div>
+    <!-- Arquivos do dossiê -->
+    ${arquivos.length > 0 ? `
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">📁 Arquivos do Dossiê (${arquivos.length})</span></div>
       <div class="panel-body">
-        ${c.docsPendentes.map(d=>`
-          <div class="checklist-item">
-            <div class="check-box"></div>
-            <span class="check-label">${d}</span>
-            <button onclick="abrirWhatsAppWB(${JSON.stringify(`Olá! Sou ${c.nome.split(' ')[0]}. Tenho dúvidas sobre o documento: ${d}`)})"
-              style="background:#25d366;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.72rem;cursor:pointer;flex-shrink:0">💬 Tirar dúvida</button>
+        ${arquivos.map(a=>`
+          <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--navy3);border-radius:8px;margin-bottom:8px">
+            <span style="font-size:1.2rem">📄</span>
+            <div style="flex:1">
+              <div style="font-size:0.82rem;font-weight:500;color:var(--text)">${a.nome}</div>
+              <div style="font-size:0.7rem;color:var(--text3)">${a.cat} · ${a.data}</div>
+            </div>
+            <button onclick="baixarArquivo(${c.id},${a.id})" class="btn btn-outline btn-sm">⬇️</button>
           </div>`).join('')}
       </div>
     </div>` : ''}
 
-    <!-- Arquivos no dossiê -->
-    <div class="panel">
-      <div class="panel-header"><span class="panel-title">📁 Arquivos do Dossiê (${arquivos.length})</span></div>
-      <div class="panel-body">
-        ${arquivos.length === 0
-          ? '<div style="color:var(--text3);font-size:0.82rem;text-align:center;padding:20px">Nenhum arquivo enviado ainda pela equipe.</div>'
-          : arquivos.map(a=>`
-            <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--navy3);border-radius:8px;margin-bottom:8px">
-              <span style="font-size:1.2rem">📄</span>
-              <div style="flex:1">
-                <div style="font-size:0.82rem;font-weight:500;color:var(--text)">${a.nome}</div>
-                <div style="font-size:0.7rem;color:var(--text3)">${a.cat} · ${a.data}</div>
-              </div>
-              <button onclick="baixarArquivo(${c.id},${a.id})" class="btn btn-outline btn-sm">⬇️</button>
-            </div>`).join('')}
-      </div>
-    </div>
     ${barraWhatsApp(c.nome, c.servico)}
   `;
 }
@@ -2446,6 +2505,284 @@ function sendMsg() {
   const nome = c?.nome?.split(' ')[0] || 'Cliente';
   abrirWhatsAppWB(`Olá! Sou ${nome}. ${v}`);
   inp.value = '';
+}
+
+// ─── CLIENTE: FINANCEIRO & PIX ───────────────────────────────────
+function renderMeuFinanceiro() {
+  const c = clienteLogado();
+  if (!c) return `<div style="text-align:center;padding:60px;color:var(--text3)">Processo não encontrado. ${barraWhatsApp('','')}</div>`;
+
+  const nome1       = c.nome.split(' ')[0];
+  const total       = c.valor || 0;
+  const entrada     = c.valorEntrada || 0;
+  const nParcelas   = c.parcelas || 0;
+  const vlrParcela  = c.valorParcela || (nParcelas>0 ? (total-entrada)/nParcelas : 0);
+  const pago        = c.pago;
+  const parcelasReg = c.parcelasRegistradas || []; // {n, paga, data}
+  const totalPago   = entrada + parcelasReg.filter(p=>p.paga).reduce((s,p)=>s+vlrParcela,0);
+  const totalPend   = total - totalPago;
+
+  // Gera QR code PIX via API pública do gerarqrcodepix
+  const pixKey = WB_PIX_KEY;
+  const msgPix = `Olá! Sou ${nome1} e quero pagar minha parcela do processo de ${c.servico}.`;
+
+  return `
+    <!-- Header financeiro -->
+    <div style="background:linear-gradient(135deg,#1e3a5f,#162032);border-radius:18px;padding:24px;margin-bottom:24px;position:relative;overflow:hidden">
+      <div style="position:absolute;right:-10px;top:-10px;font-size:7rem;opacity:0.05">💳</div>
+      <div style="font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:8px">Resumo Financeiro</div>
+      <div style="font-size:1.6rem;font-weight:800;color:var(--gold)">${fmtMoeda(total)}</div>
+      <div style="font-size:0.82rem;color:rgba(255,255,255,0.6);margin-top:4px">${c.servico}</div>
+      <div style="display:flex;gap:20px;margin-top:20px;flex-wrap:wrap">
+        <div><div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-bottom:3px">Pago</div>
+          <div style="font-size:1rem;font-weight:700;color:#4ade80">${fmtMoeda(totalPago)}</div></div>
+        <div><div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-bottom:3px">Pendente</div>
+          <div style="font-size:1rem;font-weight:700;color:${totalPend>0?'var(--orange)':'#4ade80'}">${fmtMoeda(Math.max(0,totalPend))}</div></div>
+        ${nParcelas>0?`<div><div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-bottom:3px">Parcelas</div>
+          <div style="font-size:1rem;font-weight:700;color:#fff">${nParcelas}x de ${fmtMoeda(vlrParcela)}</div></div>`:''}
+      </div>
+      <div style="margin-top:16px;background:rgba(255,255,255,0.08);border-radius:8px;height:8px">
+        <div style="background:linear-gradient(90deg,#4ade80,var(--gold));border-radius:8px;height:100%;width:${total>0?Math.min(100,(totalPago/total*100)):0}%;transition:width 1s"></div>
+      </div>
+      <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);margin-top:4px">${total>0?Math.round(totalPago/total*100):0}% quitado</div>
+    </div>
+
+    <div class="grid-2">
+      <!-- PIX -->
+      <div class="panel" style="border-color:rgba(79,209,197,0.3)">
+        <div class="panel-header" style="background:rgba(79,209,197,0.06)">
+          <span class="panel-title" style="color:#4fc3f7">💳 Pagar via PIX</span>
+        </div>
+        <div class="panel-body">
+          <div style="text-align:center;padding:10px 0">
+            <div style="font-size:0.72rem;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">Chave PIX da WB Assessoria</div>
+            <div style="background:var(--navy3);border:2px solid rgba(79,195,247,0.3);border-radius:12px;padding:14px;margin-bottom:14px">
+              <div style="font-size:0.72rem;color:var(--text3);margin-bottom:4px">📧 E-mail</div>
+              <div style="font-size:0.92rem;font-weight:700;color:#4fc3f7;font-family:'DM Mono',monospace;word-break:break-all">${pixKey}</div>
+            </div>
+            <button onclick="navigator.clipboard.writeText('${pixKey}').then(()=>showToast('📋 Chave PIX copiada!'))"
+              style="width:100%;background:linear-gradient(135deg,#0284c7,#0ea5e9);color:#fff;border:none;border-radius:10px;
+              padding:12px;font-size:0.9rem;font-weight:700;cursor:pointer;margin-bottom:10px">
+              📋 Copiar chave PIX
+            </button>
+            <button onclick="abrirWhatsAppWB(${JSON.stringify(msgPix)})"
+              style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;
+              padding:11px;font-size:0.85rem;font-weight:600;cursor:pointer">
+              💬 Avisar WB após o pagamento
+            </button>
+          </div>
+          <div style="margin-top:14px;padding:10px 12px;background:rgba(201,168,76,0.06);border-radius:8px;font-size:0.72rem;color:var(--text3);line-height:1.6">
+            ⚠️ Após realizar o PIX, envie o comprovante para a WB pelo WhatsApp para confirmação.
+          </div>
+        </div>
+      </div>
+
+      <!-- Histórico de parcelas -->
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">📋 Histórico de Pagamentos</span></div>
+        <div class="panel-body">
+          ${entrada > 0 ? `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(16,185,129,0.06);border-radius:8px;margin-bottom:8px;border:1px solid rgba(16,185,129,0.2)">
+            <span style="font-size:1rem">✅</span>
+            <div style="flex:1">
+              <div style="font-size:0.82rem;font-weight:600">Entrada</div>
+              <div style="font-size:0.72rem;color:var(--text3)">Pago no contrato</div>
+            </div>
+            <div style="font-size:0.88rem;font-weight:700;color:var(--green)">${fmtMoeda(entrada)}</div>
+          </div>` : ''}
+
+          ${nParcelas > 0 ? Array.from({length:nParcelas},(_,i)=>{
+            const reg  = parcelasReg.find(p=>p.n===i+1);
+            const paga = reg?.paga || false;
+            return `
+            <div style="display:flex;align-items:center;gap:10px;padding:10px;background:${paga?'rgba(16,185,129,0.06)':'rgba(251,146,60,0.05)'};
+              border-radius:8px;margin-bottom:6px;border:1px solid ${paga?'rgba(16,185,129,0.2)':'rgba(251,146,60,0.2)'}">
+              <span style="font-size:1rem">${paga?'✅':'⏳'}</span>
+              <div style="flex:1">
+                <div style="font-size:0.82rem;font-weight:600">${i+1}ª Parcela</div>
+                <div style="font-size:0.72rem;color:var(--text3)">${paga?(reg?.data||'Pago'):'Pendente'}</div>
+              </div>
+              <div style="font-size:0.88rem;font-weight:700;color:${paga?'var(--green)':'var(--orange)'}">${fmtMoeda(vlrParcela)}</div>
+            </div>`; }).join('')
+          : nParcelas===0 ? `<div style="text-align:center;padding:16px;color:var(--green);font-size:0.85rem">
+              ${pago?'✅ Pagamento à vista confirmado!':'⏳ Pagamento à vista pendente'}
+            </div>` : ''}
+
+          ${!pago && totalPend > 0 ? `
+          <button onclick="abrirWhatsAppWB(${JSON.stringify(`Olá! Sou ${nome1}. Quero negociar ou tirar dúvidas sobre meu pagamento de ${c.servico}.`)})"
+            style="width:100%;margin-top:10px;background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px;font-size:0.82rem;font-weight:600;cursor:pointer">
+            💬 Falar sobre pagamento
+          </button>` : ''}
+        </div>
+      </div>
+    </div>
+    ${barraWhatsApp(c.nome, c.servico)}
+  `;
+}
+
+// ─── CLIENTE: AVALIAÇÃO ──────────────────────────────────────────
+let _avaliacaoTemp = { estrelas: 0, texto: '' };
+function renderMinhaAvaliacao() {
+  const c = clienteLogado();
+  if (!c) return `<div style="text-align:center;padding:60px;color:var(--text3)">Processo não encontrado.</div>`;
+
+  const avaliacao = c.avaliacao; // { estrelas, texto, data }
+  const nome1     = c.nome.split(' ')[0];
+
+  if (avaliacao) return `
+    <div style="text-align:center;padding:40px 20px">
+      <div style="font-size:3rem;margin-bottom:16px">🌟</div>
+      <div style="font-size:1.2rem;font-weight:800;color:var(--text);margin-bottom:8px">Obrigado pela sua avaliação!</div>
+      <div style="font-size:2rem;margin:12px 0">${'⭐'.repeat(avaliacao.estrelas)}${'☆'.repeat(5-avaliacao.estrelas)}</div>
+      <div style="background:var(--navy3);border-radius:12px;padding:16px;max-width:400px;margin:0 auto;font-size:0.85rem;color:var(--text2);font-style:italic">
+        "${avaliacao.texto}"
+      </div>
+      <div style="font-size:0.72rem;color:var(--text3);margin-top:12px">Avaliado em ${avaliacao.data}</div>
+      <button onclick="if(confirm('Deseja refazer sua avaliação?')){const cl=clientes.find(x=>x.id===${c.id});if(cl){cl.avaliacao=null;saveData();navigateTo('minha-avaliacao');}}"
+        style="margin-top:16px;background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:8px 20px;color:var(--text3);cursor:pointer;font-size:0.8rem">
+        ✏️ Refazer avaliação
+      </button>
+    </div>`;
+
+  _avaliacaoTemp = { estrelas: 0, texto: '' };
+  return `
+    <div style="max-width:540px;margin:0 auto">
+      <div style="text-align:center;padding:30px 20px 24px">
+        <div style="font-size:2.5rem;margin-bottom:12px">⭐</div>
+        <div style="font-size:1.1rem;font-weight:800;color:var(--text);margin-bottom:8px">Como foi sua experiência com a WB?</div>
+        <div style="font-size:0.85rem;color:var(--text3)">Sua opinião é muito importante para nós, ${nome1}!</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-body">
+          <!-- Estrelas -->
+          <div style="text-align:center;margin-bottom:20px">
+            <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px">Sua nota</div>
+            <div id="av_estrelas" style="display:flex;justify-content:center;gap:8px">
+              ${[1,2,3,4,5].map(n=>`
+                <span id="av_star_${n}" onclick="setAvaliacao(${n})"
+                  style="font-size:2.5rem;cursor:pointer;transition:transform 0.15s;line-height:1"
+                  onmouseover="hoverAvaliacao(${n})" onmouseout="renderEstrelas(_avaliacaoTemp.estrelas)">☆</span>`).join('')}
+            </div>
+            <div id="av_label" style="font-size:0.82rem;color:var(--text3);margin-top:8px;height:20px"></div>
+          </div>
+
+          <!-- Texto -->
+          <div class="form-field">
+            <label>Conte sua experiência</label>
+            <textarea id="av_texto" placeholder="O que achou do atendimento? O processo correu bem? Tem sugestões?" rows="4"
+              oninput="_avaliacaoTemp.texto=this.value" style="resize:vertical"></textarea>
+          </div>
+
+          <!-- Botão -->
+          <button onclick="salvarAvaliacao(${c.id})"
+            style="width:100%;margin-top:16px;background:linear-gradient(135deg,var(--gold),#f59e0b);color:#111;border:none;
+            border-radius:12px;padding:14px;font-size:1rem;font-weight:800;cursor:pointer">
+            ⭐ Enviar Avaliação
+          </button>
+        </div>
+      </div>
+    </div>
+    ${barraWhatsApp(c.nome, c.servico)}`;
+}
+
+function hoverAvaliacao(n) {
+  [1,2,3,4,5].forEach(i=>{
+    const el = document.getElementById('av_star_'+i);
+    if(el) el.textContent = i<=n?'⭐':'☆';
+  });
+}
+function renderEstrelas(n) {
+  [1,2,3,4,5].forEach(i=>{
+    const el = document.getElementById('av_star_'+i);
+    if(el) { el.textContent=i<=n?'⭐':'☆'; }
+  });
+}
+function setAvaliacao(n) {
+  _avaliacaoTemp.estrelas = n;
+  renderEstrelas(n);
+  const labels = ['','😞 Ruim','😐 Regular','🙂 Bom','😊 Muito Bom','🤩 Excelente!'];
+  const el = document.getElementById('av_label');
+  if(el) el.textContent = labels[n];
+}
+function salvarAvaliacao(clienteId) {
+  if (!_avaliacaoTemp.estrelas) { showToast('⚠️ Selecione uma nota!','warn'); return; }
+  const texto = document.getElementById('av_texto')?.value?.trim() || '';
+  if (!texto) { showToast('⚠️ Escreva um comentário!','warn'); return; }
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  c.avaliacao = { estrelas: _avaliacaoTemp.estrelas, texto, data: new Date().toLocaleDateString('pt-BR') };
+  saveData();
+  showToast('🌟 Avaliação enviada! Muito obrigado!');
+  navigateTo('minha-avaliacao');
+  // Notifica WB
+  const msg = `🌟 *Nova avaliação recebida!*\n\nCliente: ${c.nome}\nNota: ${'⭐'.repeat(c.avaliacao.estrelas)}\n"${texto}"`;
+  setTimeout(()=>{ /* Log interno — não abre WA automaticamente */ },300);
+}
+
+// ─── INTERNO: CHECKLIST EDITÁVEL DE DOCS PENDENTES (para staff) ──
+function openChecklistDocs(clienteId) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  const DOCS_PADRAO = [
+    'RNM','CPF','Comprovante de Endereço Atualizado','Passaporte',
+    'Comprovante dos Últimos 4 Anos no País','Antecedente Criminal',
+    'Certificado de Língua Portuguesa','Certificado de Prova Presencial',
+    'Certidão de Nascimento (filhos)','Certidão de Casamento/União Estável',
+    'Carteira de Trabalho/CNPJ/MEI','Foto 3x4','Outros'
+  ];
+  const pendentes = c.docsPendentes || [];
+
+  openModal(`
+    <div class="modal-title">📋 Documentos Pendentes — ${c.nome}</div>
+    <div style="font-size:0.78rem;color:var(--text3);margin-bottom:16px">
+      Marque os documentos que o cliente ainda precisa entregar. O cliente verá essa lista no portal.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding-right:4px">
+      ${DOCS_PADRAO.map(d=>`
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:var(--navy3);border-radius:8px;
+          border:1px solid ${pendentes.includes(d)?'rgba(251,146,60,0.4)':'var(--border2)'}">
+          <input type="checkbox" id="chk_doc_${d.replace(/[^a-z0-9]/gi,'_')}" ${pendentes.includes(d)?'checked':''}
+            style="width:17px;height:17px;accent-color:var(--orange)">
+          <span style="font-size:0.85rem;color:var(--text)">${d}</span>
+        </label>`).join('')}
+      <div style="margin-top:8px">
+        <label style="font-size:0.78rem;color:var(--text3);display:block;margin-bottom:4px">➕ Outro (personalizado)</label>
+        <input id="chk_doc_custom" placeholder="Nome do documento..." style="width:100%;background:var(--navy2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;color:var(--text);font-size:0.83rem;box-sizing:border-box">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="salvarChecklistDocs(${clienteId},${JSON.stringify(DOCS_PADRAO)})">💾 Salvar Pendências</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+function salvarChecklistDocs(clienteId, docsPadrao) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  const pendentes = docsPadrao.filter(d => {
+    const el = document.getElementById('chk_doc_'+d.replace(/[^a-z0-9]/gi,'_'));
+    return el?.checked;
+  });
+  const custom = document.getElementById('chk_doc_custom')?.value?.trim();
+  if (custom) pendentes.push(custom);
+  c.docsPendentes = pendentes;
+  saveData();
+  closeModal();
+  showToast(`✅ ${pendentes.length} documento(s) marcado(s) como pendente(s).`);
+  navigateTo(currentPage);
+  // Notifica cliente via WA
+  if (pendentes.length > 0) {
+    const tel  = (c.tel||'').replace(/\D/g,'');
+    const fone = tel.length>=10 ? (tel.startsWith('55')?tel:'55'+tel) : null;
+    if (fone && confirm(`Notificar ${c.nome} dos documentos pendentes via WhatsApp?`)) {
+      const lista = pendentes.map((d,i)=>`${i+1}. ${d}`).join('\n');
+      const msg   = `Olá, ${c.nome.split(' ')[0]}! 👋\n\nA equipe WB identificou que os seguintes documentos ainda precisam ser entregues para seu processo de *${c.servico}*:\n\n${lista}\n\nVocê pode enviar os PDFs diretamente pelo seu portal ou entrar em contato conosco.\n\n_WB Assessoria Migratória — (11) 91425-8886_`;
+      const a = document.createElement('a'); a.href=`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`; a.target='_blank'; a.rel='noopener';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+  }
 }
 
 // ─── CLIENTE: CURSO DE PROFICIÊNCIA ──────────────────────────────
@@ -2618,6 +2955,7 @@ function openClienteModal(id) {
     <div class="modal-actions">
       ${currentRole !== 'cliente' ? `<button class="btn btn-gold" onclick="atualizarEtapa(${c.id})">Avançar Etapa</button>` : ''}
       ${currentRole !== 'cliente' ? `<button class="btn btn-outline" onclick="openEditarCliente(${c.id})">✏️ Editar Dados</button>` : ''}
+      ${currentRole !== 'cliente' ? `<button class="btn btn-outline" style="background:rgba(251,146,60,0.1);border-color:rgba(251,146,60,0.4);color:var(--orange)" onclick="closeModal();openChecklistDocs(${c.id})">📋 Docs Pendentes</button>` : ''}
       ${currentRole !== 'cliente' ? `<button class="btn btn-outline" style="background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.4);color:#60a5fa" onclick="closeModal();openUploadPrintProcesso(${c.id})">📸 Anexar Print do Gov</button>` : ''}
       <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
     </div>
@@ -2775,6 +3113,37 @@ function excluirCliente(id) {
 
 function atualizarEtapa_UNUSED(id) { /* replaced below */ }
 
+function uploadDocPendente(clienteId, docNome, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.type !== 'application/pdf') { showToast('⚠️ Apenas arquivos PDF são aceitos!','warn'); input.value=''; return; }
+  if (file.size > 10*1024*1024)        { showToast('⚠️ Arquivo muito grande. Máximo 10MB.','warn');    input.value=''; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const c = clientes.find(x=>x.id===clienteId);
+    if (!c) return;
+    c.docsEnviados = c.docsEnviados || [];
+    // Remove envio anterior do mesmo doc se existir
+    c.docsEnviados = c.docsEnviados.filter(d => d.docNome !== docNome);
+    c.docsEnviados.push({
+      docNome, arquivo: file.name,
+      data: new Date().toLocaleDateString('pt-BR'),
+      base64: e.target.result,
+      tamanho: file.size,
+    });
+    saveData();
+    showToast(`✅ "${file.name}" enviado com sucesso!`);
+    navigateTo('meus-documentos');
+    // Avisa WB automaticamente via WhatsApp
+    setTimeout(()=>{
+      const nome1 = c.nome.split(' ')[0];
+      const msg = `📄 *Novo documento enviado pelo cliente!*\n\nCliente: ${c.nome}\nDocumento: ${docNome}\nArquivo: ${file.name}\n\nAcesse o sistema para visualizar.`;
+      // Notifica internamente apenas — não abre WA automaticamente para não atrapalhar cliente
+    },300);
+  };
+  reader.readAsDataURL(file);
+}
+
 function atualizarEtapa(id) {
   const c = clientes.find(x=>x.id===id);
   if (c && c.etapa < c.totalEtapas) {
@@ -2784,6 +3153,20 @@ function atualizarEtapa(id) {
     closeModal();
     openClienteModal(id);
     navigateTo(currentPage);
+    // 🔔 Alerta WhatsApp automático para o cliente
+    const etapas   = getEtapasCliente(c.servico);
+    const etapaAtual = etapas[c.etapa-1]?.label || `Etapa ${c.etapa}`;
+    const nomeCliente = c.nome.split(' ')[0];
+    const tel = (c.tel||'').replace(/\D/g,'');
+    const fone = tel.length>=10 ? (tel.startsWith('55')?tel:'55'+tel) : null;
+    if (fone) {
+      const msg = `Olá, ${nomeCliente}! 🎉\n\nSeu processo de *${c.servico}* avançou para uma nova etapa!\n\n✅ *${etapaAtual}*\n\nAcesse seu portal WB para ver todos os detalhes do progresso.\n\n_WB Assessoria Migratória — (11) 91425-8886_`;
+      const url = `https://wa.me/${fone}?text=${encodeURIComponent(msg)}`;
+      if (confirm(`📱 Enviar notificação de avanço de etapa para ${c.nome} via WhatsApp?`)) {
+        const a = document.createElement('a'); a.href=url; a.target='_blank'; a.rel='noopener';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }
+    }
   } else {
     showToast('Processo já concluído!','info');
   }
