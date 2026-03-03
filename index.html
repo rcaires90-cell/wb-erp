@@ -929,11 +929,28 @@ function toggleSidebar() {
   ov.classList.toggle('open', open);
 }
 
-// ── WhatsApp ──────────────────────────────────────────────────────
+// ── WhatsApp — abre em qualquer dispositivo sem popup blocker ────
+function _abrirURL(url) {
+  // Método confiável: cria <a> invisível e clica — funciona em iOS, Android e desktop
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { try { document.body.removeChild(a); } catch(e){} }, 300);
+  } catch(e) {
+    window.location.href = url; // fallback absoluto
+  }
+}
+
 function abrirWhatsApp(tel, msg) {
-  const num = tel.replace(/\D/g,'');
-  const txt = encodeURIComponent(msg || '');
-  window.open(`https://wa.me/55${num}?text=${txt}`, '_blank');
+  const num  = (tel || '').replace(/\D/g, '');
+  const fone = num.length >= 10 ? (num.startsWith('55') ? num : '55' + num) : WB_WHATSAPP;
+  const url  = `https://wa.me/${fone}` + (msg ? `?text=${encodeURIComponent(msg)}` : '');
+  _abrirURL(url);
 }
 
 function whatsAppCliente(clienteId) {
@@ -2095,10 +2112,7 @@ const WB_WA_LINK  = 'https://wa.link/pp2gw8';
 const WB_PIX_KEY  = 'wbassessoria.contato@gmail.com';
 
 function abrirWhatsAppWB(msg) {
-  // Link direto WB — funciona em qualquer dispositivo
-  const a = document.createElement('a');
-  a.href = WB_WA_LINK; a.target = '_blank'; a.rel = 'noopener noreferrer';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  _abrirURL(WB_WA_LINK);
 }
 
 // ── Barra flutuante WhatsApp (exibida no portal do cliente) ──────
@@ -3185,7 +3199,7 @@ function enviarCredenciaisWhatsApp(nome, login, senha, tel) {
   const msg   = `Olá, ${nome}! 👋\n\nSuas credenciais de acesso ao Portal WB:\n\n🔗 ${url}\n👤 Login: ${login}\n🔑 Senha: ${senha}\n\nQualquer dúvida: (11) 91425-8886`;
   const num   = tel ? tel.replace(/\D/g,'') : WB_WHATSAPP;
   const fone  = num.length >= 10 ? (num.startsWith('55') ? num : '55'+num) : WB_WHATSAPP;
-  window.open(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`, '_blank');
+  _abrirURL(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`);
 }
 
 function excluirCliente(id) {
@@ -7780,7 +7794,7 @@ function renderCrmLeads() {
               onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
               <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:4px">${l.nome}</div>
               <div style="font-size:0.72rem;color:var(--text3);margin-bottom:6px">${l.servico||'Serviço não definido'}</div>
-              ${l.tel ? `<button onclick="event.stopPropagation();const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a)"
+              ${l.tel ? `<button onclick="event.stopPropagation();_abrirURL(WB_WA_LINK)"
                 style="display:flex;align-items:center;gap:5px;background:#25d366;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.7rem;cursor:pointer;width:100%">
                 💬 ${l.tel}
               </button>` : ''}
@@ -7889,7 +7903,7 @@ function openEditLead(id) {
       <button class="btn btn-outline" style="color:var(--red);border-color:var(--red)" onclick="excluirLead(${id})">🗑️ Excluir</button>
       <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
     </div>
-    ${l.tel ? `<div style="margin-top:12px"><button onclick="const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a)"
+    ${l.tel ? `<div style="margin-top:12px"><button onclick="_abrirURL(WB_WA_LINK)"
       style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;padding:11px;font-size:0.85rem;font-weight:600;cursor:pointer">
       💬 Entrar em contato via WhatsApp
     </button></div>` : ''}`);
@@ -7994,7 +8008,7 @@ function renderLandingCaptacao() {
             <div style="background:var(--navy3);border-radius:8px;padding:10px 12px;font-size:0.75rem;color:var(--text3);word-break:break-all;font-family:monospace">${lpUrl}</div>
             <button onclick="navigator.clipboard.writeText('${lpUrl}').then(()=>showToast('📋 Copiado!'))"
               style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:9px;color:var(--text2);font-size:0.82rem;cursor:pointer">📋 Copiar link</button>
-            <button onclick="const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a)"
+            <button onclick="_abrirURL(WB_WA_LINK)"
               style="background:#25d366;color:#fff;border:none;border-radius:8px;padding:9px;font-size:0.82rem;font-weight:600;cursor:pointer">
               💬 Compartilhar via WhatsApp
             </button>
@@ -8092,7 +8106,7 @@ function enviarFormLanding() {
   document.getElementById('lp_sucesso').style.display='block';
   // Abre WA da empresa
   setTimeout(()=>{
-    const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);
+    _abrirURL(WB_WA_LINK);
   },1500);
 }
 
@@ -8221,7 +8235,7 @@ function dispararPromoWA(id) {
   const desc = p.tipo==='pct' ? `${p.valor}% de desconto` : `R$ ${p.valor} de desconto`;
   const msg = `🎉 *Promoção Especial WB Assessoria Migratória!*\n\n${p.nome}\n\n✨ ${desc} no seu processo!\n\nUse o cupom: *${p.codigo}*\n\n${p.validade?`⏰ Válido até ${new Date(p.validade+'T12:00').toLocaleDateString('pt-BR')}\n\n`:''}Entre em contato agora e garanta sua vaga!\n\n_WB Assessoria Migratória_`;
   navigator.clipboard.writeText(msg).then(()=>showToast('📋 Mensagem copiada! Agora abra o WhatsApp.'));
-  setTimeout(()=>{const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);},800);
+  setTimeout(()=>{_abrirURL(WB_WA_LINK);},800);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -8308,7 +8322,7 @@ function renderIndicacoes() {
 function enviarLinkIndicacaoWA(nome, link) {
   const msg = `Olá ${nome.split(' ')[0]}! 🎉\n\nTemos um presente para você: seu *link exclusivo de indicação* da WB Assessoria Migratória!\n\n🔗 ${link}\n\nCompartilhe com amigos e familiares que precisam de assessoria migratória. Cada indicação que fechar contrato garante um *benefício especial* para você!\n\n_WB Assessoria Migratória_`;
   navigator.clipboard.writeText(msg).then(()=>showToast('📋 Mensagem copiada!'));
-  setTimeout(()=>{const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);},600);
+  setTimeout(()=>{_abrirURL(WB_WA_LINK);},600);
 }
 
 // Portal do cliente — aba indicações
@@ -8940,7 +8954,7 @@ function renderChatPortal() {
         </div>
         <div style="margin-left:auto;display:flex;gap:8px">
           ${btnLigar('sm')}
-          <button onclick="const a=document.createElement('a');a.href=WB_WA_LINK;a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a)"
+          <button onclick="_abrirURL(WB_WA_LINK)"
             style="background:rgba(255,255,255,0.2);border:none;border-radius:7px;padding:6px 10px;color:#fff;font-size:0.72rem;cursor:pointer">
             💬 WA
           </button>
