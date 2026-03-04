@@ -1343,7 +1343,7 @@ function tabelaClientes(lista) {
           <td>${c.pago ? '<span class="badge badge-green">✓ Pago</span>' : '<span class="badge badge-red">Pendente</span>'}</td>
           <td style="display:flex;gap:5px">
             <button class="btn btn-outline btn-sm" onclick="openClienteModal(${c.id})">Detalhes</button>
-            ${c.tel && c.tel !== '—' ? `<button class="btn btn-sm" style="background:#25d366;color:#fff;border:none" title="WhatsApp" onclick="whatsAppCliente(${c.id})">💬</button>` : ''}
+            ${c.tel && c.tel !== '—' ? `<button class="btn btn-sm" style="background:#25d366;color:#fff;border:none" title="WhatsApp" onclick="whatsAppCliente(${c.id})">💬</a>` : ''}
           </td>
         </tr>`).join('')}
     </tbody>
@@ -2117,20 +2117,16 @@ function abrirWhatsAppWB(msg) {
 
 // ── Barra flutuante WhatsApp (exibida no portal do cliente) ──────
 function barraWhatsApp(nomeCliente, servico) {
-  const msg = `Olá! Sou ${nomeCliente||'cliente'} da WB Assessoria Migratória e gostaria de falar sobre meu processo${servico?' de '+servico:''}.`;
-  return `
-    <div onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
-      style="position:fixed;bottom:28px;right:28px;z-index:999;display:flex;align-items:center;gap:10px;
-      background:#25d366;color:#fff;padding:12px 20px;border-radius:50px;cursor:pointer;
-      box-shadow:0 4px 20px rgba(37,211,102,0.45);font-weight:700;font-size:0.88rem;
-      transition:transform 0.2s,box-shadow 0.2s;user-select:none"
-      onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 6px 28px rgba(37,211,102,0.6)'"
-      onmouseout="this.style.transform='';this.style.boxShadow='0 4px 20px rgba(37,211,102,0.45)'">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
-      Falar com a WB
-    </div>`;
+  // <a href> puro — única forma 100% garantida em iOS/Android
+  return `<a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+    id="wb-wa-float"
+    style="position:fixed;bottom:24px;right:20px;z-index:9999;display:flex;align-items:center;gap:10px;
+    background:#25d366;color:#fff;padding:13px 20px;border-radius:50px;text-decoration:none;
+    box-shadow:0 4px 20px rgba(37,211,102,0.5);font-weight:700;font-size:0.88rem">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
+    💬 Falar com a WB
+  </a>`;
 }
-
 // ── Helper: encontrar cliente logado ────────────────────────────
 function clienteLogado() {
   if (!currentUser) return null;
@@ -2143,34 +2139,73 @@ function clienteLogado() {
 // ── ETAPAS POR SERVIÇO ───────────────────────────────────────────
 const ETAPAS_CLIENTE = {
   'Naturalização Brasileira': [
-    { label:'Verificação de Elegibilidade',    desc:'Análise dos requisitos legais e tempo de residência.' },
-    { label:'Coleta de Documentação',          desc:'Reunião de todos os documentos exigidos pelo MJSP.' },
-    { label:'Tradução e Autenticação',         desc:'Tradução juramentada e autenticação dos docs estrangeiros.' },
-    { label:'Protocolo no Ministério da Justiça', desc:'Protocolo do requerimento junto ao MJSP/DEMIG.' },
-    { label:'Análise Federal',                 desc:'Análise pelo Departamento de Migrações — prazo governamental.' },
-    { label:'Publicação no D.O.U.',            desc:'Publicação da portaria de naturalização no Diário Oficial.' },
+    {
+      id: 'contrato',
+      label: '📝 Contrato Assinado',
+      desc: 'Contrato de prestação de serviços assinado. Início oficial do processo de naturalização com a WB Assessoria Migratória.',
+    },
+    {
+      id: 'documentos',
+      label: '📁 Juntada de Documentos',
+      desc: 'Reunião de todos os documentos exigidos pelo MJSP: RNM, CPF, passaporte, certidão de nascimento/casamento, comprovante de 4 anos de residência contínua e demais documentos complementares.',
+    },
+    {
+      id: 'curso',
+      label: '🎓 Curso de Língua Portuguesa / Prova Presencial',
+      desc: 'Realização do curso de proficiência em Língua Portuguesa e prova presencial (CELPE-Bras ou equivalente). Obrigatório para países fora da CPLP.',
+      campo_cplp: true,
+    },
+    {
+      id: 'antecedente',
+      label: '🔍 Antecedente Criminal',
+      desc: 'Solicitação e apostilamento/legalização do antecedente criminal do país de origem. Atenção: validade de 90 dias — o documento expira rapidamente.',
+      campo_apostila: true,
+      campo_vencimento: true,
+    },
+    {
+      id: 'pf',
+      label: '🏛️ Protocolo / Análise da Polícia Federal',
+      desc: 'Envio do requerimento completo à Polícia Federal para instrução e encaminhamento ao Ministério da Justiça e Segurança Pública.',
+    },
+    {
+      id: 'biometria',
+      label: '📸 Coleta de Biometria, Documentos e Fotos',
+      desc: 'Atendimento presencial na Polícia Federal para coleta de impressões digitais, foto e entrega dos documentos originais.',
+    },
+    {
+      id: 'mjsp',
+      label: '⚖️ Análise do MJSP — Deferimento / Indeferimento',
+      desc: 'Análise final pelo Ministério da Justiça e Segurança Pública. Em caso de indeferimento, é registrado o motivo para possível recurso.',
+      campo_resultado: true,
+    },
+    {
+      id: 'dou',
+      label: '🎉 Publicação no D.O.U. e Naturalização',
+      desc: 'Publicação da Portaria de Naturalização no Diário Oficial da União. O cliente torna-se oficialmente cidadão brasileiro e pode emitir RG, CPF definitivo e Título de Eleitor.',
+    },
   ],
   'Autorização de Residência (RNM)': [
-    { label:'Análise Migratória',              desc:'Avaliação do fundamento legal aplicável.' },
-    { label:'Coleta de Documentos',            desc:'Organização do dossiê para protocolo.' },
-    { label:'Protocolo no MigranteWeb',        desc:'Envio do requerimento pelo sistema federal.' },
-    { label:'Agendamento na Polícia Federal',  desc:'Agendamento para atendimento presencial.' },
-    { label:'Atendimento e Biometria',         desc:'Atendimento na PF, entrega de docs e biometria.' },
-    { label:'Emissão do CRNM',                 desc:'Emissão da Carteira de Registro Nacional Migratório.' },
+    { id:'contrato',    label:'📋 Contrato Assinado',           desc:'Início oficial do processo com a WB Assessoria.' },
+    { id:'documentos',  label:'📁 Coleta de Documentos',        desc:'Organização do dossiê completo para protocolo no MigranteWeb.' },
+    { id:'protocolo',   label:'💻 Protocolo no MigranteWeb',    desc:'Envio digital do requerimento pelo sistema federal.' },
+    { id:'agendamento', label:'📅 Agendamento na PF',           desc:'Agendamento para atendimento presencial na Polícia Federal.' },
+    { id:'biometria',   label:'📸 Atendimento e Biometria',     desc:'Entrega de documentos, fotos e coleta de biometria na PF.' },
+    { id:'crnm',        label:'🪪 Emissão do CRNM',             desc:'Emissão da Carteira de Registro Nacional Migratório.' },
   ],
   'Visto de Turismo (EUA)': [
-    { label:'Avaliação de Perfil',             desc:'Análise do perfil consular e estratégia de apresentação.' },
-    { label:'Preenchimento DS-160',            desc:'Formulário eletrônico do Departamento de Estado americano.' },
-    { label:'Pagamento da Taxa MRV',           desc:'Pagamento da taxa consular (USD 185).' },
-    { label:'Agendamento Consular',            desc:'Marcação da entrevista no Consulado.' },
-    { label:'Entrevista Consular',             desc:'Entrevista com Oficial Consular americano.' },
-    { label:'Resultado',                       desc:'Aprovação ou resultado da entrevista.' },
+    { id:'contrato',     label:'📋 Contrato Assinado',         desc:'Início do processo de visto com a WB Assessoria.' },
+    { id:'perfil',       label:'🧾 Avaliação de Perfil',       desc:'Análise do perfil consular e estratégia de apresentação.' },
+    { id:'ds160',        label:'💻 Preenchimento DS-160',       desc:'Formulário eletrônico do Departamento de Estado americano.' },
+    { id:'taxa',         label:'💵 Pagamento da Taxa MRV',     desc:'Pagamento da taxa consular (USD 185).' },
+    { id:'agendamento',  label:'📅 Agendamento Consular',      desc:'Marcação da entrevista no Consulado Americano.' },
+    { id:'entrevista',   label:'🗣️ Entrevista Consular',       desc:'Entrevista com Oficial Consular americano.' },
+    { id:'resultado',    label:'✅ Resultado',                  desc:'Aprovação ou orientações para recurso em caso de negativa.' },
   ],
 };
 
 function getEtapasCliente(servico) {
   const key = Object.keys(ETAPAS_CLIENTE).find(k => servico?.includes(k.split(' ')[0]));
-  return key ? ETAPAS_CLIENTE[key] : [{ label:'Etapa 1', desc:'' },{ label:'Etapa 2', desc:'' },{ label:'Etapa 3', desc:'' }];
+  return key ? ETAPAS_CLIENTE[key] : [{ id:'e1', label:'Etapa 1', desc:'' },{ id:'e2', label:'Etapa 2', desc:'' },{ id:'e3', label:'Etapa 3', desc:'' }];
 }
 
 // ── PORTAL: MEU PROCESSO ─────────────────────────────────────────
@@ -2182,10 +2217,10 @@ function renderMeuProcesso() {
       <div style="font-size:3rem;margin-bottom:16px">👋</div>
       <div style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:8px">Bem-vindo ao Portal WB!</div>
       <div style="font-size:0.85rem;color:var(--text3);margin-bottom:24px">Seu processo ainda está sendo configurado pela nossa equipe.<br>Em caso de dúvidas, fale diretamente conosco:</div>
-      <button onclick="abrirWhatsAppWB('Olá! Acabei de acessar o portal e gostaria de informações sobre meu processo na WB Assessoria Migratória.')"
-        style="display:inline-flex;align-items:center;gap:10px;background:#25d366;color:#fff;border:none;border-radius:12px;padding:14px 28px;font-size:1rem;font-weight:700;cursor:pointer">
+      <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+        style="display:inline-flex;align-items:center;gap:10px;background:#25d366;color:#fff;border-radius:12px;padding:14px 28px;font-size:1rem;font-weight:700;text-decoration:none">
         💬 Falar com a WB pelo WhatsApp
-      </button>
+      </a>
     </div>
     ${barraWhatsApp('', '')}`;
 
@@ -2225,41 +2260,98 @@ function renderMeuProcesso() {
       </div>
     </div>
 
-    <!-- Botão WhatsApp -->
-    <button onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
-      style="display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#128c7e,#25d366);
-      border:none;border-radius:14px;padding:16px 22px;cursor:pointer;margin-bottom:24px;width:100%;
-      box-shadow:0 4px 16px rgba(37,211,102,0.3);transition:transform 0.2s;text-align:left"
-      onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
-      <div>
-        <div style="font-weight:700;font-size:0.95rem;color:#fff">Falar com a WB pelo WhatsApp</div>
-        <div style="font-size:0.78rem;color:rgba(255,255,255,0.85)">(11) 91425-8886 · Respondemos rapidamente</div>
-      </div>
-      <div style="margin-left:auto;font-size:1.2rem;color:#fff">→</div>
-    </button>
+
 
     <div class="grid-2">
       <!-- Timeline -->
       <div class="panel">
         <div class="panel-header"><span class="panel-title">📍 Etapas do Processo</span></div>
-        <div class="panel-body">
-          <div class="timeline">
+        <div class="panel-body" style="padding:0">
+          <div class="timeline" style="padding:12px 16px">
             ${etapas.map((e, i) => {
               const concluida = i < (c.etapa || 0);
-              const atual     = i === (c.etapa || 0) - 1;
               const proxima   = i === (c.etapa || 0);
               const evento    = (c.timeline || [])[i];
-              return `
-              <div class="timeline-item" style="opacity:${concluida||atual||proxima?1:0.5}">
-                <div class="timeline-dot ${concluida?'done':proxima?'active':''}"></div>
-                <div>
-                  <div class="timeline-text" style="font-weight:${proxima?700:400}">${e.label}</div>
-                  <div class="timeline-date" style="color:${concluida?'var(--green)':proxima?'var(--gold)':'var(--text3)'}">
-                    ${concluida ? (evento?.data ? '✅ Concluída em '+evento.data : '✅ Concluída') : proxima ? '▶ Em andamento' : '⏳ Aguardando'}
+
+              // ── Badges e campos especiais ──
+              let extra = '';
+
+              // CPLP — isenção do curso
+              if (e.campo_cplp) {
+                const CPLP = ['Portugal','Angola','Moçambique','Cabo Verde','São Tomé','Guiné-Bissau','Timor'];
+                const isento = CPLP.some(p => (c.pais||'').toLowerCase().includes(p.toLowerCase()));
+                extra += `<div style="margin-top:5px">
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;
+                    background:${isento?'rgba(16,185,129,0.15)':'rgba(251,146,60,0.12)'};
+                    border:1px solid ${isento?'#10b981':'#f59e0b'};
+                    color:${isento?'#4ade80':'#fbbf24'}">
+                    ${isento ? '✅ País CPLP — Isento da prova' : '📝 Obrigatório (país fora da CPLP)'}
+                  </span>
+                </div>`;
+              }
+
+              // Antecedente — apostila + vencimento
+              if (e.campo_apostila || e.campo_vencimento) {
+                const ant = c.antecedente || {};
+                const apost = ant.apostilado;
+                const venc  = ant.vencimento || '';
+                let diasAlert = '';
+                if (venc) {
+                  const parts = venc.split('/');
+                  const d = parts.length===3 ? new Date(parts[2],parts[1]-1,parts[0]) : new Date(venc);
+                  const diff = Math.ceil((d - new Date())/(1000*60*60*24));
+                  diasAlert = diff < 0
+                    ? `<span style="color:#ef4444;font-weight:700">⚠️ VENCIDO há ${Math.abs(diff)} dias</span>`
+                    : diff <= 30
+                    ? `<span style="color:#f59e0b;font-weight:700">⚠️ Vence em ${diff} dia(s)!</span>`
+                    : `<span style="color:#4ade80">✅ Válido — vence em ${diff} dias</span>`;
+                }
+                extra += `<div style="margin-top:6px;padding:8px;background:rgba(96,165,250,0.06);border:1px solid rgba(96,165,250,0.2);border-radius:8px;font-size:0.73rem">
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <span style="color:var(--text3)">Apostilado:</span>
+                    <span style="color:${apost===true?'#4ade80':apost===false?'#ef4444':'var(--text3)'}">
+                      ${apost===true?'✅ Sim':apost===false?'❌ Não':'⏳ Aguardando confirmação'}
+                    </span>
+                    ${venc ? `<span style="color:var(--text3)">Vencimento:</span><span>${venc}</span>${diasAlert}` : '<span style="color:var(--text3)">Data de vencimento: não informada</span>'}
                   </div>
-                  ${e.desc ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:2px;line-height:1.4">${e.desc}</div>` : ''}
-                  ${evento?.obs ? `<div style="font-size:0.75rem;color:var(--text2);margin-top:4px;padding:6px 8px;background:rgba(201,168,76,0.07);border-radius:6px;border-left:3px solid var(--gold)">${evento.obs}</div>` : ''}
+                </div>`;
+              }
+
+              // Resultado MJSP
+              if (e.campo_resultado && c.resultadoMJSP) {
+                const r = c.resultadoMJSP;
+                extra += `<div style="margin-top:6px;padding:8px;border-radius:8px;font-size:0.75rem;
+                  background:${r.status==='deferido'?'rgba(16,185,129,0.08)':'rgba(239,68,68,0.08)'};
+                  border:1px solid ${r.status==='deferido'?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'}">
+                  ${r.status==='deferido'
+                    ? '<span style="color:#4ade80;font-weight:700">🎉 DEFERIDO — Naturalização aprovada!</span>'
+                    : `<span style="color:#f87171;font-weight:700">❌ Indeferido</span>${r.motivo?`<div style="color:var(--text3);margin-top:4px">Motivo: ${r.motivo}</div>`:''}`}
+                </div>`;
+              }
+
+              return `
+              <div class="timeline-item" style="opacity:${concluida||proxima?1:0.4};padding:8px 0">
+                <div class="timeline-dot ${concluida?'done':proxima?'active':''}" style="flex-shrink:0;margin-top:4px"></div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:${proxima?'0.9rem':'0.83rem'};font-weight:${proxima?700:concluida?500:400};
+                    color:${concluida?'var(--text)':proxima?'var(--gold)':'var(--text3)'}">
+                    ${e.label}
+                  </div>
+                  <div style="font-size:0.7rem;margin-top:2px;
+                    color:${concluida?'#4ade80':proxima?'var(--gold)':'var(--text3)'}">
+                    ${concluida
+                      ? (evento?.data ? '✅ Concluída em '+evento.data : '✅ Concluída')
+                      : proxima ? '▶ Em andamento'
+                      : '⏳ Aguardando'}
+                  </div>
+                  ${proxima && e.desc ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:5px;line-height:1.5;
+                    padding:6px 8px;background:rgba(201,168,76,0.06);border-left:2px solid var(--gold);border-radius:0 6px 6px 0">
+                    ${e.desc}
+                  </div>` : ''}
+                  ${extra}
+                  ${evento?.obs ? `<div style="font-size:0.72rem;color:var(--text2);margin-top:4px;padding:5px 8px;
+                    background:rgba(201,168,76,0.07);border-radius:6px;border-left:3px solid var(--gold)">
+                    📝 ${evento.obs}</div>` : ''}
                 </div>
               </div>`; }).join('')}
           </div>
@@ -2282,8 +2374,7 @@ function renderMeuProcesso() {
                 <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border2)">
                   <span style="color:var(--orange)">⚠️</span>
                   <span style="font-size:0.82rem;flex:1">${d}</span>
-                  <button onclick="abrirWhatsAppWB(${JSON.stringify(`Olá! Sou ${nome1}. Tenho dúvidas sobre o documento: ${d}`)})"
-                    style="background:#25d366;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:0.7rem;cursor:pointer;white-space:nowrap">💬</button>
+                  
                 </div>`).join('')}
             ${(c.docsPendentes||[]).length > 0 ? `
             <button onclick="navigateTo('meus-documentos')"
@@ -2324,43 +2415,6 @@ function renderMeuProcesso() {
           </div>
         </div>
 
-        <!-- Contato rápido -->
-        <div class="panel" style="border-color:rgba(37,211,102,0.3)">
-          <div class="panel-header" style="background:rgba(37,211,102,0.05)">
-            <span class="panel-title" style="color:#25d366">📞 Contato Direto</span>
-          </div>
-          <div class="panel-body" style="display:flex;flex-direction:column;gap:8px">
-            <button onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
-              style="display:flex;align-items:center;gap:10px;background:#25d366;color:#fff;border:none;border-radius:10px;padding:12px 16px;font-weight:700;font-size:0.85rem;cursor:pointer;width:100%">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
-              WhatsApp — (11) 91425-8886
-            </button>
-            <button onclick="navigateTo('mensagens-cliente')"
-              style="display:flex;align-items:center;gap:10px;background:var(--navy3);color:var(--text);border:1px solid var(--border2);border-radius:10px;padding:12px 16px;font-size:0.85rem;cursor:pointer;width:100%">
-              💬 Enviar mensagem pelo portal
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Prints do Gov -->
-    ${printsProcesso.filter(p=>p.clienteId===c.id).length > 0 ? `
-    <div class="panel" style="margin-top:20px;border-color:rgba(96,165,250,0.25)">
-      <div class="panel-header" style="background:rgba(96,165,250,0.06)">
-        <span class="panel-title" style="color:#60a5fa">🖥️ Atualizações do Gov — Verificado pela Equipe WB</span>
-        <span class="badge" style="background:rgba(96,165,250,0.15);color:#60a5fa;border:1px solid rgba(96,165,250,0.3)">
-          ${printsProcesso.filter(p=>p.clienteId===c.id).length} verificação(ões)
-        </span>
-      </div>
-      <div class="panel-body">
-        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:14px;padding:8px 12px;background:rgba(96,165,250,0.05);border-radius:8px;border-left:3px solid #60a5fa">
-          Prints tirados pela equipe WB diretamente nos sistemas do governo — mostrando o status real do seu processo.
-        </div>
-        ${renderPrintsCliente(c.id, true)}
-      </div>
-    </div>` : ''}
-
     ${barraWhatsApp(c.nome, c.servico)}
   `;
 }
@@ -2373,8 +2427,8 @@ function renderMeusDocumentos() {
     <div style="text-align:center;padding:60px;color:var(--text3)">
       <div style="font-size:2.5rem;margin-bottom:12px">📁</div>
       <div>Nenhum processo vinculado ainda.</div>
-      <button onclick="abrirWhatsAppWB()"
-        style="margin-top:20px;display:inline-flex;align-items:center;gap:8px;background:#25d366;color:#fff;border:none;border-radius:10px;padding:12px 20px;font-weight:700;cursor:pointer">
+      <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+style="margin-top:20px;display:inline-flex;align-items:center;gap:8px;background:#25d366;color:#fff;border:none;border-radius:10px;padding:12px 20px;font-weight:700;cursor:pointer">
         💬 Falar com a WB
       </button>
     </div>
@@ -2388,8 +2442,8 @@ function renderMeusDocumentos() {
 
   return `
     <!-- Banner WA -->
-    <button onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
-      style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#128c7e,#25d366);
+    <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#128c7e,#25d366);
       border:none;border-radius:12px;padding:14px 20px;cursor:pointer;margin-bottom:20px;width:100%;
       box-shadow:0 3px 12px rgba(37,211,102,0.25);text-align:left">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
@@ -2419,10 +2473,10 @@ function renderMeusDocumentos() {
             </div>
             ${enviado ? `
               <div style="font-size:0.72rem;color:var(--text3)">📎 ${enviado.arquivo} · Enviado em ${enviado.data}</div>
-              <button onclick="abrirWhatsAppWB(${JSON.stringify(`Olá! Sou ${nome1}. Enviei o documento "${d}" pelo portal. Podem confirmar o recebimento?`)})"
-                style="margin-top:6px;background:#25d366;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:0.72rem;cursor:pointer">
+              <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+                style="display:inline-block;margin-top:6px;background:#25d366;color:#fff;border-radius:6px;padding:5px 10px;font-size:0.72rem;text-decoration:none">
                 💬 Confirmar com a WB
-              </button>` : `
+              </a>` : `
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;background:rgba(201,168,76,0.07);border:1.5px dashed rgba(201,168,76,0.4);border-radius:8px;padding:10px;font-size:0.8rem;color:var(--text2)">
                 <input type="file" accept="application/pdf" style="display:none"
                   onchange="uploadDocPendente(${c.id}, '${d.replace(/'/g,"\\'")}', this)">
@@ -2481,7 +2535,7 @@ function renderAgendamentosCliente() {
 
   return `
     <!-- Destaque WhatsApp -->
-    <div onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
+    <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
       style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#128c7e,#25d366);
       border-radius:12px;padding:14px 20px;cursor:pointer;margin-bottom:20px;box-shadow:0 3px 12px rgba(37,211,102,0.25)">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
@@ -2494,11 +2548,11 @@ function renderAgendamentosCliente() {
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title">📅 Meus Agendamentos</span>
-        <button onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
-          style="display:flex;align-items:center;gap:6px;background:#25d366;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:0.8rem;font-weight:600;cursor:pointer">
+        <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+style="display:flex;align-items:center;gap:6px;background:#25d366;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:0.8rem;font-weight:600;cursor:pointer">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
           + Agendar via WhatsApp
-        </button>
+        </a>
       </div>
       <div class="panel-body" style="padding:0">
         ${meus.length === 0
@@ -2532,7 +2586,7 @@ function renderMensagensCliente() {
   const msgWA = `Olá! Sou ${nome} e gostaria de falar com a equipe WB Assessoria Migratória.`;
   return `
     <!-- CTA WhatsApp destaque -->
-    <div onclick="abrirWhatsAppWB(${JSON.stringify(msgWA)})"
+    <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
       style="display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#128c7e,#25d366);
       border-radius:14px;padding:18px 22px;cursor:pointer;margin-bottom:20px;
       box-shadow:0 4px 18px rgba(37,211,102,0.35);transition:transform 0.2s"
@@ -2556,16 +2610,16 @@ function renderMensagensCliente() {
           ['💳 Informações de pagamento', `Olá! Sou ${nome} e tenho dúvidas sobre o pagamento do meu processo.`],
           ['❓ Outra dúvida',          `Olá! Sou ${nome} e tenho uma dúvida sobre meu processo na WB Assessoria Migratória.`],
         ].map(([label, msg]) => `
-          <button onclick="abrirWhatsAppWB(${JSON.stringify(msg)})"
+          <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
             style="display:flex;align-items:center;gap:10px;background:var(--navy3);border:1px solid var(--border2);
-            border-radius:10px;padding:12px 16px;color:var(--text);cursor:pointer;font-size:0.85rem;text-align:left;
+            border-radius:10px;padding:12px 16px;color:var(--text);font-size:0.85rem;text-decoration:none;
             transition:border-color 0.2s,background 0.2s"
             onmouseover="this.style.borderColor='#25d366';this.style.background='rgba(37,211,102,0.06)'"
             onmouseout="this.style.borderColor='var(--border2)';this.style.background='var(--navy3)'">
             <span style="font-size:1rem">${label.split(' ')[0]}</span>
             <span>${label.split(' ').slice(1).join(' ')}</span>
             <svg style="margin-left:auto;flex-shrink:0" width="16" height="16" viewBox="0 0 24 24" fill="#25d366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
-          </button>`).join('')}
+          </a>`).join('')}
       </div>
     </div>
 
@@ -2659,8 +2713,8 @@ function renderMeuFinanceiro() {
               padding:12px;font-size:0.9rem;font-weight:700;cursor:pointer;margin-bottom:10px">
               📋 Copiar chave PIX
             </button>
-            <button onclick="abrirWhatsAppWB(${JSON.stringify(msgPix)})"
-              style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;
+            <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;
               padding:11px;font-size:0.85rem;font-weight:600;cursor:pointer">
               💬 Avisar WB após o pagamento
             </button>
@@ -2703,8 +2757,8 @@ function renderMeuFinanceiro() {
             </div>` : ''}
 
           ${!pago && totalPend > 0 ? `
-          <button onclick="abrirWhatsAppWB(${JSON.stringify(`Olá! Sou ${nome1}. Quero negociar ou tirar dúvidas sobre meu pagamento de ${c.servico}.`)})"
-            style="width:100%;margin-top:10px;background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px;font-size:0.82rem;font-weight:600;cursor:pointer">
+          <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+style="width:100%;margin-top:10px;background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px;font-size:0.82rem;font-weight:600;cursor:pointer">
             💬 Falar sobre pagamento
           </button>` : ''}
         </div>
@@ -2990,8 +3044,8 @@ function renderMeuCurso() {
             <div style="font-size:0.82rem;color:var(--text2);margin-bottom:12px">
               Problemas de acesso, dúvidas sobre conteúdo ou certificação? Nossa equipe te ajuda.
             </div>
-            <button onclick="abrirWhatsAppWB(${JSON.stringify(msgWA)})"
-              style="display:flex;align-items:center;gap:10px;background:#25d366;color:#fff;border:none;
+            <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+style="display:flex;align-items:center;gap:10px;background:#25d366;color:#fff;border:none;
               border-radius:10px;padding:12px 16px;font-weight:700;font-size:0.85rem;cursor:pointer;width:100%">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
               Falar com a WB — (11) 91425-8886
@@ -3100,6 +3154,46 @@ function openEditarCliente(id) {
       <div class="form-field form-full"><label>Observações</label><textarea id="ec2_obs">${c.obs||''}</textarea></div>
     </div>
 
+    <!-- ── Antecedente Criminal ── -->
+    ${c.servico?.includes('Naturaliz') ? `
+    <div style="margin:14px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:#60a5fa">🔍 Antecedente Criminal</div>
+    <div style="background:rgba(96,165,250,0.05);border:1px solid rgba(96,165,250,0.2);border-radius:10px;padding:14px;margin-bottom:4px">
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Apostilado / Legalizado?</label>
+          <select id="ec2_apost">
+            <option value="">— Não informado —</option>
+            <option value="sim" ${c.antecedente?.apostilado===true?'selected':''}>✅ Sim</option>
+            <option value="nao" ${c.antecedente?.apostilado===false?'selected':''}>❌ Não (pendente)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>📅 Vencimento do Antecedente (DD/MM/AAAA)</label>
+          <input id="ec2_venc_ant" placeholder="Ex: 15/09/2025" value="${c.antecedente?.vencimento||''}">
+        </div>
+      </div>
+    </div>` : ''}
+
+    <!-- ── Resultado MJSP ── -->
+    ${c.servico?.includes('Naturaliz') ? `
+    <div style="margin:14px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)">⚖️ Resultado MJSP</div>
+    <div style="background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px;margin-bottom:4px">
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Status da Análise</label>
+          <select id="ec2_resultado">
+            <option value="">— Em análise —</option>
+            <option value="deferido"   ${c.resultadoMJSP?.status==='deferido'?'selected':''}>🎉 Deferido</option>
+            <option value="indeferido" ${c.resultadoMJSP?.status==='indeferido'?'selected':''}>❌ Indeferido</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Motivo (se indeferido)</label>
+          <input id="ec2_motivo" placeholder="Ex: Documentação incompleta" value="${c.resultadoMJSP?.motivo||''}">
+        </div>
+      </div>
+    </div>` : ''}
+
     <!-- ── Acesso ao Portal WB ── -->
     <div style="margin:18px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)">🔐 Acesso ao Portal WB</div>
     <div style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px;margin-bottom:4px">
@@ -3123,7 +3217,7 @@ function openEditarCliente(id) {
         <button onclick="copiarCredenciaisPortal('${c.nome}',document.getElementById('ec2_portal_login').value,document.getElementById('ec2_portal_senha').value)"
           style="background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;color:var(--text);font-size:0.75rem;cursor:pointer">📋 Copiar credenciais</button>
         <button onclick="enviarCredenciaisWhatsApp('${c.nome}',document.getElementById('ec2_portal_login').value,document.getElementById('ec2_portal_senha').value,'${c.tel||''}')"
-          style="background:#25d366;border:none;border-radius:6px;padding:5px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600">💬 Enviar por WhatsApp</button>
+          style="background:#25d366;border:none;border-radius:6px;padding:5px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600">💬 Enviar por WhatsApp</a>
       </div>
     </div>
 
@@ -3173,6 +3267,20 @@ function salvarEdicaoCliente(id) {
   c.valor       = parseFloat(document.getElementById('ec2_valor').value) || c.valor;
   c.pago        = document.getElementById('ec2_pago').value === 'true';
   c.obs         = document.getElementById('ec2_obs').value.trim();
+  // Antecedente criminal
+  const apost = document.getElementById('ec2_apost')?.value;
+  const vencAnt = document.getElementById('ec2_venc_ant')?.value;
+  if (apost !== undefined || vencAnt !== undefined) {
+    c.antecedente = c.antecedente || {};
+    if (apost !== undefined) c.antecedente.apostilado = apost === 'sim' ? true : apost === 'nao' ? false : null;
+    if (vencAnt) c.antecedente.vencimento = vencAnt;
+  }
+  // Resultado MJSP
+  const resMJSP = document.getElementById('ec2_resultado')?.value;
+  const motivo  = document.getElementById('ec2_motivo')?.value?.trim();
+  if (resMJSP && resMJSP !== '') {
+    c.resultadoMJSP = { status: resMJSP, motivo: motivo || '' };
+  }
   // Portal
   c.portalLogin = document.getElementById('ec2_portal_login').value.trim() || c.email;
   c.portalSenha = document.getElementById('ec2_portal_senha').value.trim() || c.portalSenha;
@@ -3711,7 +3819,7 @@ function salvarNovoCliente() {
   const cursoSenha  = document.getElementById('nc_curso_senha')?.value?.trim()  || '';
   const cursoLink   = document.getElementById('nc_curso_link')?.value?.trim()   || configEmpresa.cursoLink||'';
   const serv        = _ncWizard.servico||'Naturalização Brasileira';
-  const totalEtapas = serv.includes('Naturaliz')?6:serv.includes('RNM')?5:4;
+  const totalEtapas = serv.includes('Naturaliz')?8:serv.includes('RNM')?6:7;
   const hoje        = new Date().toLocaleDateString('pt-BR');
   const d           = _ncWizard.docs||{};
 
@@ -5769,7 +5877,7 @@ function renderFaqCliente() {
         </div>
       </div>
       <div style="text-align:center;margin-top:20px">
-        <button class="btn btn-gold" onclick="navigateTo('mensagens-cliente')">💬 Falar com a Equipe WB</button>
+        <button class="btn btn-gold" onclick="navigateTo('mensagens-cliente')">💬 Falar com a Equipe WB</a>
       </div>
     </div>
   `;
@@ -7906,7 +8014,7 @@ function openEditLead(id) {
     ${l.tel ? `<div style="margin-top:12px"><button onclick="_abrirURL(WB_WA_LINK)"
       style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;padding:11px;font-size:0.85rem;font-weight:600;cursor:pointer">
       💬 Entrar em contato via WhatsApp
-    </button></div>` : ''}`);
+    </a></div>` : ''}`);
   setTimeout(()=>document.querySelectorAll('[data-mask]').forEach(applyMask),60);
 }
 
@@ -8011,7 +8119,7 @@ function renderLandingCaptacao() {
             <button onclick="_abrirURL(WB_WA_LINK)"
               style="background:#25d366;color:#fff;border:none;border-radius:8px;padding:9px;font-size:0.82rem;font-weight:600;cursor:pointer">
               💬 Compartilhar via WhatsApp
-            </button>
+            </a>
           </div>
         </div>
       </div>
@@ -8426,7 +8534,7 @@ function renderDisparoMassa() {
           <button onclick="prepararDisparo()"
             style="width:100%;margin-top:12px;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none;border-radius:10px;padding:13px;font-size:0.9rem;font-weight:700;cursor:pointer">
             💬 Preparar Disparo via WhatsApp
-          </button>
+          </a>
           <div style="font-size:0.7rem;color:var(--text3);margin-top:8px;text-align:center">
             Gera uma lista de links — clique em cada um para enviar individualmente.
           </div>
@@ -9305,21 +9413,7 @@ function instalarPWA() {
 // Patch: adicionar campo Data de Nascimento ao wizard de cadastro de cliente
 const _origSalvarNovoCliente = typeof salvarNovoCliente === 'function' ? salvarNovoCliente : null;
 
-// Patch: adicionar botões ao barraWhatsApp — inclui ligar agora
-const _origBarraWhatsApp = barraWhatsApp;
-barraWhatsApp = function(nomeCliente, servico) {
-  return `
-    <div style="position:fixed;bottom:28px;right:28px;z-index:999;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-      ${btnLigar('sm')}
-      <div onclick="abrirWhatsAppWB()"
-        style="display:flex;align-items:center;gap:10px;background:#25d366;color:#fff;padding:12px 20px;border-radius:50px;cursor:pointer;
-        box-shadow:0 4px 20px rgba(37,211,102,0.45);font-weight:700;font-size:0.88rem;transition:transform 0.2s,box-shadow 0.2s"
-        onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform=''">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.094.541 4.063 1.488 5.776L0 24l6.395-1.676A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.032-1.387l-.36-.214-3.733.979 1.001-3.651-.235-.374A9.789 9.789 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/></svg>
-        Falar com a WB
-      </div>
-    </div>`;
-};
+// barraWhatsApp já definida acima como <a href> puro
 
 // Patch: mensagens do cliente agora usam chat real
 const _origRenderMensagens = renderMensagensCliente;
