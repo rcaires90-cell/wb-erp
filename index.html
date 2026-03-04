@@ -8217,21 +8217,19 @@ function enviarFormLanding() {
     data:    new Date().toLocaleDateString('pt-BR'),
     obs:     'Captado pela Landing Page',
   };
-  // Salva no localStorage correto (mesmo key do ERP) e no array global
+  // Salva no localStorage (mesma chave do ERP) e envia para Sheets
   try {
     const raw = localStorage.getItem('wb_erp_v3');
     const d = raw ? JSON.parse(raw) : {};
     d.leads = d.leads || [];
-    // Gera ID único
-    const maxId = d.leads.reduce((m,l)=>Math.max(m,l.id||0),0);
+    const maxId = d.leads.reduce((m,l)=>Math.max(m,Number(l.id)||0),0);
     lead.id = maxId + 1;
     d.leads.push(lead);
     localStorage.setItem('wb_erp_v3', JSON.stringify(d));
-    // Tenta sync com Sheets se URL disponível
-    const sheetsUrl = localStorage.getItem('wb_sheets_url');
-    if (sheetsUrl) {
-      fetch(sheetsUrl, { method:'POST', mode:'no-cors', body: JSON.stringify(d) }).catch(()=>{});
-    }
+
+    // Envia para Google Sheets — URL fixo gravado no LS pelo ERP
+    const sheetsUrl = localStorage.getItem('wb_sheets_url') || 'https://script.google.com/macros/s/AKfycbz8vLQU-78y2_q4ZhPADHLu8eM5sKZ4F8uRy-Ph1pv08j3hFrjC7piOCpMYdhUHLlaX/exec';
+    fetch(sheetsUrl, { method:'POST', mode:'no-cors', body: JSON.stringify(d) }).catch(()=>{});
   } catch(e){}
   document.getElementById('lp_form').style.display='none';
   document.getElementById('lp_sucesso').style.display='block';
