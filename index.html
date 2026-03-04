@@ -1343,7 +1343,7 @@ function tabelaClientes(lista) {
           <td>${c.pago ? '<span class="badge badge-green">✓ Pago</span>' : '<span class="badge badge-red">Pendente</span>'}</td>
           <td style="display:flex;gap:5px">
             <button class="btn btn-outline btn-sm" onclick="openClienteModal(${c.id})">Detalhes</button>
-            ${c.tel && c.tel !== '—' ? `<button class="btn btn-sm" style="background:#25d366;color:#fff;border:none" title="WhatsApp" onclick="whatsAppCliente(${c.id})">💬</a>` : ''}
+            ${c.tel && c.tel !== '—' ? `<button class="btn btn-sm" style="background:#25d366;color:#fff;border:none" title="WhatsApp" onclick="whatsAppCliente(${c.id})">💬</button>` : ''}
           </td>
         </tr>`).join('')}
     </tbody>
@@ -3217,7 +3217,7 @@ function openEditarCliente(id) {
         <button onclick="copiarCredenciaisPortal('${c.nome}',document.getElementById('ec2_portal_login').value,document.getElementById('ec2_portal_senha').value)"
           style="background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;color:var(--text);font-size:0.75rem;cursor:pointer">📋 Copiar credenciais</button>
         <button onclick="enviarCredenciaisWhatsApp('${c.nome}',document.getElementById('ec2_portal_login').value,document.getElementById('ec2_portal_senha').value,'${c.tel||''}')"
-          style="background:#25d366;border:none;border-radius:6px;padding:5px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600">💬 Enviar por WhatsApp</a>
+          style="background:#25d366;border:none;border-radius:6px;padding:5px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600">💬 Enviar por WhatsApp</button>
       </div>
     </div>
 
@@ -3412,7 +3412,13 @@ function preencherCredenciaisPortal() {
 let _ncWizard = {};
 
 function openNovoCliente(prefillServico) {
-  _ncWizard = { prefillServico: prefillServico||'', docs:{} };
+  // Preserva pré-preenchimento do lead se já existir, senão reseta
+  if (!(_ncWizard.nome || _ncWizard.email)) {
+    _ncWizard = { prefillServico: prefillServico||'', docs:{} };
+  } else {
+    _ncWizard.prefillServico = prefillServico || _ncWizard.servico || '';
+    _ncWizard.docs = {};
+  }
   renderWizardEtapa(1);
 }
 
@@ -5877,7 +5883,7 @@ function renderFaqCliente() {
         </div>
       </div>
       <div style="text-align:center;margin-top:20px">
-        <button class="btn btn-gold" onclick="navigateTo('mensagens-cliente')">💬 Falar com a Equipe WB</a>
+        <button class="btn btn-gold" onclick="navigateTo('mensagens-cliente')">💬 Falar com a Equipe WB</button>
       </div>
     </div>
   `;
@@ -7902,10 +7908,11 @@ function renderCrmLeads() {
               onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
               <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:4px">${l.nome}</div>
               <div style="font-size:0.72rem;color:var(--text3);margin-bottom:6px">${l.servico||'Serviço não definido'}</div>
-              ${l.tel ? `<button onclick="event.stopPropagation();_abrirURL(WB_WA_LINK)"
-                style="display:flex;align-items:center;gap:5px;background:#25d366;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.7rem;cursor:pointer;width:100%">
+              ${l.tel ? `<a href="https://wa.me/${(l.tel||'').replace(/\D/g,'').length>=10?((l.tel||'').replace(/\D/g,'').startsWith('55')?(l.tel||'').replace(/\D/g,''):'55'+(l.tel||'').replace(/\D/g,'')):'5511914258886'}"
+                target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"
+                style="display:flex;align-items:center;gap:5px;background:#25d366;color:#fff;border-radius:6px;padding:4px 10px;font-size:0.7rem;width:100%;text-decoration:none">
                 💬 ${l.tel}
-              </button>` : ''}
+              </a>` : ''}
               <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.68rem;color:var(--text3)">
                 <span>${l.origem||'Direto'}</span>
                 <span>${l.data||''}</span>
@@ -8011,10 +8018,13 @@ function openEditLead(id) {
       <button class="btn btn-outline" style="color:var(--red);border-color:var(--red)" onclick="excluirLead(${id})">🗑️ Excluir</button>
       <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
     </div>
-    ${l.tel ? `<div style="margin-top:12px"><button onclick="_abrirURL(WB_WA_LINK)"
-      style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;padding:11px;font-size:0.85rem;font-weight:600;cursor:pointer">
-      💬 Entrar em contato via WhatsApp
-    </a></div>` : ''}`);
+    ${l.tel ? `<div style="margin-top:12px">
+      <a href="https://wa.me/${(l.tel||'').replace(/\D/g,'').length>=10?((l.tel||'').replace(/\D/g,'').startsWith('55')?(l.tel||'').replace(/\D/g,''):'55'+(l.tel||'').replace(/\D/g,'')):'5511914258886'}?text=${encodeURIComponent('Olá '+l.nome.split(' ')[0]+'! Aqui é a equipe WB Assessoria. Gostaria de falar sobre seu interesse em '+l.servico+'.')}"
+        target="_blank" rel="noopener noreferrer"
+        style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:#25d366;color:#fff;border-radius:10px;padding:11px;font-size:0.85rem;font-weight:600;text-decoration:none">
+        💬 Entrar em contato via WhatsApp
+      </a>
+    </div>` : ''}`);
   setTimeout(()=>document.querySelectorAll('[data-mask]').forEach(applyMask),60);
 }
 
@@ -8033,8 +8043,13 @@ function salvarEdicaoLead(id) {
   // Se fechou, converte em cliente automaticamente
   if (l.status==='fechado') {
     const jaCliente = clientes.find(c=>c.nome.toLowerCase()===l.nome.toLowerCase());
-    if (!jaCliente && confirm(`"${l.nome}" foi fechado! Deseja cadastrar como cliente agora?`)) {
-      closeModal(); openNovoCliente(l.servico); return;
+    if (!jaCliente && confirm(`"${l.nome}" foi fechado! Deseja cadastrar como cliente agora?\n\nOs dados do lead serão pré-preenchidos no cadastro.`)) {
+      saveData(); closeModal();
+      // Pré-preenche o wizard com dados do lead
+      _ncWizard = { nome: l.nome, email: l.email||'', tel: l.tel||'', pais: l.pais||'', servico: l.servico||'Naturalização Brasileira' };
+      navigateTo('clientes');
+      setTimeout(()=>{ openNovoCliente(); }, 300);
+      return;
     }
   }
   saveData(); closeModal(); navigateTo('crm-leads');
@@ -8116,8 +8131,8 @@ function renderLandingCaptacao() {
             <div style="background:var(--navy3);border-radius:8px;padding:10px 12px;font-size:0.75rem;color:var(--text3);word-break:break-all;font-family:monospace">${lpUrl}</div>
             <button onclick="navigator.clipboard.writeText('${lpUrl}').then(()=>showToast('📋 Copiado!'))"
               style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:9px;color:var(--text2);font-size:0.82rem;cursor:pointer">📋 Copiar link</button>
-            <button onclick="_abrirURL(WB_WA_LINK)"
-              style="background:#25d366;color:#fff;border:none;border-radius:8px;padding:9px;font-size:0.82rem;font-weight:600;cursor:pointer">
+            <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+              style="display:block;background:#25d366;color:#fff;border-radius:8px;padding:9px;font-size:0.82rem;font-weight:600;text-align:center;text-decoration:none">
               💬 Compartilhar via WhatsApp
             </a>
           </div>
@@ -8202,20 +8217,24 @@ function enviarFormLanding() {
     data:    new Date().toLocaleDateString('pt-BR'),
     obs:     'Captado pela Landing Page',
   };
-  // Persiste no LS compartilhado
+  // Salva no localStorage correto (mesmo key do ERP) e no array global
   try {
-    const raw = localStorage.getItem('wb_erp_dados');
+    const raw = localStorage.getItem('wb_erp_v3');
     const d = raw ? JSON.parse(raw) : {};
-    d.leads = d.leads||[];
+    d.leads = d.leads || [];
+    // Gera ID único
+    const maxId = d.leads.reduce((m,l)=>Math.max(m,l.id||0),0);
+    lead.id = maxId + 1;
     d.leads.push(lead);
-    localStorage.setItem('wb_erp_dados', JSON.stringify(d));
+    localStorage.setItem('wb_erp_v3', JSON.stringify(d));
+    // Tenta sync com Sheets se URL disponível
+    const sheetsUrl = localStorage.getItem('wb_sheets_url');
+    if (sheetsUrl) {
+      fetch(sheetsUrl, { method:'POST', mode:'no-cors', body: JSON.stringify(d) }).catch(()=>{});
+    }
   } catch(e){}
   document.getElementById('lp_form').style.display='none';
   document.getElementById('lp_sucesso').style.display='block';
-  // Abre WA da empresa
-  setTimeout(()=>{
-    _abrirURL(WB_WA_LINK);
-  },1500);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -8342,8 +8361,15 @@ function dispararPromoWA(id) {
   if (!p) return;
   const desc = p.tipo==='pct' ? `${p.valor}% de desconto` : `R$ ${p.valor} de desconto`;
   const msg = `🎉 *Promoção Especial WB Assessoria Migratória!*\n\n${p.nome}\n\n✨ ${desc} no seu processo!\n\nUse o cupom: *${p.codigo}*\n\n${p.validade?`⏰ Válido até ${new Date(p.validade+'T12:00').toLocaleDateString('pt-BR')}\n\n`:''}Entre em contato agora e garanta sua vaga!\n\n_WB Assessoria Migratória_`;
-  navigator.clipboard.writeText(msg).then(()=>showToast('📋 Mensagem copiada! Agora abra o WhatsApp.'));
-  setTimeout(()=>{_abrirURL(WB_WA_LINK);},800);
+  navigator.clipboard.writeText(msg).then(()=>showToast('📋 Mensagem copiada!'));
+  // Cria link temporário para abrir WA - funciona em mobile
+  const wa = document.createElement('a');
+  wa.href = WB_WA_LINK;
+  wa.target = '_blank';
+  wa.rel = 'noopener noreferrer';
+  document.body.appendChild(wa);
+  wa.click();
+  setTimeout(()=>{ try{document.body.removeChild(wa);}catch(e){} }, 500);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -8430,7 +8456,10 @@ function renderIndicacoes() {
 function enviarLinkIndicacaoWA(nome, link) {
   const msg = `Olá ${nome.split(' ')[0]}! 🎉\n\nTemos um presente para você: seu *link exclusivo de indicação* da WB Assessoria Migratória!\n\n🔗 ${link}\n\nCompartilhe com amigos e familiares que precisam de assessoria migratória. Cada indicação que fechar contrato garante um *benefício especial* para você!\n\n_WB Assessoria Migratória_`;
   navigator.clipboard.writeText(msg).then(()=>showToast('📋 Mensagem copiada!'));
-  setTimeout(()=>{_abrirURL(WB_WA_LINK);},600);
+  const wa2 = document.createElement('a');
+  wa2.href = WB_WA_LINK; wa2.target = '_blank'; wa2.rel = 'noopener noreferrer';
+  document.body.appendChild(wa2); wa2.click();
+  setTimeout(()=>{ try{document.body.removeChild(wa2);}catch(e){} }, 500);
 }
 
 // Portal do cliente — aba indicações
@@ -8534,7 +8563,7 @@ function renderDisparoMassa() {
           <button onclick="prepararDisparo()"
             style="width:100%;margin-top:12px;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none;border-radius:10px;padding:13px;font-size:0.9rem;font-weight:700;cursor:pointer">
             💬 Preparar Disparo via WhatsApp
-          </a>
+          </button>
           <div style="font-size:0.7rem;color:var(--text3);margin-top:8px;text-align:center">
             Gera uma lista de links — clique em cada um para enviar individualmente.
           </div>
@@ -8580,10 +8609,10 @@ function prepararDisparo() {
             <div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--navy3);border-radius:8px">
               <div style="font-size:0.82rem;font-weight:600;flex:1">${i+1}. ${x.nome}</div>
               <div style="font-size:0.75rem;color:var(--text3);flex:1">${x.tel||'—'}</div>
-              <button onclick="const a=document.createElement('a');a.href='${waUrl}';a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a)"
-                style="background:#25d366;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:0.78rem;font-weight:600;cursor:pointer;white-space:nowrap">
+              <a href="${waUrl}" target="_blank" rel="noopener noreferrer"
+                style="display:inline-block;background:#25d366;color:#fff;border-radius:7px;padding:6px 14px;font-size:0.78rem;font-weight:600;white-space:nowrap;text-decoration:none">
                 💬 Enviar
-              </button>
+              </a>
             </div>`;
           }).join('')}
         </div>
@@ -9062,10 +9091,10 @@ function renderChatPortal() {
         </div>
         <div style="margin-left:auto;display:flex;gap:8px">
           ${btnLigar('sm')}
-          <button onclick="_abrirURL(WB_WA_LINK)"
-            style="background:rgba(255,255,255,0.2);border:none;border-radius:7px;padding:6px 10px;color:#fff;font-size:0.72rem;cursor:pointer">
+          <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+            style="display:inline-block;background:rgba(255,255,255,0.2);border-radius:7px;padding:6px 10px;color:#fff;font-size:0.72rem;text-decoration:none">
             💬 WA
-          </button>
+          </a>
         </div>
       </div>
 
