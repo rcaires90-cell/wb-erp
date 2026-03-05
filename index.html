@@ -221,11 +221,22 @@
   .msg-text { font-size:0.82rem; color:var(--text2); line-height:1.5; }
 
   /* MODAL */
-  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; align-items:center; justify-content:center; }
+  .modal-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center;padding:10px; }
   .modal-overlay.open { display:flex; }
-  .modal { background:var(--navy2); border:1px solid var(--border); border-radius:20px; padding:36px; width:600px; max-width:95vw; max-height:90vh; overflow-y:auto; }
-  .modal-title { font-family:'Cormorant Garamond',serif; font-size:1.6rem; font-weight:600; margin-bottom:24px; color:var(--gold); }
-  .modal-actions { display:flex; gap:12px; margin-top:24px; justify-content:flex-end; }
+  .modal { background:var(--navy2);border:1px solid var(--border);border-radius:20px;padding:36px;width:600px;max-width:96vw;max-height:92vh;overflow-y:auto; }
+  /* ── Modal XL com abas (ficha cliente) ── */
+  .modal-xl { width:min(1080px,97vw)!important;max-height:96vh!important;padding:0!important;border-radius:18px!important;display:flex!important;flex-direction:column!important;overflow:hidden!important; }
+  .mxl-head { background:linear-gradient(135deg,#0b1929 0%,#122138 100%);border-radius:18px 18px 0 0;padding:22px 26px 0;flex-shrink:0; }
+  .mxl-tabs { display:flex;overflow-x:auto;margin-top:14px;border-top:1px solid rgba(255,255,255,0.07); }
+  .mxl-tabs::-webkit-scrollbar{height:0;}
+  .mxl-tab { padding:11px 18px;font-size:0.8rem;font-weight:600;color:rgba(255,255,255,0.38);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all 0.15s;user-select:none; }
+  .mxl-tab:hover { color:rgba(255,255,255,0.7); }
+  .mxl-tab.on { color:var(--gold);border-bottom-color:var(--gold); }
+  .mxl-body { flex:1;overflow-y:auto;padding:22px 26px; }
+  /* ── Wizard XL (cadastro) ── */
+  .modal-wiz { width:min(820px,97vw)!important;max-height:94vh!important;overflow-y:auto!important; }
+  .modal-title { font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:600;margin-bottom:24px;color:var(--gold); }
+  .modal-actions { display:flex;gap:12px;margin-top:24px;justify-content:flex-end; }
 
   /* CHECKLIST */
   .checklist-item { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border2); }
@@ -3057,75 +3068,310 @@ style="display:flex;align-items:center;gap:10px;background:#25d366;color:#fff;bo
     ${barraWhatsApp(nome, 'Curso de Proficiência')}
   `;
 }
-function openModal(html) {
-  document.getElementById('modal-body').innerHTML = html;
+function openModal(content, xtra) {
+  const b = document.getElementById('modal-body');
+  b.className = xtra ? 'modal '+xtra : 'modal';
+  b.innerHTML = content;
   document.getElementById('modal').classList.add('open');
+  // scroll chat ao abrir
+  setTimeout(()=>{const s=document.getElementById('_chat_scroll');if(s)s.scrollTop=s.scrollHeight;},60);
 }
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
-
-function openClienteModal(id) {
-  const c = clientes.find(x=>x.id===id);
-  if (!c) return;
-  const pct = Math.round(c.etapa/c.totalEtapas*100);
-  const etapas = {
-    'Naturalização Brasileira':['Verificação Elegibilidade','Coleta Docs','Tradução','Protocolo MJ','Análise Federal','Publicação DOU'],
-    'Autorização de Residência (RNM)':['Análise Migratória','Coleta Docs','Agendamento PF','Atendimento','Emissão RNM'],
-    'Visto de Turismo (EUA)':['Avaliação','DS-160','Pagamento MRV','Agendamento','Entrevista'],
-  };
-  const etapaList = Object.keys(etapas).find(k=>c.servico.includes(k.split(' ')[0])) ? etapas[Object.keys(etapas).find(k=>c.servico.includes(k.split(' ')[0]))] : ['Etapa 1','Etapa 2','Etapa 3'];
-
-  openModal(`
-    <div class="modal-title">${c.nome}</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
-      ${statusBadge(c.status)} ${servicoBadge(c.servico)} ${c.pago?'<span class="badge badge-green">✓ Pago</span>':'<span class="badge badge-red">Pendente</span>'}
-    </div>
-
-    <div class="divider-text">Informações</div>
-    <div class="form-grid" style="margin-bottom:16px">
-      ${[['Email',c.email],['Telefone',c.tel],['País de Origem',c.pais],['Responsável',c.responsavel],['Cadastro',c.dataCadastro],['Valor',`R$ ${c.valor.toLocaleString('pt-BR')}`]].map(([k,v])=>`
-        <div class="form-field"><label>${k}</label><input value="${v}" readonly style="background:var(--navy)"></div>`).join('')}
-    </div>
-
-    <div class="divider-text">Progresso</div>
-    <div style="margin-bottom:8px;display:flex;justify-content:space-between;font-size:0.82rem"><span style="color:var(--text3)">Etapa ${c.etapa} de ${c.totalEtapas}</span><span style="color:var(--gold)">${pct}%</span></div>
-    <div class="progress-bar" style="height:8px;margin-bottom:16px"><div class="progress-fill" style="width:${pct}%"></div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      ${etapaList.map((e,i)=>`<span class="badge ${i<c.etapa?'badge-green':i===c.etapa?'badge-blue':'badge-gray'}">${e}</span>`).join('')}
-    </div>
-
-    ${c.docsPendentes.length>0?`<div class="divider-text">Docs Pendentes</div>
-    <div style="margin-bottom:16px">
-      ${c.docsPendentes.map(d=>`<div style="padding:8px 0;border-bottom:1px solid var(--border2);font-size:0.82rem;color:var(--orange)">⚠️ ${d}</div>`).join('')}
-    </div>`:''}
-
-    ${c.obs?`<div class="divider-text">Observações</div><div style="background:var(--navy);border-radius:8px;padding:12px;font-size:0.82rem;color:var(--text2);margin-bottom:16px">${c.obs}</div>`:''}
-
-    <div class="modal-actions">
-      ${currentRole !== 'cliente' ? `<button class="btn btn-gold" onclick="atualizarEtapa(${c.id})">Avançar Etapa</button>` : ''}
-      ${currentRole !== 'cliente' ? `<button class="btn btn-outline" onclick="openEditarCliente(${c.id})">✏️ Editar Dados</button>` : ''}
-      ${currentRole !== 'cliente' ? `<button class="btn btn-outline" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.4);color:#4ade80" onclick="closeModal();openChatInterno(${c.id})">💬 Chat</button>` : ''}
-      ${currentRole !== 'cliente' ? `<button class="btn btn-outline" style="background:rgba(251,146,60,0.1);border-color:rgba(251,146,60,0.4);color:var(--orange)" onclick="closeModal();openChecklistDocs(${c.id})">📋 Docs Pendentes</button>` : ''}
-      ${currentRole !== 'cliente' ? `<button class="btn btn-outline" style="background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.4);color:#60a5fa" onclick="closeModal();openUploadPrintProcesso(${c.id})">📸 Anexar Print do Gov</button>` : ''}
-      <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
-    </div>
-  `);
+// Troca de aba no modal XL
+function _tab(id) {
+  document.querySelectorAll('.mxl-tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('[id^="_tp_"]').forEach(p=>p.style.display='none');
+  const tab=document.querySelector(`.mxl-tab[data-t="${id}"]`);
+  const panel=document.getElementById('_tp_'+id);
+  if(tab)tab.classList.add('on');
+  if(panel)panel.style.display='block';
+  if(id==='chat'){setTimeout(()=>{const s=document.getElementById('_chat_scroll');if(s)s.scrollTop=s.scrollHeight;},60);}
 }
 
-function openEditarCliente(id) {
+function openClienteModal(id, aba) {
   const c = clientes.find(x=>x.id===id);
   if (!c) return;
-  const respOptions = colaboradores.map(col=>`<option value="${col.nome}" ${col.nome===c.responsavel?'selected':''}>${col.nome}</option>`).join('');
-  openModal(`
-    <div class="modal-title">✏️ Editar Cliente</div>
+  aba = aba||'info';
+  const st = currentRole!=='cliente';
+  const pct = Math.round((c.etapa||0)/(c.totalEtapas||1)*100);
+  const TABS=[
+    {k:'info',   i:'📊',l:'Resumo'},
+    {k:'timeline',i:'📍',l:'Timeline'},
+    {k:'editar', i:'✏️', l:'Editar',  s:st},
+    {k:'docs',   i:'📋', l:'Documentos',s:st},
+    {k:'chat',   i:'💬', l:'Chat',    s:st},
+    {k:'fin',    i:'💳', l:'Financeiro',s:st},
+    {k:'gov',    i:'📸', l:'Gov.',    s:st},
+  ].filter(t=>t.s!==false);
 
-    <div style="font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Dados Pessoais</div>
+  openModal(`
+    <div class="mxl-head">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:1.65rem;font-weight:700;color:var(--gold);line-height:1.1">${c.nome}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            ${statusBadge(c.status)}
+            ${servicoBadge(c.servico)}
+            ${c.pago?'<span class="badge badge-green">✓ Pago</span>':'<span class="badge badge-red">💳 Pendente</span>'}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          ${st?`<button onclick="atualizarEtapa(${c.id})" class="btn btn-gold" style="font-size:0.79rem">▶ Avançar Etapa</button>`:''}
+          <button onclick="closeModal()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:6px 12px;color:rgba(255,255,255,0.55);cursor:pointer;font-size:1rem;line-height:1">✕</button>
+        </div>
+      </div>
+      <div style="margin-top:13px">
+        <div style="display:flex;justify-content:space-between;font-size:0.69rem;color:rgba(255,255,255,0.35);margin-bottom:5px">
+          <span>Etapa ${c.etapa||0} / ${c.totalEtapas||0}</span>
+          <span style="color:var(--gold);font-weight:700">${pct}%</span>
+        </div>
+        <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#c9a84c,#f59e0b);border-radius:2px"></div>
+        </div>
+      </div>
+      <div class="mxl-tabs">
+        ${TABS.map(t=>`<div class="mxl-tab${t.k===aba?' on':''}" data-t="${t.k}" onclick="_tab('${t.k}')">${t.i} ${t.l}</div>`).join('')}
+      </div>
+    </div>
+
+    <div class="mxl-body">
+
+      <!-- ── ABA: RESUMO ── -->
+      <div id="_tp_info" style="display:${aba==='info'?'block':'none'}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px">
+          <div class="panel" style="margin:0">
+            <div class="panel-header"><span class="panel-title">👤 Dados Pessoais</span></div>
+            <div class="panel-body">
+              ${[['E-mail',c.email],['Telefone',c.tel],['CPF',c.cpf],['RNM',c.rnm||'—'],['País de Origem',c.pais],['Nascimento',c.dataNascimento||'—'],['Responsável',c.responsavel],['Cadastro',c.dataCadastro]].map(([k,v])=>`
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2);font-size:0.82rem">
+                  <span style="color:var(--text3);flex-shrink:0;margin-right:8px">${k}</span>
+                  <span style="color:var(--text);font-weight:500;text-align:right;word-break:break-word">${v||'—'}</span>
+                </div>`).join('')}
+              ${st?`<div style="display:flex;gap:7px;margin-top:12px;flex-wrap:wrap">
+                <button onclick="whatsAppCliente(${c.id})" style="flex:1;background:#25d366;color:#fff;border:none;border-radius:8px;padding:9px;font-size:0.79rem;font-weight:700;cursor:pointer">💬 WhatsApp</button>
+                <button onclick="_tab('editar')" style="flex:1;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:8px;padding:9px;color:var(--gold);font-size:0.79rem;font-weight:600;cursor:pointer">✏️ Editar</button>
+              </div>`:''}
+            </div>
+          </div>
+
+          <div class="panel" style="margin:0;${(c.docsPendentes||[]).length?'border-color:rgba(251,146,60,0.4)':''}">
+            <div class="panel-header">
+              <span class="panel-title" style="${(c.docsPendentes||[]).length?'color:var(--orange)':''}">
+                ${(c.docsPendentes||[]).length?`⚠️ Docs Pendentes (${c.docsPendentes.length})`:'📄 Documentos'}
+              </span>
+              ${st?`<button onclick="_tab('docs')" style="background:none;border:none;color:var(--gold);font-size:0.74rem;cursor:pointer;font-weight:600">Gerenciar →</button>`:''}
+            </div>
+            <div class="panel-body">
+              ${!(c.docsPendentes||[]).length
+                ?'<div style="color:var(--green);text-align:center;padding:14px;font-size:0.85rem">✅ Sem pendências!</div>'
+                :(c.docsPendentes||[]).map(d=>`<div style="padding:6px 0;border-bottom:1px solid var(--border2);font-size:0.82rem;color:var(--orange)">⚠️ ${d}</div>`).join('')}
+            </div>
+          </div>
+
+          ${st?`<div class="panel" style="margin:0">
+            <div class="panel-header"><span class="panel-title">💳 Financeiro</span>
+              <button onclick="_tab('fin')" style="background:none;border:none;color:var(--gold);font-size:0.74rem;cursor:pointer;font-weight:600">Ver tudo →</button>
+            </div>
+            <div class="panel-body">
+              ${[['Valor','R$ '+(c.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})],['Entrada',c.valorEntrada?'R$ '+(c.valorEntrada||0).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'],['Parcelas',c.parcelas?c.parcelas+'x':'—'],['Status',c.pago?'✅ Pago':'⏳ Pendente']].map(([k,v])=>`
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2);font-size:0.82rem">
+                  <span style="color:var(--text3)">${k}</span>
+                  <span style="color:${k==='Status'?(c.pago?'var(--green)':'var(--orange)'):'var(--text)'};font-weight:500">${v}</span>
+                </div>`).join('')}
+            </div>
+          </div>`:''}
+
+          ${c.obs?`<div class="panel" style="margin:0">
+            <div class="panel-header"><span class="panel-title">📝 Observações</span></div>
+            <div class="panel-body"><div style="font-size:0.83rem;color:var(--text2);line-height:1.6;white-space:pre-wrap">${c.obs}</div></div>
+          </div>`:''}
+        </div>
+      </div>
+
+      <!-- ── ABA: TIMELINE ── -->
+      <div id="_tp_timeline" style="display:${aba==='timeline'?'block':'none'}">
+        <div style="max-width:660px;margin:0 auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:8px">
+            <div style="font-size:0.83rem;color:var(--text3)">Etapa ${c.etapa||0} de ${c.totalEtapas||0} · ${pct}% concluído</div>
+            ${st?`<button onclick="atualizarEtapa(${c.id})" class="btn btn-gold" style="font-size:0.79rem">▶ Avançar</button>`:''}
+          </div>
+          ${(()=>{
+            const etapas = getEtapasCliente(c.servico);
+            const CPLP = ['Portugal','Angola','Moçambique','Cabo Verde','São Tomé','Guiné','Timor'];
+            const isCPLP = CPLP.some(p=>(c.pais||'').toLowerCase().includes(p.toLowerCase()));
+            return etapas.map((e,i)=>{
+              const done = i<(c.etapa||0), cur = i===(c.etapa||0);
+              const ev = (c.timeline||[])[i];
+              let extra='';
+              if(e.campo_cplp) extra+=`<span style="display:inline-block;margin-top:5px;padding:2px 10px;border-radius:12px;font-size:0.68rem;font-weight:700;background:${isCPLP?'rgba(16,185,129,0.15)':'rgba(251,146,60,0.1)'};border:1px solid ${isCPLP?'#10b981':'#f59e0b'};color:${isCPLP?'#4ade80':'#fbbf24'}">${isCPLP?'✅ País CPLP — Isento':'📝 Prova obrigatória'}</span>`;
+              if(e.campo_apostila&&c.antecedente){const v=c.antecedente.vencimento||'';let al='';if(v){const[d2,m2,y2]=v.split('/');const dv=new Date(y2,m2-1,d2);const df=Math.ceil((dv-new Date())/864e5);al=df<0?'<span style="color:#ef4444;font-weight:700"> ⚠️ VENCIDO</span>':df<=30?`<span style="color:#f59e0b;font-weight:700"> ⚠️ ${df}d</span>`:`<span style="color:#4ade80"> ✅ ${df}d</span>`;}extra+=`<div style="font-size:0.72rem;margin-top:4px;color:var(--text3)">Apostila: <b style="color:${c.antecedente.apostilado===true?'#4ade80':c.antecedente.apostilado===false?'#ef4444':'var(--text3)'}">${c.antecedente.apostilado===true?'✅ Sim':c.antecedente.apostilado===false?'❌ Não':'?'}</b>${v?' · Venc: '+v+al:''}</div>`;}
+              if(e.campo_resultado&&c.resultadoMJSP){const r=c.resultadoMJSP;extra+=`<div style="margin-top:4px;font-size:0.75rem;font-weight:700;color:${r.status==='deferido'?'#4ade80':'#f87171'}">${r.status==='deferido'?'🎉 DEFERIDO':'❌ INDEFERIDO'+(r.motivo?' — '+r.motivo:'')}</div>`;}
+              return `<div style="display:flex;gap:0">
+                <div style="display:flex;flex-direction:column;align-items:center;width:26px;flex-shrink:0">
+                  <div style="width:12px;height:12px;border-radius:50%;margin-top:4px;background:${done?'#4ade80':cur?'var(--gold)':'var(--navy4)'};border:2px solid ${done?'#4ade80':cur?'var(--gold)':'var(--border2)'};box-shadow:${cur?'0 0 8px rgba(201,168,76,0.5)':'none'}"></div>
+                  ${i<etapas.length-1?`<div style="width:2px;flex:1;min-height:16px;margin-top:3px;background:${done?'rgba(74,222,128,0.25)':'var(--border2)'}"></div>`:''}
+                </div>
+                <div style="flex:1;padding:0 0 16px 13px;opacity:${done||cur?1:0.38}">
+                  <div style="font-size:${cur?'0.9rem':'0.83rem'};font-weight:${cur?700:done?500:400};color:${done?'var(--text)':cur?'var(--gold)':'var(--text3)'}">${e.label}</div>
+                  <div style="font-size:0.69rem;margin-top:2px;color:${done?'#4ade80':cur?'rgba(201,168,76,0.75)':'var(--text3)'}">${done?(ev?.data?'✅ '+ev.data:'✅ Concluída'):cur?'▶ Em andamento':'⏳ Aguardando'}</div>
+                  ${extra}
+                  ${ev?.obs?`<div style="margin-top:5px;padding:5px 10px;background:rgba(201,168,76,0.07);border-left:2px solid var(--gold);border-radius:0 6px 6px 0;font-size:0.74rem;color:var(--text2)">📝 ${ev.obs}</div>`:''}
+                  ${cur&&e.desc?`<div style="margin-top:5px;font-size:0.73rem;color:var(--text3);line-height:1.5">${e.desc}</div>`:''}
+                  ${(cur&&st)?`<div style="display:flex;gap:6px;margin-top:7px">
+                    <input id="_obs${i}" value="${ev?.obs||''}" placeholder="Adicionar nota nesta etapa…" style="flex:1;background:var(--navy3);border:1px solid var(--border2);border-radius:6px;padding:5px 9px;color:var(--text);font-size:0.77rem">
+                    <button onclick="_saveObs(${c.id},${i})" style="background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:6px;padding:5px 11px;color:var(--gold);font-size:0.74rem;cursor:pointer;white-space:nowrap">Salvar</button>
+                  </div>`:''}
+                </div>
+              </div>`;
+            }).join('');
+          })()}
+        </div>
+      </div>
+
+      <!-- ── ABA: EDITAR ── -->
+      <div id="_tp_editar" style="display:${aba==='editar'?'block':'none'}">
+        ${_buildForm(c)}
+        <div style="display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border2)">
+          <button class="btn btn-danger" onclick="excluirCliente(${c.id})" style="margin-right:auto">🗑️ Excluir</button>
+          <button class="btn btn-outline" onclick="_tab('info')">← Cancelar</button>
+          <button class="btn btn-gold" onclick="salvarEdicaoCliente(${c.id})">💾 Salvar Alterações</button>
+        </div>
+      </div>
+
+      <!-- ── ABA: DOCUMENTOS ── -->
+      <div id="_tp_docs" style="display:${aba==='docs'?'block':'none'}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px">
+          <div class="panel" style="margin:0">
+            <div class="panel-header"><span class="panel-title">⚠️ Marcar Pendências</span></div>
+            <div class="panel-body">
+              <div style="font-size:0.74rem;color:var(--text3);margin-bottom:10px">Marque o que o cliente ainda precisa entregar:</div>
+              <div style="display:flex;flex-direction:column;gap:5px;max-height:320px;overflow-y:auto;padding-right:2px">
+                ${(()=>{const D=['RNM','CPF','Comprovante de Endereço Atualizado','Passaporte','Comprovante dos Últimos 4 Anos no País','Antecedente Criminal','Certificado de Língua Portuguesa','Certificado de Prova Presencial','Certidão de Nascimento (filhos)','Certidão de Casamento/União Estável','Carteira de Trabalho/CNPJ/MEI','Foto 3x4','Outros'];const p=c.docsPendentes||[];return D.map(d=>`<label style="display:flex;align-items:center;gap:9px;cursor:pointer;padding:8px 10px;background:var(--navy3);border-radius:7px;border:1px solid ${p.includes(d)?'rgba(251,146,60,0.4)':'var(--border2)'}"><input type="checkbox" id="ck_${d.replace(/[^a-z0-9]/gi,'_')}" ${p.includes(d)?'checked':''} style="width:15px;height:15px;accent-color:var(--orange)"><span style="font-size:0.81rem">${d}</span></label>`).join('')+`<input id="ck_custom" placeholder="➕ Outro documento..." style="margin-top:4px;background:var(--navy2);border:1px solid var(--border2);border-radius:7px;padding:8px 11px;color:var(--text);font-size:0.81rem;box-sizing:border-box">`;})()}
+              </div>
+              <button onclick="_saveDocs(${c.id})" class="btn btn-gold" style="width:100%;margin-top:12px">💾 Salvar Pendências</button>
+            </div>
+          </div>
+          <div class="panel" style="margin:0">
+            <div class="panel-header"><span class="panel-title">📤 Enviados pelo Cliente (${(c.docsEnviados||[]).length})</span></div>
+            <div class="panel-body">
+              ${!(c.docsEnviados||[]).length
+                ?'<div style="text-align:center;color:var(--text3);padding:24px;font-size:0.85rem">Nenhum arquivo enviado ainda.</div>'
+                :(c.docsEnviados||[]).map(d=>`<div style="padding:9px;background:var(--navy3);border-radius:8px;margin-bottom:7px;border:1px solid var(--border2)"><div style="font-size:0.84rem;font-weight:600">${d.docNome}</div><div style="font-size:0.71rem;color:var(--text3);margin-top:2px">📎 ${d.arquivo} · ${d.data}</div>${d.base64?`<a href="${d.base64}" download="${d.arquivo}" style="display:inline-block;margin-top:5px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:5px;padding:3px 10px;color:var(--gold);font-size:0.72rem;text-decoration:none">⬇️ Baixar PDF</a>`:''}</div>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ABA: CHAT ── -->
+      <div id="_tp_chat" style="display:${aba==='chat'?'block':'none'}">
+        <div style="display:flex;flex-direction:column;height:400px;max-width:680px;margin:0 auto">
+          <div id="_chat_scroll" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:2px 2px 8px 0">
+            ${(()=>{const msgs=c.chat||[];return msgs.length?msgs.map(m=>`<div style="display:flex;flex-direction:column;align-items:${m.de==='cliente'?'flex-start':'flex-end'}"><div style="max-width:78%;background:${m.de==='cliente'?'var(--navy3)':'rgba(201,168,76,0.11)'};border:1px solid ${m.de==='cliente'?'var(--border2)':'rgba(201,168,76,0.28)'};border-radius:${m.de==='cliente'?'4px 12px 12px 12px':'12px 4px 12px 12px'};padding:9px 13px;font-size:0.83rem;color:var(--text);line-height:1.4">${m.msg}</div><div style="font-size:0.65rem;color:var(--text3);margin-top:2px">${m.de==='cliente'?c.nome.split(' ')[0]:'WB'} · ${m.hora||''}${m.data?' · '+m.data:''}</div></div>`).join(''):'<div style="text-align:center;color:var(--text3);padding:60px 20px">Nenhuma mensagem ainda.</div>';})()}
+          </div>
+          <div style="display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--border2)">
+            <textarea id="_chat_in" placeholder="Escrever como WB Assessoria… (Enter envia)" rows="2"
+              style="flex:1;background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:9px 12px;color:var(--text);font-size:0.83rem;resize:none;line-height:1.4"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();_sendChat(${c.id})}"></textarea>
+            <button onclick="_sendChat(${c.id})" class="btn btn-gold" style="align-self:flex-end;padding:9px 16px">Enviar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ABA: FINANCEIRO ── -->
+      <div id="_tp_fin" style="display:${aba==='fin'?'block':'none'}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px">
+          <div class="panel" style="margin:0">
+            <div class="panel-header"><span class="panel-title">💳 Dados Financeiros</span></div>
+            <div class="panel-body">
+              ${[['Serviço',c.servico],['Valor Total','R$ '+(c.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})],['Entrada',c.valorEntrada?'R$ '+(c.valorEntrada||0).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'],['Parcelas',c.parcelas?c.parcelas+'x R$ '+(c.valorParcela||0).toLocaleString('pt-BR',{minimumFractionDigits:2}):'Não parcelado'],['Forma','c.formaPgto'||'—'],['Status',c.pago?'✅ Pago':'⏳ Pendente']].map(([k,v])=>`
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2);font-size:0.82rem">
+                  <span style="color:var(--text3)">${k}</span>
+                  <span style="color:${k==='Status'?(c.pago?'var(--green)':'var(--orange)'):'var(--text)'};font-weight:500">${v}</span>
+                </div>`).join('')}
+              <label style="display:flex;align-items:center;gap:9px;cursor:pointer;padding:9px 11px;background:var(--navy3);border-radius:8px;margin-top:12px;border:1px solid ${c.pago?'rgba(74,222,128,0.3)':'var(--border2)'}">
+                <input type="checkbox" id="_fin_pago" ${c.pago?'checked':''} style="width:16px;height:16px;accent-color:var(--green)">
+                <span style="font-size:0.85rem;font-weight:600">Marcar como Pago</span>
+              </label>
+              <button onclick="_savePago(${c.id})" class="btn btn-gold" style="width:100%;margin-top:8px">💾 Salvar</button>
+            </div>
+          </div>
+          <div class="panel" style="margin:0">
+            <div class="panel-header"><span class="panel-title">📄 Contrato</span></div>
+            <div class="panel-body">
+              ${[['Nº Contrato',c.numeroContrato||'—'],['Data Contrato',c.dataContrato||'—'],['Prazo',c.prazo||'—']].map(([k,v])=>`
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2);font-size:0.82rem">
+                  <span style="color:var(--text3)">${k}</span><span style="color:var(--text);font-weight:500">${v}</span>
+                </div>`).join('')}
+              <button onclick="closeModal();navigateTo('contratos')"
+                style="width:100%;margin-top:13px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3);border-radius:8px;padding:9px;color:var(--gold);font-size:0.82rem;cursor:pointer;font-weight:600">
+                📋 Ir para Contratos →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ABA: GOV ── -->
+      <div id="_tp_gov" style="display:${aba==='gov'?'block':'none'}">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <div style="font-size:0.84rem;color:var(--text3)">${(c.printsProcesso||[]).length} comprovante(s) do governo</div>
+            <button onclick="closeModal();openUploadPrintProcesso(${c.id})" class="btn btn-gold" style="font-size:0.79rem">📸 Adicionar Print</button>
+          </div>
+          ${!(c.printsProcesso||[]).length
+            ?`<div style="text-align:center;padding:60px 20px;color:var(--text3)"><div style="font-size:3rem;margin-bottom:12px">🖼️</div><div style="margin-bottom:16px">Nenhum print cadastrado.</div><button onclick="closeModal();openUploadPrintProcesso(${c.id})" class="btn btn-gold">📸 Adicionar agora</button></div>`
+            :`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:11px">${(c.printsProcesso||[]).map((p,i)=>`<div style="background:var(--navy3);border-radius:9px;overflow:hidden;border:1px solid var(--border2)"><img src="${p.base64||p.url||''}" alt="${p.descricao||'Print'}" style="width:100%;height:120px;object-fit:cover;display:block"><div style="padding:7px 9px"><div style="font-size:0.77rem;font-weight:600">${p.descricao||'Print '+(i+1)}</div><div style="font-size:0.67rem;color:var(--text3)">${p.data||''}</div></div></div>`).join('')}</div>`}
+        </div>
+      </div>
+
+    </div>
+  `,'modal-xl');
+}
+
+/* ── helpers ──────────────────────────────────────────────────── */
+function _saveObs(cId,idx){
+  const c=clientes.find(x=>x.id===cId);if(!c)return;
+  const obs=document.getElementById('_obs'+idx)?.value?.trim();
+  c.timeline=c.timeline||[];
+  while(c.timeline.length<=idx)c.timeline.push({});
+  c.timeline[idx]={...c.timeline[idx],obs,data:new Date().toLocaleDateString('pt-BR')};
+  saveData();showToast('✅ Nota salva!');openClienteModal(cId,'timeline');
+}
+function _saveDocs(cId){
+  const c=clientes.find(x=>x.id===cId);if(!c)return;
+  const D=['RNM','CPF','Comprovante de Endereço Atualizado','Passaporte','Comprovante dos Últimos 4 Anos no País','Antecedente Criminal','Certificado de Língua Portuguesa','Certificado de Prova Presencial','Certidão de Nascimento (filhos)','Certidão de Casamento/União Estável','Carteira de Trabalho/CNPJ/MEI','Foto 3x4','Outros'];
+  const p=D.filter(d=>document.getElementById('ck_'+d.replace(/[^a-z0-9]/gi,'_'))?.checked);
+  const custom=document.getElementById('ck_custom')?.value?.trim();
+  if(custom)p.push(custom);
+  c.docsPendentes=p;
+  saveData();showToast(`✅ ${p.length} doc(s) marcado(s).`);
+  if(p.length){const tel=(c.tel||'').replace(/\D/g,'');const fone=tel.length>=10?(tel.startsWith('55')?tel:'55'+tel):null;if(fone&&confirm(`Notificar ${c.nome} dos docs pendentes via WhatsApp?`)){const lista=p.map((d,i)=>`${i+1}. ${d}`).join('\n');const msg=`Olá, ${c.nome.split(' ')[0]}! 👋\n\nA equipe WB identificou documentos pendentes:\n\n${lista}\n\nEnvie pelo portal ou entre em contato.\n\n_WB Assessoria_`;const a=document.createElement('a');a.href=`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`;a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();document.body.removeChild(a);}}
+  navigateTo(currentPage);openClienteModal(cId,'docs');
+}
+function _sendChat(cId){
+  const inp=document.getElementById('_chat_in');const msg=inp?.value?.trim();if(!msg)return;
+  const c=clientes.find(x=>x.id===cId);if(!c)return;
+  c.chat=c.chat||[];
+  c.chat.push({de:'wb',msg,hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),data:new Date().toLocaleDateString('pt-BR')});
+  saveData();showToast('✅ Mensagem enviada!');openClienteModal(cId,'chat');
+}
+function _savePago(cId){
+  const c=clientes.find(x=>x.id===cId);if(!c)return;
+  c.pago=!!document.getElementById('_fin_pago')?.checked;
+  saveData();showToast('✅ Status financeiro atualizado!');openClienteModal(cId,'fin');
+}
+function _buildForm(c){
+  const ro=colaboradores.map(x=>`<option value="${x.nome}" ${x.nome===c.responsavel?'selected':''}>${x.nome}</option>`).join('');
+  const nm=c.nome.replace(/'/g,"\\'");
+  return `
     <div class="form-grid">
       <div class="form-field form-full"><label>Nome Completo</label><input id="ec2_nome" value="${c.nome}"></div>
       <div class="form-field"><label>E-mail</label><input id="ec2_email" type="email" value="${c.email}"></div>
       <div class="form-field"><label>Telefone</label><input id="ec2_tel" data-mask="tel" value="${c.tel==='—'?'':c.tel}"></div>
       <div class="form-field"><label>CPF / Passaporte</label><input id="ec2_cpf" data-mask="cpf" value="${c.cpf==='—'?'':c.cpf}"></div>
+      <div class="form-field"><label>RNM / RNE</label><input id="ec2_rnm" value="${c.rnm||''}"></div>
       <div class="form-field"><label>País de Origem</label><input id="ec2_pais" value="${c.pais==='—'?'':c.pais}"></div>
-      <div class="form-field"><label>🎂 Data de Nascimento</label><input id="ec2_nasc" type="text" placeholder="DD/MM/AAAA" value="${c.dataNascimento||''}"></div>
+      <div class="form-field"><label>🎂 Nascimento (DD/MM/AAAA)</label><input id="ec2_nasc" placeholder="DD/MM/AAAA" value="${c.dataNascimento||''}"></div>
       <div class="form-field"><label>🔗 Indicado por (código)</label><input id="ec2_indicado" placeholder="Ex: WB-CARL42" value="${c.indicadoPor||''}"></div>
       <div class="form-field"><label>Serviço</label>
         <select id="ec2_servico">
@@ -3136,117 +3382,65 @@ function openEditarCliente(id) {
       </div>
       <div class="form-field"><label>Status</label>
         <select id="ec2_status">
-          <option value="Pendente Documentação" ${c.status==='Pendente Documentação'?'selected':''}>Pendente Documentação</option>
-          <option value="Em andamento" ${c.status==='Em andamento'?'selected':''}>Em andamento</option>
-          <option value="Análise Final" ${c.status==='Análise Final'?'selected':''}>Análise Final</option>
-          <option value="Concluído" ${c.status==='Concluído'?'selected':''}>Concluído</option>
-          <option value="Cancelado" ${c.status==='Cancelado'?'selected':''}>Cancelado</option>
+          ${['Pendente Documentação','Em andamento','Análise Final','Concluído','Cancelado'].map(s=>`<option${c.status===s?' selected':''}>${s}</option>`).join('')}
         </select>
       </div>
-      <div class="form-field"><label>Responsável</label><select id="ec2_resp">${respOptions}</select></div>
-      <div class="form-field"><label>Valor (R$)</label><input id="ec2_valor" type="number" value="${c.valor}"></div>
+      <div class="form-field"><label>Responsável</label><select id="ec2_resp">${ro}</select></div>
+      <div class="form-field"><label>Valor Total (R$)</label><input id="ec2_valor" type="number" value="${c.valor||0}"></div>
       <div class="form-field"><label>Pagamento</label>
         <select id="ec2_pago">
           <option value="false" ${!c.pago?'selected':''}>⏳ Pendente</option>
           <option value="true"  ${c.pago?'selected':''}>✅ Pago</option>
         </select>
       </div>
-      <div class="form-field form-full"><label>Observações</label><textarea id="ec2_obs">${c.obs||''}</textarea></div>
+      <div class="form-field form-full"><label>Observações</label><textarea id="ec2_obs" rows="3">${c.obs||''}</textarea></div>
     </div>
-
-    <!-- ── Antecedente Criminal ── -->
-    ${c.servico?.includes('Naturaliz') ? `
-    <div style="margin:14px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:#60a5fa">🔍 Antecedente Criminal</div>
-    <div style="background:rgba(96,165,250,0.05);border:1px solid rgba(96,165,250,0.2);border-radius:10px;padding:14px;margin-bottom:4px">
+    ${c.servico?.includes('Naturaliz')?`
+    <div style="margin:16px 0 8px;font-size:0.69rem;letter-spacing:1.5px;text-transform:uppercase;color:#60a5fa">🔍 Antecedente Criminal</div>
+    <div style="background:rgba(96,165,250,0.05);border:1px solid rgba(96,165,250,0.2);border-radius:10px;padding:13px">
       <div class="form-grid">
-        <div class="form-field">
-          <label>Apostilado / Legalizado?</label>
-          <select id="ec2_apost">
-            <option value="">— Não informado —</option>
-            <option value="sim" ${c.antecedente?.apostilado===true?'selected':''}>✅ Sim</option>
-            <option value="nao" ${c.antecedente?.apostilado===false?'selected':''}>❌ Não (pendente)</option>
-          </select>
+        <div class="form-field"><label>Apostilado?</label>
+          <select id="ec2_apost"><option value="">— Não informado —</option><option value="sim" ${c.antecedente?.apostilado===true?'selected':''}>✅ Sim</option><option value="nao" ${c.antecedente?.apostilado===false?'selected':''}>❌ Não</option></select>
         </div>
-        <div class="form-field">
-          <label>📅 Vencimento do Antecedente (DD/MM/AAAA)</label>
-          <input id="ec2_venc_ant" placeholder="Ex: 15/09/2025" value="${c.antecedente?.vencimento||''}">
-        </div>
+        <div class="form-field"><label>📅 Vencimento</label><input id="ec2_venc_ant" placeholder="DD/MM/AAAA" value="${c.antecedente?.vencimento||''}"></div>
       </div>
-    </div>` : ''}
-
-    <!-- ── Resultado MJSP ── -->
-    ${c.servico?.includes('Naturaliz') ? `
-    <div style="margin:14px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)">⚖️ Resultado MJSP</div>
-    <div style="background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px;margin-bottom:4px">
+    </div>
+    <div style="margin:16px 0 8px;font-size:0.69rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)">⚖️ Resultado MJSP</div>
+    <div style="background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:13px">
       <div class="form-grid">
-        <div class="form-field">
-          <label>Status da Análise</label>
-          <select id="ec2_resultado">
-            <option value="">— Em análise —</option>
-            <option value="deferido"   ${c.resultadoMJSP?.status==='deferido'?'selected':''}>🎉 Deferido</option>
-            <option value="indeferido" ${c.resultadoMJSP?.status==='indeferido'?'selected':''}>❌ Indeferido</option>
-          </select>
+        <div class="form-field"><label>Status</label>
+          <select id="ec2_resultado"><option value="">— Em análise —</option><option value="deferido" ${c.resultadoMJSP?.status==='deferido'?'selected':''}>🎉 Deferido</option><option value="indeferido" ${c.resultadoMJSP?.status==='indeferido'?'selected':''}>❌ Indeferido</option></select>
         </div>
-        <div class="form-field">
-          <label>Motivo (se indeferido)</label>
-          <input id="ec2_motivo" placeholder="Ex: Documentação incompleta" value="${c.resultadoMJSP?.motivo||''}">
-        </div>
+        <div class="form-field"><label>Motivo (se indeferido)</label><input id="ec2_motivo" placeholder="Ex: Documentação incompleta" value="${c.resultadoMJSP?.motivo||''}"></div>
       </div>
-    </div>` : ''}
-
-    <!-- ── Acesso ao Portal WB ── -->
-    <div style="margin:18px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)">🔐 Acesso ao Portal WB</div>
-    <div style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px;margin-bottom:4px">
-      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Credenciais que o cliente usa para entrar no portal e acompanhar o processo.</div>
+    </div>`:''}
+    <div style="margin:16px 0 8px;font-size:0.69rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)">🔐 Acesso ao Portal</div>
+    <div style="background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:13px">
       <div class="form-grid">
-        <div class="form-field">
-          <label>Login (e-mail) do Portal</label>
-          <input id="ec2_portal_login" value="${c.portalLogin||c.email}">
-        </div>
-        <div class="form-field">
-          <label>Senha do Portal</label>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input id="ec2_portal_senha" value="${c.portalSenha||''}" style="flex:1" placeholder="Digite ou gere uma senha">
-            <button type="button" onclick="document.getElementById('ec2_portal_senha').value=gerarSenhaPortal(document.getElementById('ec2_nome').value||'${c.nome}')"
-              style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;color:var(--text3);cursor:pointer;font-size:0.8rem;white-space:nowrap;flex-shrink:0">🔄</button>
+        <div class="form-field"><label>Login (e-mail)</label><input id="ec2_portal_login" value="${c.portalLogin||c.email}"></div>
+        <div class="form-field"><label>Senha</label>
+          <div style="display:flex;gap:6px">
+            <input id="ec2_portal_senha" value="${c.portalSenha||''}" style="flex:1" placeholder="Senha do portal">
+            <button type="button" onclick="document.getElementById('ec2_portal_senha').value=gerarSenhaPortal(document.getElementById('ec2_nome').value||'${nm}')"
+              style="background:var(--navy3);border:1px solid var(--border2);border-radius:7px;padding:7px 11px;color:var(--text3);cursor:pointer;white-space:nowrap">🔄</button>
           </div>
         </div>
       </div>
-      <div style="margin-top:10px;padding:10px 12px;background:var(--navy3);border-radius:8px;font-size:0.78rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="color:var(--text3)">Para enviar ao cliente:</span>
-        <button onclick="copiarCredenciaisPortal('${c.nome}',document.getElementById('ec2_portal_login').value,document.getElementById('ec2_portal_senha').value)"
-          style="background:var(--navy2);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;color:var(--text);font-size:0.75rem;cursor:pointer">📋 Copiar credenciais</button>
-        <button onclick="enviarCredenciaisWhatsApp('${c.nome}',document.getElementById('ec2_portal_login').value,document.getElementById('ec2_portal_senha').value,'${c.tel||''}')"
-          style="background:#25d366;border:none;border-radius:6px;padding:5px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600">💬 Enviar por WhatsApp</button>
+      <div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">
+        <button onclick="copiarCredenciaisPortal('${nm}',document.getElementById('ec2_portal_login').value,document.getElementById('ec2_portal_senha').value)"
+          style="background:var(--navy3);border:1px solid var(--border2);border-radius:7px;padding:6px 12px;color:var(--text);font-size:0.78rem;cursor:pointer">📋 Copiar credenciais</button>
+        <button onclick="enviarCredenciaisWhatsApp('${nm}',document.getElementById('ec2_portal_login').value,document.getElementById('ec2_portal_senha').value,'${c.tel||''}')"
+          style="background:#25d366;border:none;border-radius:7px;padding:6px 12px;color:#fff;font-size:0.78rem;cursor:pointer;font-weight:600">💬 Enviar por WA</button>
       </div>
     </div>
-
-    <!-- ── Curso de Proficiência ── -->
-    <div style="margin:18px 0 10px;font-size:0.72rem;letter-spacing:1.5px;text-transform:uppercase;color:#10b981">📚 Curso de Proficiência em Língua Portuguesa</div>
-    <div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px">
-      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Parceria WB · Credenciais do cliente na plataforma do curso.</div>
+    <div style="margin:16px 0 8px;font-size:0.69rem;letter-spacing:1.5px;text-transform:uppercase;color:#10b981">📚 Curso de Proficiência</div>
+    <div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:13px">
       <div class="form-grid">
-        <div class="form-field">
-          <label>Login do Curso</label>
-          <input id="ec2_curso_login" value="${c.cursoLogin||''}" placeholder="Usuário ou e-mail na plataforma">
-        </div>
-        <div class="form-field">
-          <label>Senha do Curso</label>
-          <input id="ec2_curso_senha" value="${c.cursoSenha||''}" placeholder="Senha de acesso ao curso">
-        </div>
-        <div class="form-field form-full">
-          <label>Link da Plataforma</label>
-          <input id="ec2_curso_link" value="${c.cursoLink||configEmpresa.cursoLink||''}" placeholder="https://...">
-        </div>
+        <div class="form-field"><label>Login do Curso</label><input id="ec2_curso_login" value="${c.cursoLogin||''}"></div>
+        <div class="form-field"><label>Senha do Curso</label><input id="ec2_curso_senha" value="${c.cursoSenha||''}"></div>
+        <div class="form-field form-full"><label>Link da Plataforma</label><input id="ec2_curso_link" value="${c.cursoLink||configEmpresa.cursoLink||''}"></div>
       </div>
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn btn-gold" onclick="salvarEdicaoCliente(${id})">💾 Salvar Alterações</button>
-      <button class="btn btn-danger" onclick="excluirCliente(${id})" style="margin-right:auto">🗑️ Excluir</button>
-      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-    </div>
-  `);
+    </div>`;
 }
 
 function salvarEdicaoCliente(id) {
@@ -3290,10 +3484,11 @@ function salvarEdicaoCliente(id) {
   c.cursoLink   = document.getElementById('ec2_curso_link').value.trim();
   // Salva link como padrão global se preenchido
   if (c.cursoLink && !configEmpresa.cursoLink) configEmpresa.cursoLink = c.cursoLink;
+  c.rnm = document.getElementById('ec2_rnm')?.value?.trim() || c.rnm || '';
   saveData();
-  closeModal();
+  showToast('✅ Cliente atualizado!');
   navigateTo(currentPage);
-  showToast('✅ Cliente atualizado com sucesso!');
+  openClienteModal(id, 'resumo');
 }
 
 function copiarCredenciaisPortal(nome, login, senha) {
@@ -3315,9 +3510,8 @@ function excluirCliente(id) {
   if (!c) return;
   if (!confirm(`Deseja realmente excluir o cliente "${c.nome}"? Esta ação não pode ser desfeita.`)) return;
   clientes = clientes.filter(x=>x.id!==id);
-  saveData();
-  closeModal();
-  navigateTo('clientes');
+  saveData(); closeModal(); navigateTo('clientes');
+  showToast('🗑️ Cliente excluído.');
 }
 
 function atualizarEtapa_UNUSED(id) { /* replaced below */ }
@@ -3359,9 +3553,8 @@ function atualizarEtapa(id) {
     c.etapa++;
     if (c.etapa >= c.totalEtapas) c.status = 'Concluído';
     saveData();
-    closeModal();
-    openClienteModal(id);
     navigateTo(currentPage);
+    openClienteModal(id,'timeline');
     // 🔔 Alerta WhatsApp automático para o cliente
     const etapas   = getEtapasCliente(c.servico);
     const etapaAtual = etapas[c.etapa-1]?.label || `Etapa ${c.etapa}`;
@@ -3731,7 +3924,7 @@ function renderWizardEtapa(etapa) {
       <button class="btn btn-gold" onclick="salvarNovoCliente()">✅ Cadastrar Cliente</button>
     </div>`; }
 
-  openModal(`<div class="modal-title">Novo Cliente</div>${stepBar}${body}`);
+  openModal(`<div style="padding:28px 30px 0">${stepBar}</div><div style="padding:0 30px 28px">${body}</div>`, 'modal-wiz');
   setTimeout(()=>{ document.querySelectorAll('[data-mask]').forEach(applyMask); if(etapa===2) calcParcelas(); }, 60);
   if (etapa===3 && !_ncWizard.portalSenha && _ncWizard.nome) {
     setTimeout(()=>{ const el=document.getElementById('nc_portal_senha'); if(el&&!el.value){const s=gerarSenhaPortal(_ncWizard.nome);el.value=s;_ncWizard.portalSenha=s;} },80);
