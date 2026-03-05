@@ -6473,205 +6473,709 @@ function renderFaq() {
 let parcelasData = [];
 let _parcelasId  = 1;
 
-function renderGastosEscritorio() {
-  const cats = [
-    { id:'aluguel',    icon:'🏢', label:'Aluguel',             cor:'#60a5fa' },
-    { id:'traducao',   icon:'📝', label:'Tradução',            cor:'#a78bfa' },
-    { id:'curso_lp',   icon:'📚', label:'Curso Língua Port.',  cor:'#4ade80' },
-    { id:'correio',    icon:'📦', label:'Correio / Envios',    cor:'#f59e0b' },
-    { id:'luz',        icon:'💡', label:'Energia Elétrica',    cor:'#fbbf24' },
-    { id:'internet',   icon:'🌐', label:'Internet / Telefone', cor:'#38bdf8' },
-    { id:'manutencao', icon:'🔧', label:'Manutenção',          cor:'#fb923c' },
-    { id:'insumos',    icon:'🗂️', label:'Insumos / Material',  cor:'#e879f9' },
-    { id:'limpeza',    icon:'🧹', label:'Limpeza',             cor:'#34d399' },
-    { id:'outros',     icon:'➕', label:'Outros',              cor:'#94a3b8' },
-  ];
+// ══════════════════════════════════════════════════════════════════
+// 🏢 GASTOS DO ESCRITÓRIO — módulo financeiro completo (CEO only)
+// Estrutura: Lançamentos | Projeção | Balancete | Saúde da Empresa
+// ══════════════════════════════════════════════════════════════════
 
-  // Organiza lançamentos
-  const lancamentos = (window._gastosEscritorio = window._gastosEscritorio || JSON.parse(localStorage.getItem('wb_gastos_esc')||'[]'));
+// ── Categorias com tipo (fixa/variavel/contador/imposto) ──────────
+const GE_CATS = [
+  // DESPESAS FIXAS
+  { id:'aluguel',      icon:'🏢', label:'Aluguel',              tipo:'fixa',     cor:'#60a5fa' },
+  { id:'luz',          icon:'💡', label:'Energia Elétrica',     tipo:'fixa',     cor:'#fbbf24' },
+  { id:'internet',     icon:'🌐', label:'Internet / Telefone',  tipo:'fixa',     cor:'#38bdf8' },
+  { id:'limpeza',      icon:'🧹', label:'Limpeza',              tipo:'fixa',     cor:'#34d399' },
+  { id:'salarios',     icon:'👥', label:'Salários / Pró-labore',tipo:'fixa',     cor:'#a78bfa' },
+  { id:'software',     icon:'💻', label:'Software / Assinaturas',tipo:'fixa',    cor:'#818cf8' },
+  // DESPESAS VARIÁVEIS
+  { id:'traducao',     icon:'📝', label:'Tradução',             tipo:'variavel', cor:'#f472b6' },
+  { id:'correio',      icon:'📦', label:'Correio / Envios',     tipo:'variavel', cor:'#fb923c' },
+  { id:'curso_lp',     icon:'📚', label:'Curso Língua Port.',   tipo:'variavel', cor:'#4ade80' },
+  { id:'manutencao',   icon:'🔧', label:'Manutenção',           tipo:'variavel', cor:'#fb923c' },
+  { id:'insumos',      icon:'🗂️', label:'Insumos / Material',   tipo:'variavel', cor:'#e879f9' },
+  { id:'marketing',    icon:'📣', label:'Marketing / Publicidade',tipo:'variavel',cor:'#f43f5e' },
+  { id:'deslocamento', icon:'🚗', label:'Deslocamento',         tipo:'variavel', cor:'#94a3b8' },
+  // CONTADOR
+  { id:'honorarios',   icon:'🧮', label:'Honorários Contábeis', tipo:'contador', cor:'#6ee7b7' },
+  { id:'certidoes',    icon:'📋', label:'Certidões / Registros',tipo:'contador', cor:'#67e8f9' },
+  // IMPOSTOS
+  { id:'iss',          icon:'🏛️', label:'ISS',                  tipo:'imposto',  cor:'#fca5a5' },
+  { id:'irpj',         icon:'🏛️', label:'IRPJ',                 tipo:'imposto',  cor:'#fca5a5' },
+  { id:'csll',         icon:'🏛️', label:'CSLL',                 tipo:'imposto',  cor:'#fca5a5' },
+  { id:'pis_cofins',   icon:'🏛️', label:'PIS / COFINS',         tipo:'imposto',  cor:'#fca5a5' },
+  { id:'imposto_outro',icon:'🏛️', label:'Outros Impostos',      tipo:'imposto',  cor:'#fca5a5' },
+  // OUTROS
+  { id:'outros',       icon:'➕', label:'Outros',               tipo:'variavel', cor:'#94a3b8' },
+];
 
-  const hoje    = new Date();
-  const mesAtual= `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
-  const [_filtMes, _filtCat] = [
-    document.getElementById('_ge_mes')?.value   || mesAtual,
-    document.getElementById('_ge_cat')?.value   || '',
-  ];
+const GE_TIPOS = [
+  { id:'fixa',     label:'Despesas Fixas',      icon:'📌', cor:'#60a5fa' },
+  { id:'variavel', label:'Despesas Variáveis',  icon:'📊', cor:'#f472b6' },
+  { id:'contador', label:'Contador',            icon:'🧮', cor:'#6ee7b7' },
+  { id:'imposto',  label:'Impostos & Taxas',    icon:'🏛️', cor:'#fca5a5' },
+];
 
-  const filtrados = lancamentos.filter(l =>
-    l.mes === _filtMes && (!_filtCat || l.cat === _filtCat)
-  );
-
-  const totalMes   = filtrados.reduce((s,l)=>s+(parseFloat(l.valor)||0), 0);
-  const porCat     = {};
-  cats.forEach(c => { porCat[c.id] = filtrados.filter(l=>l.cat===c.id).reduce((s,l)=>s+(parseFloat(l.valor)||0),0); });
-  const maxCat     = Math.max(...Object.values(porCat), 1);
-
-  // Totais acumulados últimos 6 meses
-  const ultMeses = [];
-  for (let i=5;i>=0;i--) {
-    const d = new Date(hoje.getFullYear(), hoje.getMonth()-i, 1);
-    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const total = lancamentos.filter(l=>l.mes===k).reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
-    ultMeses.push({ label: d.toLocaleDateString('pt-BR',{month:'short'}), total });
+function _geGetLancs() {
+  if (!window._gastosEscritorio) {
+    window._gastosEscritorio = JSON.parse(localStorage.getItem('wb_gastos_esc')||'[]');
   }
-  const maxMes = Math.max(...ultMeses.map(m=>m.total),1);
+  return window._gastosEscritorio;
+}
+function _geSaveLancs() {
+  localStorage.setItem('wb_gastos_esc', JSON.stringify(window._gastosEscritorio||[]));
+}
 
-  const mesLabel = new Date(_filtMes+'-02').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+// ── RENDER PRINCIPAL ──────────────────────────────────────────────
+function renderGastosEscritorio() {
+  const subAba = window._geSubAba || 'lancamentos';
+  const isCeo  = currentRole === 'ceo';
+
+  const tabs = [
+    { id:'lancamentos', icon:'📋', label:'Lançamentos' },
+    { id:'projecao',    icon:'📈', label:'Projeção Mensal/Anual' },
+    { id:'balancete',   icon:'⚖️', label:'Balancete', ceoOnly: true },
+    { id:'saude',       icon:'💚', label:'Saúde da Empresa' },
+  ].filter(t => !t.ceoOnly || isCeo);
 
   return `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
-      <div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:700;color:var(--text)">🏢 Gastos do Escritório</div>
-        <div style="font-size:0.8rem;color:var(--text3);margin-top:2px">Controle de despesas operacionais da WB Assessoria</div>
+    <!-- Sub-navegação -->
+    <div style="display:flex;gap:4px;margin-bottom:24px;background:var(--navy3);border-radius:12px;padding:5px;flex-wrap:wrap">
+      ${tabs.map(t=>`
+        <button onclick="window._geSubAba='${t.id}';navigateTo('gastos-escritorio')"
+          style="flex:1;min-width:120px;padding:9px 14px;border-radius:9px;border:none;cursor:pointer;font-size:0.82rem;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;transition:all 0.2s;
+            ${subAba===t.id ? 'background:var(--gold);color:var(--navy);box-shadow:0 2px 8px rgba(201,168,76,0.4)' : 'background:transparent;color:var(--text3)'}">
+          ${t.icon} ${t.label}
+        </button>`).join('')}
+    </div>
+
+    ${subAba==='lancamentos' ? _geRenderLancamentos() :
+      subAba==='projecao'    ? _geRenderProjecao()    :
+      subAba==='balancete'   ? _geRenderBalancete()   :
+      _geRenderSaude()}
+  `;
+}
+
+// ── ABA 1: LANÇAMENTOS ────────────────────────────────────────────
+function _geRenderLancamentos() {
+  const lancs   = _geGetLancs();
+  const hoje    = new Date();
+  const mesAtual= `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  const filtMes = document.getElementById('_ge_mes')?.value || window._geFiltMes || mesAtual;
+  const filtTipo= document.getElementById('_ge_tipo')?.value|| window._geFiltTipo|| '';
+  window._geFiltMes = filtMes; window._geFiltTipo = filtTipo;
+
+  const doMes   = lancs.filter(l=>l.mes===filtMes);
+  const filtrado= doMes.filter(l=>!filtTipo||GE_CATS.find(c=>c.id===l.cat)?.tipo===filtTipo);
+
+  // Totais por tipo
+  const totTipo = {};
+  GE_TIPOS.forEach(t => {
+    totTipo[t.id] = doMes.filter(l=>GE_CATS.find(c=>c.id===l.cat)?.tipo===t.id).reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+  });
+  const totalMes = Object.values(totTipo).reduce((s,v)=>s+v,0);
+
+  const mesLabel = new Date(filtMes+'-02').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:700;color:var(--text)">
+        Lançamentos — <span style="color:var(--gold);text-transform:capitalize">${mesLabel}</span>
       </div>
       <button onclick="_geModalGasto()" class="btn btn-gold">+ Novo Lançamento</button>
     </div>
 
-    <!-- KPIs -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
-      <div style="background:linear-gradient(135deg,rgba(239,68,68,0.15),rgba(239,68,68,0.05));border:1px solid rgba(239,68,68,0.3);border-radius:14px;padding:16px 18px">
-        <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:1px;color:#f87171;margin-bottom:6px;font-weight:600">Este Mês</div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;color:#f87171">R$ ${totalMes.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
-        <div style="font-size:0.7rem;color:rgba(248,113,113,0.6);margin-top:3px">${filtrados.length} lançamento(s)</div>
-      </div>
-      ${cats.slice(0,3).map(cat=>{
-        const v = lancamentos.filter(l=>l.mes===_filtMes&&l.cat===cat.id).reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
-        return `<div style="background:rgba(255,255,255,0.03);border:1px solid var(--border2);border-radius:14px;padding:16px 18px">
-          <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:1px;color:${cat.cor};margin-bottom:6px;font-weight:600">${cat.icon} ${cat.label}</div>
-          <div style="font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:700;color:var(--text)">R$ ${v.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
-        </div>`;
-      }).join('')}
+    <!-- KPIs por tipo -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      ${GE_TIPOS.map(t=>`
+        <div onclick="window._geFiltTipo=window._geFiltTipo==='${t.id}'?'':'${t.id}';navigateTo('gastos-escritorio')"
+          style="background:${window._geFiltTipo===t.id?t.cor+'22':'rgba(255,255,255,0.03)'};border:1px solid ${window._geFiltTipo===t.id?t.cor:'var(--border2)'};
+            border-radius:13px;padding:14px 16px;cursor:pointer;transition:all 0.2s">
+          <div style="font-size:0.67rem;text-transform:uppercase;letter-spacing:1px;color:${t.cor};margin-bottom:5px;font-weight:600">${t.icon} ${t.label}</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:1.15rem;font-weight:700;color:var(--text)">R$ ${totTipo[t.id].toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+          <div style="font-size:0.65rem;color:var(--text3);margin-top:3px">${doMes.filter(l=>GE_CATS.find(c=>c.id===l.cat)?.tipo===t.id).length} lançamento(s)</div>
+        </div>`).join('')}
     </div>
 
-    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin-bottom:20px">
-
-      <!-- Gráfico mensal -->
-      <div class="panel" style="margin:0">
-        <div class="panel-header"><span class="panel-title">📈 Histórico 6 Meses</span></div>
-        <div class="panel-body">
-          <div style="display:flex;align-items:flex-end;justify-content:space-around;gap:6px;height:130px;padding-bottom:22px;position:relative">
-            ${ultMeses.map(m=>`
-              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;height:100%;justify-content:flex-end">
-                <div style="font-size:0.62rem;color:#f87171;font-weight:700;margin-bottom:2px">${m.total>0?'R$'+(m.total/1000).toFixed(1)+'k':''}</div>
-                <div style="width:calc(100% - 6px);max-width:40px;height:${Math.max(m.total>0?Math.round(m.total/maxMes*100):2,2)}px;background:linear-gradient(180deg,rgba(239,68,68,0.7),rgba(239,68,68,0.3));border-radius:4px 4px 0 0;transition:height 0.5s"></div>
-                <div style="font-size:0.65rem;color:var(--text3);position:absolute;bottom:3px">${m.label}</div>
-              </div>`).join('')}
-          </div>
-        </div>
-      </div>
-
-      <!-- Por categoria -->
-      <div class="panel" style="margin:0">
-        <div class="panel-header"><span class="panel-title">📊 Por Categoria — ${mesLabel}</span></div>
-        <div class="panel-body" style="display:flex;flex-direction:column;gap:8px">
-          ${cats.filter(cat=>porCat[cat.id]>0).length===0
-            ? `<div style="text-align:center;padding:20px;color:var(--text3);font-size:0.82rem">Nenhum gasto neste mês</div>`
-            : cats.filter(cat=>porCat[cat.id]>0).sort((a,b)=>porCat[b.id]-porCat[a.id]).map(cat=>`
-              <div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:0.78rem">
-                  <span>${cat.icon} ${cat.label}</span>
-                  <span style="color:${cat.cor};font-weight:700">R$ ${porCat[cat.id].toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
-                </div>
-                <div style="background:var(--navy4);border-radius:4px;height:6px">
-                  <div style="height:100%;width:${Math.round(porCat[cat.id]/maxCat*100)}%;background:${cat.cor};border-radius:4px;transition:width 0.5s"></div>
-                </div>
-              </div>`).join('')}
-        </div>
-      </div>
+    <!-- Filtros -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <input type="month" id="_ge_mes" value="${filtMes}" onchange="window._geFiltMes=this.value;navigateTo('gastos-escritorio')"
+        style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;color:var(--text);font-size:0.8rem">
+      <select id="_ge_tipo" onchange="window._geFiltTipo=this.value;navigateTo('gastos-escritorio')"
+        style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;color:var(--text);font-size:0.8rem">
+        <option value="">Todos os tipos</option>
+        ${GE_TIPOS.map(t=>`<option value="${t.id}" ${filtTipo===t.id?'selected':''}>${t.icon} ${t.label}</option>`).join('')}
+      </select>
+      <div style="margin-left:auto;font-size:0.8rem;color:var(--text3)">${filtrado.length} registro(s)</div>
     </div>
 
-    <!-- Filtros + tabela -->
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">📋 Lançamentos</span>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input type="month" id="_ge_mes" value="${_filtMes}" onchange="navigateTo('gastos-escritorio')"
-            style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:6px 10px;color:var(--text);font-size:0.8rem;cursor:pointer">
-          <select id="_ge_cat" onchange="navigateTo('gastos-escritorio')"
-            style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:6px 10px;color:var(--text);font-size:0.8rem">
-            <option value="">Todas categorias</option>
-            ${cats.map(c=>`<option value="${c.id}" ${_filtCat===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
-          </select>
-        </div>
-      </div>
+    <!-- Tabela -->
+    <div class="panel" style="margin:0">
       <div class="panel-body" style="padding:0">
-        ${filtrados.length===0
-          ? `<div style="text-align:center;padding:40px;color:var(--text3)">
-              <div style="font-size:2rem;margin-bottom:10px">🏢</div>
-              <div style="font-size:0.84rem;margin-bottom:14px">Nenhum lançamento em ${mesLabel}</div>
-              <button onclick="_geModalGasto()" class="btn btn-gold">+ Adicionar primeiro gasto</button>
-            </div>`
-          : `<table class="tbl">
-              <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Forma</th><th>Comp.</th><th style="width:60px"></th></tr></thead>
-              <tbody>
-                ${filtrados.sort((a,b)=>a.data>b.data?-1:1).map((l,idx)=>{
-                  const cat = cats.find(c=>c.id===l.cat)||cats[9];
-                  return `<tr>
-                    <td style="font-size:0.78rem;color:var(--text3);white-space:nowrap">${l.data||'—'}</td>
-                    <td><span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:0.72rem;font-weight:600;background:${cat.cor}18;border:1px solid ${cat.cor}44;color:${cat.cor}">${cat.icon} ${cat.label}</span></td>
-                    <td style="font-size:0.83rem">${l.desc||'—'}</td>
-                    <td style="font-family:'DM Mono',monospace;font-size:0.86rem;color:#f87171;font-weight:700">R$ ${(parseFloat(l.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-                    <td style="font-size:0.75rem;color:var(--text3)">${l.forma||'—'}</td>
-                    <td style="font-size:0.72rem;color:${l.comp?'#4ade80':'var(--text3)'}">${l.comp?'✅':'—'}</td>
-                    <td style="display:flex;gap:4px">
-                      <button onclick="_geModalGasto(${idx},'${_filtMes}','${_filtCat}')" style="background:transparent;border:1px solid var(--border2);border-radius:5px;padding:4px 7px;color:var(--text3);cursor:pointer;font-size:0.72rem">✏️</button>
-                      <button onclick="_geDelGasto(${idx},'${_filtMes}','${_filtCat}')" style="background:transparent;border:1px solid rgba(239,68,68,0.3);border-radius:5px;padding:4px 7px;color:#ef4444;cursor:pointer;font-size:0.72rem">🗑</button>
-                    </td>
-                  </tr>`;}).join('')}
-              </tbody>
-              <tfoot>
-                <tr style="background:rgba(239,68,68,0.05);border-top:1px solid rgba(239,68,68,0.2)">
-                  <td colspan="3" style="font-weight:700;font-size:0.83rem;color:var(--text)">Total ${mesLabel}</td>
-                  <td style="font-family:'Space Grotesk',sans-serif;font-size:0.95rem;font-weight:800;color:#f87171">R$ ${totalMes.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-                  <td colspan="3"></td>
-                </tr>
-              </tfoot>
-            </table>`}
+        ${filtrado.length===0 ? `
+          <div style="text-align:center;padding:50px;color:var(--text3)">
+            <div style="font-size:2.5rem;margin-bottom:12px">🏢</div>
+            <div style="margin-bottom:14px;font-size:0.85rem">Nenhum lançamento em ${mesLabel}</div>
+            <button onclick="_geModalGasto()" class="btn btn-gold">+ Adicionar primeiro gasto</button>
+          </div>`
+        : `<table class="tbl">
+            <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Forma</th><th>NF</th><th style="width:65px"></th></tr></thead>
+            <tbody>
+              ${filtrado.sort((a,b)=>a.dataISO>b.dataISO?-1:1).map((l,i)=>{
+                const cat  = GE_CATS.find(c=>c.id===l.cat)||GE_CATS[GE_CATS.length-1];
+                const tipo = GE_TIPOS.find(t=>t.id===cat.tipo);
+                const globalI = lancs.indexOf(l);
+                return `<tr>
+                  <td style="font-size:0.77rem;color:var(--text3);white-space:nowrap">${l.data||'—'}</td>
+                  <td><span style="padding:2px 8px;border-radius:10px;font-size:0.68rem;font-weight:700;background:${tipo?.cor||'#94a3b8'}18;color:${tipo?.cor||'#94a3b8'}">${tipo?.icon} ${tipo?.label||'—'}</span></td>
+                  <td><span style="padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:600;background:${cat.cor}15;border:1px solid ${cat.cor}33;color:${cat.cor}">${cat.icon} ${cat.label}</span></td>
+                  <td style="font-size:0.82rem;max-width:200px">
+                    <div>${l.desc||'—'}</div>
+                    ${l.obs?`<div style="font-size:0.66rem;color:var(--text3);font-style:italic">${l.obs}</div>`:''}
+                  </td>
+                  <td style="font-family:'DM Mono',monospace;font-size:0.87rem;font-weight:700;color:#f87171;white-space:nowrap">
+                    R$ ${(parseFloat(l.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}
+                  </td>
+                  <td style="font-size:0.74rem;color:var(--text3)">${l.forma||'—'}</td>
+                  <td style="font-size:0.72rem;color:${l.comp?'#4ade80':'var(--text3)'}">${l.comp?'✅':'—'}</td>
+                  <td style="display:flex;gap:3px">
+                    <button onclick="_geModalGasto(${globalI})" style="background:transparent;border:1px solid var(--border2);border-radius:5px;padding:4px 7px;color:var(--text3);cursor:pointer;font-size:0.72rem">✏️</button>
+                    <button onclick="_geDelGasto(${globalI})" style="background:transparent;border:1px solid rgba(239,68,68,0.3);border-radius:5px;padding:4px 7px;color:#ef4444;cursor:pointer;font-size:0.72rem">🗑</button>
+                  </td>
+                </tr>`;}).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background:rgba(248,113,113,0.06);border-top:1px solid rgba(248,113,113,0.2)">
+                <td colspan="4" style="font-weight:700;font-size:0.83rem">Total ${mesLabel}</td>
+                <td style="font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:800;color:#f87171">
+                  R$ ${filtrado.reduce((s,l)=>s+(parseFloat(l.valor)||0),0).toLocaleString('pt-BR',{minimumFractionDigits:2})}
+                </td>
+                <td colspan="3"></td>
+              </tr>
+            </tfoot>
+          </table>`}
       </div>
     </div>
   `;
 }
 
-function _geModalGasto(editIdx, filtMes, filtCat) {
-  const cats = [
-    { id:'aluguel',    icon:'🏢', label:'Aluguel'             },
-    { id:'traducao',   icon:'📝', label:'Tradução'            },
-    { id:'curso_lp',   icon:'📚', label:'Curso Língua Port.'  },
-    { id:'correio',    icon:'📦', label:'Correio / Envios'    },
-    { id:'luz',        icon:'💡', label:'Energia Elétrica'    },
-    { id:'internet',   icon:'🌐', label:'Internet / Telefone' },
-    { id:'manutencao', icon:'🔧', label:'Manutenção'          },
-    { id:'insumos',    icon:'🗂️', label:'Insumos / Material'  },
-    { id:'limpeza',    icon:'🧹', label:'Limpeza'             },
-    { id:'outros',     icon:'➕', label:'Outros'              },
-  ];
-  const lancamentos = window._gastosEscritorio || [];
-  const hoje = new Date();
-  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
-  const mes = filtMes || mesAtual;
-  const filtrados = lancamentos.filter(l => l.mes === mes && (!filtCat || l.cat === filtCat));
-  const edit = editIdx !== undefined && editIdx !== null ? filtrados[editIdx] : null;
+// ── ABA 2: PROJEÇÃO MENSAL / ANUAL ────────────────────────────────
+function _geRenderProjecao() {
+  const lancs = _geGetLancs();
+  const hoje  = new Date();
+  const ano   = hoje.getFullYear();
+
+  // Dados por mês do ano atual
+  const meses12 = Array.from({length:12},(_,i)=>{
+    const m  = String(i+1).padStart(2,'0');
+    const key= `${ano}-${m}`;
+    const doMes = lancs.filter(l=>l.mes===key);
+    const fixas = doMes.filter(l=>GE_CATS.find(c=>c.id===l.cat)?.tipo==='fixa').reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+    const vars  = doMes.filter(l=>GE_CATS.find(c=>c.id===l.cat)?.tipo==='variavel').reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+    const cont  = doMes.filter(l=>GE_CATS.find(c=>c.id===l.cat)?.tipo==='contador').reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+    const impos = doMes.filter(l=>GE_CATS.find(c=>c.id===l.cat)?.tipo==='imposto').reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+    const total = fixas+vars+cont+impos;
+    const receita = clientes.filter(c=>c.pago).reduce((s,c)=>{
+      if (!c.dataCadastro) return s;
+      const [d2,m2,y2]=c.dataCadastro.split('/');
+      if (parseInt(y2)===ano && parseInt(m2)-1===i) return s+(c.valor||0);
+      return s;
+    },0) + (window._gastosEscritorio||[]).filter(l=>l.mes===key&&l._receita).reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+    const label = new Date(ano,i,1).toLocaleDateString('pt-BR',{month:'short'});
+    return { mes:key, label, fixas, vars, cont, impos, total, receita, idx:i };
+  });
+
+  const mesesComDados = meses12.filter(m=>m.total>0);
+  const mediaFixa = mesesComDados.length ? mesesComDados.reduce((s,m)=>s+m.fixas,0)/mesesComDados.length : 0;
+  const mediaVar  = mesesComDados.length ? mesesComDados.reduce((s,m)=>s+m.vars+m.cont+m.impos,0)/mesesComDados.length : 0;
+  const totalAnual= meses12.reduce((s,m)=>s+m.total,0);
+  const maxMes    = Math.max(...meses12.map(m=>m.total),1);
+
+  // Projeção para o resto do ano
+  const mesesFaltam = meses12.filter(m=>m.idx > hoje.getMonth() && m.total===0).length;
+  const mediaMensal = mesesComDados.length ? totalAnual/mesesComDados.length : 0;
+  const projecaoAnual = totalAnual + (mediaMensal * mesesFaltam);
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:700;color:var(--text)">
+        Projeção ${ano}
+      </div>
+      <div style="display:flex;gap:8px">
+        <span style="font-size:0.78rem;color:var(--text3)">Baseado em ${mesesComDados.length} mese(s) com dados</span>
+      </div>
+    </div>
+
+    <!-- KPIs anuais -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px">
+      ${[
+        ['📌 Fixas (média/mês)',    mediaFixa,   '#60a5fa'],
+        ['📊 Variáveis (média/mês)',mediaVar,    '#f472b6'],
+        ['💸 Total Realizado '+ano, totalAnual,  '#f87171'],
+        ['🔮 Projeção Anual',       projecaoAnual,'#c9a84c'],
+      ].map(([label,val,cor])=>`
+        <div style="background:${cor}10;border:1px solid ${cor}30;border-radius:13px;padding:16px">
+          <div style="font-size:0.67rem;text-transform:uppercase;letter-spacing:1px;color:${cor};margin-bottom:6px;font-weight:600">${label}</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:1.15rem;font-weight:700;color:var(--text)">R$ ${val.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Gráfico de barras empilhadas -->
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-header">
+        <span class="panel-title">📈 Evolução Mensal ${ano}</span>
+        <div style="display:flex;gap:12px;font-size:0.7rem">
+          ${[['#60a5fa','Fixas'],['#f472b6','Variáveis'],['#6ee7b7','Contador'],['#fca5a5','Impostos']].map(([cor,l])=>
+            `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${cor};display:inline-block"></span>${l}</span>`).join('')}
+        </div>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;align-items:flex-end;justify-content:space-around;gap:4px;height:160px;padding-bottom:24px;position:relative">
+          ${[0,25,50,75,100].map(p=>`<div style="position:absolute;left:0;right:0;bottom:${24+p*1.36}px;border-top:1px dashed rgba(255,255,255,0.06);pointer-events:none"></div>`).join('')}
+          ${meses12.map(m=>{
+            const h = maxMes>0 ? Math.round(m.total/maxMes*136) : 0;
+            const hF= m.total>0 ? Math.round(m.fixas/m.total*h) : 0;
+            const hV= m.total>0 ? Math.round((m.vars)/m.total*h) : 0;
+            const hC= m.total>0 ? Math.round(m.cont/m.total*h) : 0;
+            const hI= h-hF-hV-hC;
+            const isFuture = m.idx > hoje.getMonth();
+            return `<div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;height:100%;justify-content:flex-end;position:relative">
+              ${m.total>0 ? `<div style="font-size:0.6rem;color:var(--text3);position:absolute;top:0">R$${(m.total/1000).toFixed(1)}k</div>` : ''}
+              <div style="width:calc(100% - 4px);max-width:38px;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end">
+                ${hI>0?`<div style="height:${hI}px;background:#fca5a5;border-radius:${hF+hV+hC===0?'4px 4px':0} 0 0 0"></div>`:''}
+                ${hC>0?`<div style="height:${hC}px;background:#6ee7b7"></div>`:''}
+                ${hV>0?`<div style="height:${hV}px;background:#f472b6"></div>`:''}
+                ${hF>0?`<div style="height:${hF}px;background:#60a5fa;border-radius:0 0 4px 4px"></div>`:''}
+                ${m.total===0?`<div style="height:3px;background:${isFuture?'rgba(255,255,255,0.08)':'var(--navy4)'};border-radius:4px"></div>`:''}
+              </div>
+              <div style="font-size:0.65rem;color:${m.idx===hoje.getMonth()?'var(--gold)':'var(--text3)'};position:absolute;bottom:4px;font-weight:${m.idx===hoje.getMonth()?700:400}">${m.label}</div>
+            </div>`;}).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela detalhada -->
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">📊 Detalhamento por Mês</span></div>
+      <div class="panel-body" style="padding:0">
+        <table class="tbl">
+          <thead><tr><th>Mês</th><th>📌 Fixas</th><th>📊 Variáveis</th><th>🧮 Contador</th><th>🏛️ Impostos</th><th>Total Mês</th><th>vs Média</th></tr></thead>
+          <tbody>
+            ${meses12.map(m=>{
+              const vs = mediaMensal>0 ? ((m.total-mediaMensal)/mediaMensal*100) : 0;
+              const isCur = m.idx===hoje.getMonth();
+              return `<tr style="${isCur?'background:rgba(201,168,76,0.06);':''}">
+                <td style="font-weight:${isCur?700:400};color:${isCur?'var(--gold)':'var(--text)'}">${m.label}${isCur?' ◀':''}</td>
+                <td style="font-family:'DM Mono',monospace;font-size:0.8rem;color:#60a5fa">${m.fixas>0?'R$ '+m.fixas.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+                <td style="font-family:'DM Mono',monospace;font-size:0.8rem;color:#f472b6">${m.vars>0?'R$ '+m.vars.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+                <td style="font-family:'DM Mono',monospace;font-size:0.8rem;color:#6ee7b7">${m.cont>0?'R$ '+m.cont.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+                <td style="font-family:'DM Mono',monospace;font-size:0.8rem;color:#fca5a5">${m.impos>0?'R$ '+m.impos.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+                <td style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:${m.total>0?'#f87171':'var(--text3)'}">${m.total>0?'R$ '+m.total.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+                <td>${m.total>0&&mediaMensal>0?`<span style="font-size:0.72rem;font-weight:700;color:${vs>10?'#f87171':vs<-10?'#4ade80':'var(--text3)'}">${vs>0?'+':''}${vs.toFixed(0)}%</span>`:'—'}</td>
+              </tr>`;}).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background:rgba(201,168,76,0.06);border-top:1px solid rgba(201,168,76,0.2)">
+              <td style="font-weight:800;color:var(--gold)">TOTAL ${ano}</td>
+              <td style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:#60a5fa">R$ ${meses12.reduce((s,m)=>s+m.fixas,0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+              <td style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:#f472b6">R$ ${meses12.reduce((s,m)=>s+m.vars,0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+              <td style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:#6ee7b7">R$ ${meses12.reduce((s,m)=>s+m.cont,0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+              <td style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:#fca5a5">R$ ${meses12.reduce((s,m)=>s+m.impos,0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+              <td style="font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:800;color:#f87171">R$ ${totalAnual.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+              <td style="font-size:0.78rem;color:var(--text3)">Projeção: R$ ${projecaoAnual.toLocaleString('pt-BR',{minimumFractionDigits:0})}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// ── ABA 3: BALANCETE (CEO ONLY) ───────────────────────────────────
+function _geRenderBalancete() {
+  if (currentRole !== 'ceo') return `<div style="text-align:center;padding:60px;color:var(--text3)">🔒 Acesso restrito a diretores.</div>`;
+
+  const lancs   = _geGetLancs();
+  const hoje    = new Date();
+  const mesAtual= `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  const filtMes = window._geBalaFiltMes || mesAtual;
+  const mesLabel= new Date(filtMes+'-02').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const doMes   = lancs.filter(l=>l.mes===filtMes);
+
+  // Receita do mês
+  const [ano2,mes2] = filtMes.split('-').map(Number);
+  let receitaClientes = 0;
+  clientes.forEach(c => {
+    (c.parcelasLivres||[]).forEach(p => {
+      if (p.paga && p.dataPgtoISO) {
+        const [py,pm] = p.dataPgtoISO.split('-').map(Number);
+        if (py===ano2 && pm===mes2) receitaClientes += parseFloat(p.valor)||0;
+      }
+    });
+    // clientes pagos sem parcelas livres (antigo)
+    if (c.pago && c.dataCadastro && !(c.parcelasLivres||[]).length) {
+      const [d2,m2b,y2] = c.dataCadastro.split('/');
+      if (parseInt(y2)===ano2 && parseInt(m2b)===mes2) receitaClientes += c.valor||0;
+    }
+  });
+
+  // Despesas
+  const totalFixas  = doMes.filter(l=>GE_CATS.find(c=>c.id===l.cat)?.tipo==='fixa').reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+  const totalVars   = doMes.filter(l=>GE_CATS.find(c=>c.id===l.cat)?.tipo==='variavel').reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+  const totalCont   = doMes.filter(l=>GE_CATS.find(c=>c.id===l.cat)?.tipo==='contador').reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+  const totalImpos  = doMes.filter(l=>GE_CATS.find(c=>c.id===l.cat)?.tipo==='imposto').reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+  const totalDesp   = totalFixas + totalVars + totalCont + totalImpos;
+  const resultado   = receitaClientes - totalDesp;
+  const margem      = receitaClientes > 0 ? (resultado/receitaClientes*100) : 0;
+
+  // Detalhes por categoria
+  const porCat = GE_CATS.map(cat => ({
+    ...cat,
+    total: doMes.filter(l=>l.cat===cat.id).reduce((s,l)=>s+(parseFloat(l.valor)||0),0),
+    count: doMes.filter(l=>l.cat===cat.id).length,
+  })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+
+  return `
+    <!-- Header do balancete -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:1.15rem;font-weight:700;color:var(--text)">
+          ⚖️ Balancete — <span style="color:var(--gold);text-transform:capitalize">${mesLabel}</span>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text3);margin-top:3px">🔒 Visível apenas para Diretores / CEOs</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="month" value="${filtMes}" onchange="window._geBalaFiltMes=this.value;navigateTo('gastos-escritorio')"
+          style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;color:var(--text);font-size:0.8rem">
+        <button onclick="_gePrintBalancete('${mesLabel}')" class="btn btn-outline" style="font-size:0.8rem">🖨️ Imprimir</button>
+      </div>
+    </div>
+
+    <!-- Resultado principal -->
+    <div style="background:linear-gradient(135deg,${resultado>=0?'rgba(74,222,128,0.12),rgba(74,222,128,0.04)':'rgba(239,68,68,0.12),rgba(239,68,68,0.04)'});border:1px solid ${resultado>=0?'rgba(74,222,128,0.3)':'rgba(239,68,68,0.3)'};border-radius:18px;padding:28px;margin-bottom:24px;text-align:center">
+      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:2px;color:${resultado>=0?'#4ade80':'#f87171'};margin-bottom:10px;font-weight:600">
+        ${resultado>=0?'✅ RESULTADO POSITIVO':'🚨 RESULTADO NEGATIVO'} — ${mesLabel.toUpperCase()}
+      </div>
+      <div style="font-family:'Space Grotesk',sans-serif;font-size:2.5rem;font-weight:800;color:${resultado>=0?'#4ade80':'#f87171'}">
+        ${resultado>=0?'+':''}R$ ${Math.abs(resultado).toLocaleString('pt-BR',{minimumFractionDigits:2})}
+      </div>
+      <div style="font-size:0.82rem;color:var(--text3);margin-top:8px">Margem líquida: <strong style="color:${margem>=0?'#4ade80':'#f87171'}">${margem.toFixed(1)}%</strong></div>
+    </div>
+
+    <!-- DRE simplificado -->
+    <div class="grid-2" style="margin-bottom:20px">
+      <!-- Receitas -->
+      <div class="panel" style="margin:0;border-color:rgba(74,222,128,0.2)">
+        <div class="panel-header" style="background:rgba(74,222,128,0.05)">
+          <span class="panel-title" style="color:#4ade80">💚 Receitas</span>
+          <span style="font-family:'Space Grotesk',sans-serif;font-size:0.95rem;font-weight:700;color:#4ade80">R$ ${receitaClientes.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+        </div>
+        <div class="panel-body">
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2);font-size:0.83rem">
+            <span style="color:var(--text3)">Receita de Clientes</span>
+            <span style="color:#4ade80;font-weight:700">R$ ${receitaClientes.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:0.85rem;font-weight:700">
+            <span>TOTAL RECEITAS</span>
+            <span style="color:#4ade80">R$ ${receitaClientes.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Despesas -->
+      <div class="panel" style="margin:0;border-color:rgba(248,113,113,0.2)">
+        <div class="panel-header" style="background:rgba(248,113,113,0.05)">
+          <span class="panel-title" style="color:#f87171">🔴 Despesas</span>
+          <span style="font-family:'Space Grotesk',sans-serif;font-size:0.95rem;font-weight:700;color:#f87171">R$ ${totalDesp.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+        </div>
+        <div class="panel-body">
+          ${[['📌 Despesas Fixas',totalFixas,'#60a5fa'],['📊 Despesas Variáveis',totalVars,'#f472b6'],['🧮 Contador',totalCont,'#6ee7b7'],['🏛️ Impostos',totalImpos,'#fca5a5']].map(([l,v,c])=>`
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2);font-size:0.83rem">
+              <span style="color:var(--text3)">${l}</span>
+              <span style="color:${c};font-weight:600">R$ ${v.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+            </div>`).join('')}
+          <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:0.85rem;font-weight:700">
+            <span>TOTAL DESPESAS</span>
+            <span style="color:#f87171">R$ ${totalDesp.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detalhamento por categoria -->
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-header"><span class="panel-title">📋 Detalhamento por Categoria</span></div>
+      <div class="panel-body" style="padding:0">
+        ${porCat.length===0 ? `<div style="text-align:center;padding:30px;color:var(--text3);font-size:0.83rem">Nenhum lançamento neste mês</div>` :
+        `<table class="tbl">
+          <thead><tr><th>Categoria</th><th>Tipo</th><th>Lançamentos</th><th>Total</th><th>% do Custo</th></tr></thead>
+          <tbody>
+            ${porCat.map(cat=>{
+              const tipo = GE_TIPOS.find(t=>t.id===cat.tipo);
+              const pct  = totalDesp>0 ? cat.total/totalDesp*100 : 0;
+              return `<tr>
+                <td><span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:10px;font-size:0.73rem;font-weight:600;background:${cat.cor}15;border:1px solid ${cat.cor}33;color:${cat.cor}">${cat.icon} ${cat.label}</span></td>
+                <td><span style="font-size:0.7rem;padding:2px 8px;border-radius:10px;background:${tipo?.cor||'#94a3b8'}15;color:${tipo?.cor||'#94a3b8'}">${tipo?.icon} ${tipo?.label||'—'}</span></td>
+                <td style="font-size:0.8rem;color:var(--text3)">${cat.count}</td>
+                <td style="font-family:'DM Mono',monospace;font-size:0.86rem;font-weight:700;color:#f87171">R$ ${cat.total.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                <td style="min-width:120px">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div style="flex:1;background:var(--navy4);border-radius:3px;height:5px">
+                      <div style="height:100%;width:${pct}%;background:${cat.cor};border-radius:3px"></div>
+                    </div>
+                    <span style="font-size:0.73rem;color:var(--text3);min-width:30px">${pct.toFixed(1)}%</span>
+                  </div>
+                </td>
+              </tr>`;}).join('')}
+          </tbody>
+        </table>`}
+      </div>
+    </div>
+
+    <!-- Linha resumo final -->
+    <div style="background:var(--navy3);border-radius:14px;padding:20px 24px;border:1px solid var(--border2)">
+      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:16px;font-weight:600">RESUMO EXECUTIVO — ${mesLabel.toUpperCase()}</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+        ${[['Receita Bruta','R$ '+receitaClientes.toLocaleString('pt-BR',{minimumFractionDigits:2}),'#4ade80'],
+           ['Total Despesas','R$ '+totalDesp.toLocaleString('pt-BR',{minimumFractionDigits:2}),'#f87171'],
+           ['Resultado Líquido',(resultado>=0?'+':'')+' R$ '+Math.abs(resultado).toLocaleString('pt-BR',{minimumFractionDigits:2}),resultado>=0?'#4ade80':'#f87171'],
+           ['Margem Líquida',margem.toFixed(1)+'%',margem>=20?'#4ade80':margem>=0?'#fbbf24':'#f87171'],
+          ].map(([l,v,c])=>`
+          <div style="text-align:center">
+            <div style="font-size:0.68rem;color:var(--text3);margin-bottom:5px">${l}</div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:1.05rem;font-weight:800;color:${c}">${v}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ── ABA 4: SAÚDE DA EMPRESA ───────────────────────────────────────
+function _geRenderSaude() {
+  const lancs   = _geGetLancs();
+  const hoje    = new Date();
+
+  // Coleta dados dos últimos 6 meses
+  const historico = [];
+  for (let i=5;i>=0;i--) {
+    const d   = new Date(hoje.getFullYear(), hoje.getMonth()-i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const doMes = lancs.filter(l=>l.mes===key);
+
+    const desp  = doMes.reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+    const fixas = doMes.filter(l=>GE_CATS.find(c=>c.id===l.cat)?.tipo==='fixa').reduce((s,l)=>s+(parseFloat(l.valor)||0),0);
+
+    let rec = 0;
+    const [ano2,mes2] = key.split('-').map(Number);
+    clientes.forEach(c => {
+      (c.parcelasLivres||[]).forEach(p => {
+        if (p.paga && p.dataPgtoISO) {
+          const [py,pm]=p.dataPgtoISO.split('-').map(Number);
+          if (py===ano2&&pm===mes2) rec+=parseFloat(p.valor)||0;
+        }
+      });
+      if (c.pago&&c.dataCadastro&&!(c.parcelasLivres||[]).length) {
+        const [d2,m2b,y2]=c.dataCadastro.split('/');
+        if (parseInt(y2)===ano2&&parseInt(m2b)===mes2) rec+=c.valor||0;
+      }
+    });
+
+    historico.push({ key, label:d.toLocaleDateString('pt-BR',{month:'short'}), desp, rec, fixas, lucro:rec-desp });
+  }
+
+  const mesesComDados = historico.filter(m=>m.rec>0||m.desp>0);
+  const mediaReceita  = mesesComDados.length ? mesesComDados.reduce((s,m)=>s+m.rec,0)/mesesComDados.length : 0;
+  const mediaDesp     = mesesComDados.length ? mesesComDados.reduce((s,m)=>s+m.desp,0)/mesesComDados.length : 0;
+  const mediaFixas    = mesesComDados.length ? mesesComDados.reduce((s,m)=>s+m.fixas,0)/mesesComDados.length : 0;
+  const mediaLucro    = mediaReceita - mediaDesp;
+  const margemMedia   = mediaReceita>0 ? mediaLucro/mediaReceita*100 : 0;
+
+  // Runway: com caixa fictício (usamos clientes ativos como proxy)
+  const recPendente = clientes.filter(c=>!c.pago).reduce((s,c)=>s+(c.valor||0),0) +
+    clientes.flatMap(c=>c.parcelasLivres||[]).filter(p=>!p.paga).reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const runway = mediaDesp>0 ? Math.floor(recPendente/mediaDesp) : 99;
+
+  // Score de saúde (0–100)
+  let score = 50;
+  if (margemMedia > 30) score += 20; else if (margemMedia > 10) score += 10; else if (margemMedia < 0) score -= 20;
+  if (runway > 6) score += 15; else if (runway > 3) score += 5; else score -= 15;
+  if (clientes.filter(c=>c.status==='Em andamento').length > 5) score += 10;
+  if (mediaDesp > 0 && mediaFixas/mediaDesp < 0.5) score += 5;
+  score = Math.max(0, Math.min(100, score));
+  const scoreLabel = score>=75?'🟢 Excelente':score>=55?'🟡 Saudável':score>=35?'🟠 Atenção':'🔴 Crítico';
+  const scoreCor   = score>=75?'#4ade80':score>=55?'#fbbf24':score>=35?'#fb923c':'#f87171';
+
+  // Tendência (últimas 3 receitas vs 3 anteriores)
+  const rec3a = historico.slice(0,3).reduce((s,m)=>s+m.rec,0)/3;
+  const rec3b = historico.slice(3,6).reduce((s,m)=>s+m.rec,0)/3;
+  const tendencia = rec3a>0&&rec3b>0 ? ((rec3a-rec3b)/rec3b*100) : 0;
+
+  return `
+    <!-- Score de saúde -->
+    <div style="background:linear-gradient(135deg,${scoreCor}18,${scoreCor}06);border:1px solid ${scoreCor}40;border-radius:18px;padding:28px;margin-bottom:24px;display:flex;align-items:center;gap:30px;flex-wrap:wrap">
+      <!-- Gauge circular (SVG) -->
+      <div style="position:relative;width:120px;height:120px;flex-shrink:0">
+        <svg viewBox="0 0 120 120" style="width:120px;height:120px;transform:rotate(-90deg)">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="12"/>
+          <circle cx="60" cy="60" r="50" fill="none" stroke="${scoreCor}" stroke-width="12"
+            stroke-dasharray="${score*3.14} 314" stroke-linecap="round"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:800;color:${scoreCor}">${score}</div>
+          <div style="font-size:0.58rem;color:var(--text3);letter-spacing:1px">SCORE</div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;color:${scoreCor};margin-bottom:8px">${scoreLabel}</div>
+        <div style="font-size:0.83rem;color:var(--text2);line-height:1.6">
+          Score calculado com base em margem líquida, runway financeiro, carteira ativa e estabilidade de custos fixos.
+          Atualizado automaticamente conforme novos lançamentos.
+        </div>
+        <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap">
+          <div style="text-align:center">
+            <div style="font-size:0.65rem;color:var(--text3);margin-bottom:3px">Margem Média</div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:700;color:${margemMedia>=15?'#4ade80':margemMedia>=0?'#fbbf24':'#f87171'}">${margemMedia.toFixed(1)}%</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:0.65rem;color:var(--text3);margin-bottom:3px">Runway</div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:700;color:${runway>6?'#4ade80':runway>3?'#fbbf24':'#f87171'}">${runway>12?'+12':runway} mês(es)</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:0.65rem;color:var(--text3);margin-bottom:3px">Tendência (3M)</div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:700;color:${tendencia>=0?'#4ade80':'#f87171'}">${tendencia>=0?'↑':'↓'} ${Math.abs(tendencia).toFixed(1)}%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPIs médias -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px">
+      ${[
+        ['💰 Receita Média/Mês',   mediaReceita, '#4ade80'],
+        ['💸 Custo Médio/Mês',     mediaDesp,    '#f87171'],
+        ['💵 Lucro Médio/Mês',     mediaLucro,   mediaLucro>=0?'#4ade80':'#f87171'],
+        ['📌 Custo Fixo Médio',    mediaFixas,   '#60a5fa'],
+      ].map(([l,v,c])=>`
+        <div style="background:${c}0a;border:1px solid ${c}25;border-radius:13px;padding:15px">
+          <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:${c};margin-bottom:6px;font-weight:600">${l}</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:700;color:var(--text)">R$ ${v.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Gráfico receita vs despesa -->
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-header">
+        <span class="panel-title">📊 Receita × Despesa (últimos 6 meses)</span>
+        <div style="display:flex;gap:12px;font-size:0.7rem">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#4ade80;display:inline-block"></span>Receita</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#f87171;display:inline-block"></span>Despesa</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;align-items:flex-end;justify-content:space-around;gap:6px;height:150px;padding-bottom:24px;position:relative">
+          ${(() => {
+            const maxV = Math.max(...historico.flatMap(m=>[m.rec,m.desp]),1);
+            return historico.map(m=>`
+              <div style="display:flex;gap:3px;align-items:flex-end;flex:1;justify-content:center;position:relative;height:100%">
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+                  <div style="width:18px;max-width:100%;height:${Math.max(m.rec>0?Math.round(m.rec/maxV*126):2,2)}px;background:linear-gradient(180deg,#4ade80,#16a34a);border-radius:4px 4px 0 0;transition:height 0.5s" title="Receita: R$${m.rec.toLocaleString('pt-BR')}"></div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+                  <div style="width:18px;max-width:100%;height:${Math.max(m.desp>0?Math.round(m.desp/maxV*126):2,2)}px;background:linear-gradient(180deg,#f87171,#dc2626);border-radius:4px 4px 0 0;transition:height 0.5s" title="Despesa: R$${m.desp.toLocaleString('pt-BR')}"></div>
+                </div>
+                <div style="font-size:0.65rem;color:${m.lucro>=0?'#4ade80':'#f87171'};position:absolute;bottom:4px;width:100%;text-align:center;font-weight:700">${m.label}</div>
+              </div>`).join('');
+          })()}
+        </div>
+      </div>
+    </div>
+
+    <!-- Indicadores de saúde detalhados -->
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">🩺 Indicadores Detalhados</span></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:14px">
+        ${[
+          {
+            label:'Margem Líquida Média',
+            valor:`${margemMedia.toFixed(1)}%`,
+            desc: margemMedia>=20 ? '✅ Excelente — empresa gerando lucro saudável' : margemMedia>=10 ? '🟡 Razoável — margem positiva mas pode melhorar' : margemMedia>=0 ? '🟠 Baixa — receita mal cobre as despesas' : '🔴 Negativa — gastos superiores às receitas',
+            pct: Math.max(0,Math.min(100,50+margemMedia)),
+            cor: margemMedia>=20?'#4ade80':margemMedia>=10?'#fbbf24':margemMedia>=0?'#fb923c':'#f87171',
+          },
+          {
+            label:'Custos Fixos / Total Despesas',
+            valor:`${mediaDesp>0?(mediaFixas/mediaDesp*100).toFixed(0):0}%`,
+            desc: mediaFixas/Math.max(mediaDesp,1)<0.5 ? '✅ Boa flexibilidade — custos fixos controlados' : '🟡 Atenção — custo fixo alto reduz flexibilidade',
+            pct: 100-Math.min(100,(mediaFixas/Math.max(mediaDesp,1))*100),
+            cor: mediaFixas/Math.max(mediaDesp,1)<0.5?'#4ade80':'#fbbf24',
+          },
+          {
+            label:'Runway Financeiro',
+            valor:`${runway>12?'+12':runway} meses`,
+            desc: runway>6 ? '✅ Seguro — mais de 6 meses de caixa previsto' : runway>3 ? '🟡 Atenção — entre 3 e 6 meses de reserva' : '🔴 Crítico — menos de 3 meses de cobertura',
+            pct: Math.min(100,runway/12*100),
+            cor: runway>6?'#4ade80':runway>3?'#fbbf24':'#f87171',
+          },
+          {
+            label:'Tendência de Receita (3 meses)',
+            valor:`${tendencia>=0?'+':''}${tendencia.toFixed(1)}%`,
+            desc: tendencia>10 ? '✅ Crescimento sólido' : tendencia>0 ? '🟡 Crescimento leve' : tendencia>-10 ? '🟠 Leve queda' : '🔴 Queda expressiva',
+            pct: Math.min(100,Math.max(0,50+tendencia)),
+            cor: tendencia>10?'#4ade80':tendencia>0?'#fbbf24':tendencia>-10?'#fb923c':'#f87171',
+          },
+        ].map(ind=>`
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div>
+                <span style="font-size:0.84rem;font-weight:600;color:var(--text)">${ind.label}</span>
+                <div style="font-size:0.73rem;color:var(--text3);margin-top:2px">${ind.desc}</div>
+              </div>
+              <span style="font-family:'Space Grotesk',sans-serif;font-size:1.05rem;font-weight:800;color:${ind.cor};min-width:60px;text-align:right">${ind.valor}</span>
+            </div>
+            <div style="background:var(--navy4);border-radius:4px;height:7px">
+              <div style="height:100%;width:${ind.pct}%;background:${ind.cor};border-radius:4px;transition:width 0.8s"></div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ── MODAL LANÇAMENTO ──────────────────────────────────────────────
+function _geModalGasto(globalIdx) {
+  const lancs = _geGetLancs();
+  const edit  = globalIdx !== undefined ? lancs[globalIdx] : null;
+  const hoje  = new Date();
 
   openModal(`
-    <div class="modal-title">🏢 ${edit ? 'Editar' : 'Novo'} Gasto do Escritório</div>
+    <div class="modal-title">🏢 ${edit?'Editar':'Novo'} Gasto do Escritório</div>
     <div class="form-grid">
       <div class="form-field">
-        <label>Categoria <span style="color:var(--red)">*</span></label>
-        <select id="_ge_cat_sel">
-          ${cats.map(c=>`<option value="${c.id}" ${edit?.cat===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
+        <label>Tipo <span style="color:var(--red)">*</span></label>
+        <select id="_ge_tipo_sel" onchange="_geAtualizarCats()">
+          ${GE_TIPOS.map(t=>`<option value="${t.id}" ${edit&&GE_CATS.find(c=>c.id===edit.cat)?.tipo===t.id?'selected':''}>${t.icon} ${t.label}</option>`).join('')}
         </select>
       </div>
       <div class="form-field">
-        <label>Data</label>
-        <input id="_ge_data" type="date" value="${edit?.dataISO||hoje.toISOString().split('T')[0]}">
+        <label>Categoria <span style="color:var(--red)">*</span></label>
+        <select id="_ge_cat_sel">
+          ${GE_CATS.map(c=>`<option value="${c.id}" data-tipo="${c.tipo}" ${edit?.cat===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
+        </select>
       </div>
       <div class="form-field form-full">
-        <label>Descrição <span style="color:var(--text3);font-size:0.74rem">(ex: Aluguel sala Agosto, Correio processo João...)</span></label>
-        <input id="_ge_desc" placeholder="Descrição do gasto..." value="${edit?.desc||''}">
+        <label>Descrição</label>
+        <input id="_ge_desc" placeholder="Ex: Aluguel sala comercial agosto..." value="${edit?.desc||''}">
       </div>
       <div class="form-field">
         <label>Valor (R$) <span style="color:var(--red)">*</span></label>
         <input id="_ge_valor" type="number" step="0.01" min="0" placeholder="0,00" value="${edit?.valor||''}">
+      </div>
+      <div class="form-field">
+        <label>Competência (Mês/Ano)</label>
+        <input id="_ge_competencia" type="month" value="${edit?.mes||hoje.toISOString().slice(0,7)}">
+      </div>
+      <div class="form-field">
+        <label>Data do Pagamento</label>
+        <input id="_ge_data" type="date" value="${edit?.dataISO||hoje.toISOString().split('T')[0]}">
       </div>
       <div class="form-field">
         <label>Forma de Pagamento</label>
@@ -6679,28 +7183,45 @@ function _geModalGasto(editIdx, filtMes, filtCat) {
           ${['PIX','Débito','Crédito','Boleto','Transferência','Dinheiro','Outros'].map(f=>`<option ${edit?.forma===f?'selected':''}>${f}</option>`).join('')}
         </select>
       </div>
-      <div class="form-field form-full">
-        <label>Observação / Nº Nota Fiscal</label>
-        <input id="_ge_obs" placeholder="Ex: NF 00123, recibo anexado..." value="${edit?.obs||''}">
+      <div class="form-field">
+        <label>Nº Nota Fiscal / Recibo</label>
+        <input id="_ge_obs" placeholder="Ex: NF 001234" value="${edit?.obs||''}">
       </div>
       <div class="form-field form-full">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
           <input type="checkbox" id="_ge_comp" ${edit?.comp?'checked':''} style="width:15px;height:15px;accent-color:var(--green)">
-          <span>Comprovante/nota fiscal em mãos</span>
+          <span>Comprovante / Nota Fiscal em mãos</span>
         </label>
       </div>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-gold" onclick="_geSalvar(${editIdx!==undefined&&editIdx!==null?editIdx:'null'},'${mes}','${filtCat||''}')">💾 Salvar</button>
+      <button class="btn btn-gold" onclick="_geSalvar(${globalIdx!==undefined?globalIdx:'null'})">💾 Salvar</button>
       <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
     </div>
   `);
+  setTimeout(_geAtualizarCats, 50);
 }
 
-function _geSalvar(editIdx, mes, filtCat) {
+function _geAtualizarCats() {
+  const tipo = document.getElementById('_ge_tipo_sel')?.value;
+  const sel  = document.getElementById('_ge_cat_sel');
+  if (!sel||!tipo) return;
+  Array.from(sel.options).forEach(o => {
+    o.style.display = o.dataset.tipo===tipo ? '' : 'none';
+  });
+  // Seleciona primeira opção do tipo se a atual não bate
+  const cur = sel.options[sel.selectedIndex];
+  if (cur && cur.dataset.tipo !== tipo) {
+    const first = Array.from(sel.options).find(o=>o.dataset.tipo===tipo);
+    if (first) sel.value = first.value;
+  }
+}
+
+function _geSalvar(globalIdx) {
   const valor = parseFloat(document.getElementById('_ge_valor')?.value||'0');
   if (!valor) { showToast('⚠️ Informe o valor','warn'); return; }
   const dataISO = document.getElementById('_ge_data')?.value||'';
+  const mes     = document.getElementById('_ge_competencia')?.value || dataISO.slice(0,7);
   const entry = {
     cat:    document.getElementById('_ge_cat_sel')?.value||'outros',
     desc:   document.getElementById('_ge_desc')?.value?.trim()||'',
@@ -6708,37 +7229,47 @@ function _geSalvar(editIdx, mes, filtCat) {
     forma:  document.getElementById('_ge_forma')?.value||'PIX',
     obs:    document.getElementById('_ge_obs')?.value?.trim()||'',
     comp:   !!document.getElementById('_ge_comp')?.checked,
-    dataISO,
+    dataISO, mes,
     data:   dataISO ? dataISO.split('-').reverse().join('/') : '',
-    mes,
   };
-  window._gastosEscritorio = window._gastosEscritorio||[];
-  const filtrados = window._gastosEscritorio.filter(l=>l.mes===mes&&(!filtCat||l.cat===filtCat));
-  if (editIdx !== null && editIdx !== 'null' && editIdx !== undefined) {
-    // find and update the original
-    const orig = filtrados[editIdx];
-    const globalIdx = window._gastosEscritorio.indexOf(orig);
-    if (globalIdx>=0) window._gastosEscritorio[globalIdx] = entry;
+  window._gastosEscritorio = _geGetLancs();
+  if (globalIdx!==null && globalIdx!=='null' && globalIdx!==undefined) {
+    window._gastosEscritorio[globalIdx] = entry;
   } else {
     window._gastosEscritorio.push(entry);
   }
-  localStorage.setItem('wb_gastos_esc', JSON.stringify(window._gastosEscritorio));
+  _geSaveLancs();
   closeModal();
   showToast('✅ Gasto salvo!');
   navigateTo('gastos-escritorio');
 }
 
-function _geDelGasto(editIdx, mes, filtCat) {
+function _geDelGasto(globalIdx) {
   if (!confirm('Excluir este lançamento?')) return;
-  window._gastosEscritorio = window._gastosEscritorio||[];
-  const filtrados = window._gastosEscritorio.filter(l=>l.mes===mes&&(!filtCat||l.cat===filtCat));
-  const orig = filtrados[editIdx];
-  const globalIdx = window._gastosEscritorio.indexOf(orig);
-  if (globalIdx>=0) window._gastosEscritorio.splice(globalIdx,1);
-  localStorage.setItem('wb_gastos_esc', JSON.stringify(window._gastosEscritorio));
-  showToast('🗑️ Gasto excluído');
-  navigateTo('gastos-escritorio');
+  window._gastosEscritorio = _geGetLancs();
+  window._gastosEscritorio.splice(globalIdx,1);
+  _geSaveLancs();
+  showToast('🗑️ Excluído'); navigateTo('gastos-escritorio');
 }
+
+function _gePrintBalancete(mesLabel) {
+  const el = document.querySelector('#app-content');
+  const w  = window.open('','_blank');
+  w.document.write(`<html><head><title>Balancete ${mesLabel}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#111;padding:30px;max-width:800px;margin:0 auto}
+    h1{font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:800;margin-bottom:4px}
+    .sub{color:#666;font-size:0.85rem;margin-bottom:24px}.tbl{width:100%;border-collapse:collapse;margin-top:12px}
+    .tbl th,.tbl td{border:1px solid #e5e7eb;padding:8px 12px;font-size:0.83rem;text-align:left}
+    .tbl th{background:#f9fafb;font-weight:700}.green{color:#16a34a}.red{color:#dc2626}.gold{color:#b45309}
+    @media print{body{padding:15px}}</style></head><body>
+    <h1>⚖️ Balancete WB Assessoria Migratória</h1>
+    <div class="sub">Competência: ${mesLabel} — Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+    ${el?.innerHTML||''}
+    </body></html>`);
+  w.document.close(); setTimeout(()=>w.print(),800);
+}
+
 
 function tabelaParcelasHTML(lista) {
   const stColor = { pago:'badge-green', pendente:'badge-gold', atrasado:'badge-red' };
