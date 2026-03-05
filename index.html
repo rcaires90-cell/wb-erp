@@ -487,6 +487,10 @@ let colaboradores = [
 let agendamentos      = [];
 let indeferimentos    = [];
 let propostas         = [];
+let historico         = []; // Log global de alterações
+let propostasComerciais = [];
+let _histId = 1;
+let _propComId = 1;
 let parceiros         = [...PARCEIROS_DEFAULT];
 let modelosPersonalizados = [];
 let notasFiscais  = [];
@@ -549,9 +553,9 @@ function getPayload() {
   return { clientes, tarefas, colaboradores, agendamentos,
            indeferimentos, propostas, parceiros, lancamentos, parcelasData,
            modelosPersonalizados, notasFiscais, guiasISS, printsProcesso,
-           leads, promocoes, npsRespostas,
+           leads, promocoes, npsRespostas, historico, propostasComerciais,
            configEmpresa, configNotif,
-           _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId,
+           _clienteId, _colaborId, _agendId, _indId, _propId, _parceiroId, _histId, _propComId,
            _lancId, _parcelasId, _modeloId, _nfId, _guiaId, _leadId, _promoId };
 }
 
@@ -574,6 +578,8 @@ function applyData(d) {
   if (d.leads)                   leads                   = d.leads;
   if (d.promocoes)               promocoes               = d.promocoes;
   if (d.npsRespostas)            npsRespostas            = d.npsRespostas;
+  if (d.historico)               historico               = d.historico;
+  if (d.propostasComerciais)     propostasComerciais     = d.propostasComerciais;
   if (d.configEmpresa)           configEmpresa           = d.configEmpresa;
   if (d.configNotif)             configNotif             = d.configNotif;
   if (d._clienteId)              _clienteId              = d._clienteId;
@@ -589,6 +595,29 @@ function applyData(d) {
   if (d._guiaId)                 _guiaId                 = d._guiaId;
   if (d._leadId)                 _leadId                 = d._leadId;
   if (d._promoId)                _promoId                = d._promoId;
+  if (d._histId)                 _histId                 = d._histId;
+  if (d._propComId)              _propComId              = d._propComId;
+}
+// ══════════════════════════════════════════════════════════════════
+// 📅 SISTEMA DE HISTÓRICO / AUDITORIA
+// ══════════════════════════════════════════════════════════════════
+function renderHistoricoCliente(clienteId) {
+  const logs = historico.filter(h => h.clienteId === clienteId);
+  if (!logs.length) return '<div style="text-align:center;color:var(--text3);padding:20px;font-size:0.85rem">Nenhuma alteração registrada ainda.</div>';
+  return logs.map(h => `
+    <div style="display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--border2);align-items:flex-start">
+      <div style="width:28px;height:28px;border-radius:50%;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.25);display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0">
+        ${{ 'cliente':'👤','lead':'🎯','etapa':'📍','financeiro':'💳','docs':'📋','sistema':'⚙️','proposta':'📝' }[h.tipo]||'📌'}
+      </div>
+      <div style="flex:1">
+        <div style="font-size:0.83rem;color:var(--text)">${h.descricao}</div>
+        <div style="font-size:0.69rem;color:var(--text3);margin-top:2px">${h.autor} · ${h.data} ${h.hora}</div>
+      </div>
+    </div>`).join('');
+}
+
+
+function _unusedApplyEnd(){
 }
 
 // ── Salvar (POST no-cors + localStorage) ─────────────────────────
@@ -597,6 +626,101 @@ function applyData(d) {
 // POST usa no-cors (funciona sempre).
 // GET usa JSONP — único método que contorna CORS no Apps Script.
 // ══════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════
+// 📅 HISTÓRICO DE ALTERAÇÕES
+// ══════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════
+// 🔔 ALERTAS AUTOMÁTICOS (chamados no login)
+// ══════════════════════════════════════════════════════════════════
+function verificarAlertasLogin() {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const alertas = [];
+
+  clientes.forEach(c => {
+    // Antecedente criminal vencendo
+    if (c.antecedente?.vencimento) {
+      const [d,m,y] = c.antecedente.vencimento.split('/');
+      const venc = new Date(y, m-1, d);
+      const diff = Math.ceil((venc - hoje) / 864e5);
+      if (diff <= 30)
+        alertas.push({ tipo: diff < 0 ? 'danger' : 'warn', icon: diff < 0 ? '🚨' : '⚠️',
+          titulo: diff < 0 ? `Antecedente VENCIDO — ${c.nome}` : `Antecedente vence em ${diff}d — ${c.nome}`,
+          sub: diff < 0 ? `Venceu em ${c.antecedente.vencimento}` : `Vencimento: ${c.antecedente.vencimento}`,
+          cId: c.id });
+    }
+    // Processo parado (sem avanço de etapa há mais de 30 dias)
+    if (c.status === 'Em andamento' && c.timeline) {
+      const ultimo = [...c.timeline].reverse().find(e => e?.data);
+      if (ultimo) {
+        const [d2,m2,y2] = ultimo.data.split('/');
+        const ultData = new Date(y2,m2-1,d2);
+        const dias = Math.ceil((hoje - ultData) / 864e5);
+        if (dias >= 30)
+          alertas.push({ tipo: 'info', icon: '⏸️',
+            titulo: `Processo parado há ${dias} dias — ${c.nome}`,
+            sub: `Último avanço: ${ultimo.data}`, cId: c.id });
+      }
+    }
+    // Pagamento pendente
+    if (!c.pago && c.valor > 0 && c.status !== 'Cancelado')
+      alertas.push({ tipo: 'orange', icon: '💳',
+        titulo: `Pagamento pendente — ${c.nome}`,
+        sub: `R$ ${c.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})} em aberto`, cId: c.id });
+  });
+
+  // Leads sem contato há mais de 7 dias
+  leads.forEach(l => {
+    if (l.status === 'novo' || l.status === 'contato') {
+      const [d,m,y] = (l.data||'').split('/');
+      if (d&&m&&y) {
+        const dias = Math.ceil((hoje - new Date(y,m-1,d)) / 864e5);
+        if (dias >= 7)
+          alertas.push({ tipo: 'info', icon: '🎯',
+            titulo: `Lead sem contato há ${dias}d — ${l.nome}`,
+            sub: `Origem: ${l.origem||'—'} · Status: ${l.status}`, cId: null });
+      }
+    }
+  });
+
+  if (!alertas.length) return; // sem alertas, não mostra nada
+
+  const porTipo = { danger: alertas.filter(a=>a.tipo==='danger'),
+                    warn:   alertas.filter(a=>a.tipo==='warn'),
+                    orange: alertas.filter(a=>a.tipo==='orange'),
+                    info:   alertas.filter(a=>a.tipo==='info') };
+  const cor = { danger:'#ef4444', warn:'#f59e0b', orange:'var(--orange)', info:'#60a5fa' };
+  const bg  = { danger:'rgba(239,68,68,0.08)', warn:'rgba(245,158,11,0.08)', orange:'rgba(251,146,60,0.08)', info:'rgba(96,165,250,0.08)' };
+
+  const linhas = alertas.slice(0,12).map(a => `
+    <div onclick="${a.cId ? `closeModal();openClienteModal(${a.cId})` : 'closeModal()'}"
+      style="display:flex;gap:12px;padding:10px 14px;border-radius:9px;background:${bg[a.tipo]};
+        border:1px solid ${cor[a.tipo]}40;margin-bottom:6px;cursor:${a.cId?'pointer':'default'};
+        transition:background 0.15s" onmouseover="this.style.background='${bg[a.tipo].replace('0.08','0.15')}'"
+        onmouseout="this.style.background='${bg[a.tipo]}'">
+      <div style="font-size:1.2rem;flex-shrink:0;margin-top:1px">${a.icon}</div>
+      <div style="flex:1">
+        <div style="font-size:0.83rem;font-weight:600;color:${cor[a.tipo]}">${a.titulo}</div>
+        <div style="font-size:0.72rem;color:var(--text3);margin-top:2px">${a.sub}</div>
+      </div>
+      ${a.cId ? '<div style="color:var(--text3);font-size:0.75rem;align-self:center">Ver →</div>' : ''}
+    </div>`).join('');
+
+  openModal(`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+      <div style="font-size:2rem">🔔</div>
+      <div>
+        <div class="modal-title" style="margin-bottom:0">${alertas.length} Alerta${alertas.length>1?'s':''} Pendente${alertas.length>1?'s':''}</div>
+        <div style="font-size:0.78rem;color:var(--text3)">Resumo do dia — ${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</div>
+      </div>
+    </div>
+    <div style="max-height:60vh;overflow-y:auto;padding-right:4px">${linhas}</div>
+    ${alertas.length > 12 ? `<div style="text-align:center;font-size:0.78rem;color:var(--text3);margin-top:8px">+${alertas.length-12} alertas adicionais</div>` : ''}
+    <div class="modal-actions"><button class="btn btn-gold" onclick="closeModal()">Entendido</button></div>
+  `);
+}
+
 
 async function saveData() {
   const payload = getPayload();
@@ -922,6 +1046,10 @@ function doLogin() {
   setDate();
   navigateTo(getDefaultPage());
   setTimeout(atualizarNotificacoes, 400);
+  // 🔔 Alertas automáticos só para staff
+  if (user.role !== 'cliente') {
+    setTimeout(verificarAlertasLogin, 800);
+  }
 }
 
 function doLogout() {
@@ -1041,6 +1169,7 @@ function buildNav() {
       ${navItem('processos','⚙️','Processos')}
       ${navItem('tarefas','✅','Minhas Tarefas','3')}
       ${navItem('agendamentos','📅','Agendamentos')}
+      ${navItem('calendario','🗓️','Calendário de Processos')}
       ${navItem('prazos','⏰','Prazos & Alertas','2')}
       <div class="nav-section">Ferramentas</div>
       ${navItem('calculadora','🧮','Calculadora de Elegibilidade')}
@@ -1072,6 +1201,7 @@ function buildNav() {
       ${navItem('processos','⚙️','Processos')}
       ${navItem('colaboradores','👔','Colaboradores')}
       ${navItem('agendamentos','📅','Agenda')}
+      ${navItem('calendario','🗓️','Calendário de Processos')}
       ${navItem('prazos','⏰','Prazos & Alertas','2')}
       <div class="nav-section">Ferramentas</div>
       ${navItem('calculadora','🧮','Calculadora de Elegibilidade')}
@@ -1082,6 +1212,7 @@ function buildNav() {
       <div class="nav-section">🚀 Exclusivo WB</div>
       ${navItem('dossie','📁','Dossiê Digital')}
       ${navItem('gerador-contrato','⚡','Gerador de Contratos')}
+      ${navItem('documentos-oficiais','📋','Documentos Oficiais')}
       ${navItem('editor','✏️','Editor de Documentos')}
       ${navItem('radar','🎯','Radar de Processos')}
       ${navItem('linha-do-tempo','📅','Linha do Tempo')}
@@ -1129,6 +1260,7 @@ function navigateTo(page) {
     'mensagens-cliente':'Mensagens', 'agendamentos-cliente':'Meus Agendamentos', 'meu-curso':'📚 Curso de Proficiência', 'meu-financeiro':'💳 Financeiro & PIX', 'minha-avaliacao':'⭐ Avaliação',
     'calculadora':'Calculadora de Elegibilidade', 'calculadora-cliente':'Sou Elegível?',
     'prazos':'Prazos & Alertas de Vencimento',
+    'calendario':'🗓️ Calendário de Processos',
     'modelos':'Modelos de Documentos',
     'contratos':'Contratos & Propostas',
     'indeferimentos':'Indeferimentos & Recursos',
@@ -1139,6 +1271,7 @@ function navigateTo(page) {
     'fiscal':'🧾 Notas Fiscais & Obrigações',
     'dossie':'📁 Dossiê Digital do Cliente',
     'gerador-contrato':'⚡ Gerador de Contratos',
+    'documentos-oficiais':'📋 Documentos Oficiais',
     'radar':'🎯 Radar de Processos',
     'linha-do-tempo':'📅 Linha do Tempo',
     'editor':'✏️ Editor de Documentos',
@@ -1176,6 +1309,7 @@ function renderPage(page) {
     'agendamento-online': renderAgendamentoOnline,
     'calculadora': renderCalculadora,
     'calculadora-cliente': renderCalculadora,
+    'calendario': renderCalendario,
     'prazos': renderPrazos,
     'modelos': renderModelos,
     'contratos': renderContratos,
@@ -1187,6 +1321,7 @@ function renderPage(page) {
     'fiscal': renderFiscal,
     'dossie': renderDossie,
     'gerador-contrato': renderGeradorContrato,
+    'documentos-oficiais': renderDocumentosOficiais,
     'radar': renderRadar,
     'linha-do-tempo': renderLinhaDoTempo,
     'editor': renderEditor,
@@ -1515,22 +1650,47 @@ function marcarClientePago(id) {
 
 // ─── RELATÓRIOS ───
 function renderRelatorios() {
-  const nat = clientes.filter(c=>c.servico.includes('Naturalização')).length;
-  const rnm = clientes.filter(c=>c.servico.includes('RNM')).length;
+  const nat   = clientes.filter(c=>c.servico.includes('Naturalização')).length;
+  const rnm   = clientes.filter(c=>c.servico.includes('RNM')).length;
   const visto = clientes.filter(c=>c.servico.includes('Visto')).length;
-  const taxa = Math.round(clientes.filter(c=>c.status==='Concluído').length/clientes.length*100);
+  const conc  = clientes.filter(c=>c.status==='Concluído').length;
+  const taxa  = clientes.length ? Math.round(conc/clientes.length*100) : 0;
+  const receitaTotal = clientes.filter(c=>c.pago).reduce((a,c)=>a+(c.valor||0),0);
+  const pendente = clientes.filter(c=>!c.pago).reduce((a,c)=>a+(c.valor||0),0);
+
+  // Dados por colaborador
+  const colabStats = colaboradores.filter(c=>c.status==='ativo').map(col => {
+    const meus = clientes.filter(c=>c.responsavel===col.nome);
+    const ativos = meus.filter(c=>!['Concluído','Cancelado'].includes(c.status)).length;
+    const concl  = meus.filter(c=>c.status==='Concluído').length;
+    const pend   = meus.filter(c=>c.status==='Pendente Documentação').length;
+    const receita = meus.filter(c=>c.pago).reduce((a,c)=>a+(c.valor||0),0);
+    const taxaCol = meus.length ? Math.round(concl/meus.length*100) : 0;
+    // Tempo médio de resposta ao chat (última msg WB - última msg cliente)
+    let tempoMedio = 0, countChat = 0;
+    meus.forEach(c => {
+      const chat = c.chat||[];
+      for (let i=1;i<chat.length;i++) {
+        if (chat[i].de==='wb' && chat[i-1].de==='cliente') {
+          countChat++;
+        }
+      }
+    });
+    return { col, total:meus.length, ativos, concl, pend, receita, taxaCol, countChat };
+  });
 
   return `
-    <div class="stat-grid">
-      <div class="stat-card gold"><div class="stat-label">Taxa de Conclusão</div><div class="stat-value">${taxa}%</div></div>
-      <div class="stat-card blue"><div class="stat-label">Naturalização</div><div class="stat-value">${nat}</div></div>
-      <div class="stat-card green"><div class="stat-label">RNM / RNE</div><div class="stat-value">${rnm}</div></div>
-      <div class="stat-card red"><div class="stat-label">Visto EUA</div><div class="stat-value">${visto}</div></div>
+    <div class="stat-grid" style="margin-bottom:28px">
+      <div class="stat-card gold"><div class="stat-icon">💰</div><div class="stat-label">Receita Realizada</div><div class="stat-value">R$${(receitaTotal/1000).toFixed(1)}k</div></div>
+      <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-label">Taxa de Conclusão</div><div class="stat-value">${taxa}%</div></div>
+      <div class="stat-card blue"><div class="stat-icon">⚙️</div><div class="stat-label">Em Andamento</div><div class="stat-value">${clientes.filter(c=>c.status==='Em andamento').length}</div></div>
+      <div class="stat-card red"><div class="stat-icon">⏳</div><div class="stat-label">Receita Pendente</div><div class="stat-value">R$${(pendente/1000).toFixed(1)}k</div></div>
     </div>
 
+    <!-- Por serviço -->
     <div class="panel" style="margin-bottom:24px">
       <div class="panel-header">
-        <span class="panel-title">Relatório de Processos por Serviço</span>
+        <span class="panel-title">📊 Processos por Serviço</span>
         <div style="display:flex;gap:6px">
           <button class="btn btn-outline btn-sm" onclick="exportarRelatorio('clientes')">📤 Clientes</button>
           <button class="btn btn-outline btn-sm" onclick="exportarRelatorio('financeiro')">📤 Financeiro</button>
@@ -1538,44 +1698,96 @@ function renderRelatorios() {
         </div>
       </div>
       <div class="panel-body">
-        ${[['🇧🇷 Naturalização Brasileira', nat, clientes.filter(c=>c.servico.includes('Naturalização')&&c.status==='Concluído').length],
-           ['🪪 Autorização Residência RNM', rnm, clientes.filter(c=>c.servico.includes('RNM')&&c.status==='Concluído').length],
-           ['✈️ Visto de Turismo EUA', visto, clientes.filter(c=>c.servico.includes('Visto')&&c.status==='Concluído').length]].map(([s,t,c])=>`
-          <div style="margin-bottom:20px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-              <span style="font-size:0.85rem;font-weight:500">${s}</span>
-              <span style="font-size:0.82rem;color:var(--text3)">${c} concluídos / ${t} total</span>
+        ${[['🇧🇷 Naturalização Brasileira', nat],['🪪 RNM / RNE', rnm],['✈️ Visto EUA', visto]].map(([s,t])=>{
+          const c2 = clientes.filter(c=>c.servico.includes(s.split(' ').slice(1).join(' ').split(' ')[0])&&c.status==='Concluído').length;
+          return `<div style="margin-bottom:18px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:7px">
+              <span style="font-size:0.86rem;font-weight:500">${s}</span>
+              <span style="font-size:0.8rem;color:var(--text3)">${c2} concluídos / ${t} total</span>
             </div>
-            <div class="progress-bar"><div class="progress-fill" style="width:${t>0?Math.round(c/t*100):0}%"></div></div>
-          </div>`).join('')}
+            <div class="progress-bar"><div class="progress-fill" style="width:${t>0?Math.round(c2/t*100):0}%"></div></div>
+          </div>`;
+        }).join('')}
       </div>
     </div>
 
-    <div class="panel">
-      <div class="panel-header"><span class="panel-title">Desempenho por Colaborador</span></div>
+    <!-- Por colaborador — EXPANDIDO -->
+    <div class="panel" style="margin-bottom:24px">
+      <div class="panel-header"><span class="panel-title">👥 Desempenho por Colaborador</span></div>
       <div class="panel-body" style="padding:0">
         <table class="tbl">
-          <thead><tr><th>Colaborador</th><th>Cargo</th><th>Processos Ativos</th><th>Concluídos</th><th>Clientes Vinculados</th></tr></thead>
+          <thead><tr><th>Colaborador</th><th>Total</th><th>Ativos</th><th>Concluídos</th><th>Pendências</th><th>Taxa</th><th>Receita</th><th>Interações Chat</th></tr></thead>
           <tbody>
-            ${colaboradores.filter(c=>c.status==='ativo').map(col=>{
-              const ativos    = clientes.filter(c=>c.responsavel===col.nome && c.status==='Em andamento').length;
-              const concl     = clientes.filter(c=>c.responsavel===col.nome && c.status==='Concluído').length;
-              const total     = clientes.filter(c=>c.responsavel===col.nome).length;
-              return `<tr>
-                <td><strong style="color:var(--text)">${col.nome}</strong></td>
-                <td style="font-size:0.78rem;color:var(--text3)">${col.cargo}</td>
+            ${colabStats.length===0 ? `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Nenhum colaborador ativo.</td></tr>` :
+              colabStats.map(({col,total,ativos,concl,pend,receita,taxaCol,countChat})=>`
+              <tr onclick="navigateTo('relatorios-colab-${col.id}')" style="cursor:default">
+                <td>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div class="user-avatar" style="width:32px;height:32px;font-size:0.75rem;flex-shrink:0">${col.av}</div>
+                    <div>
+                      <div style="font-weight:600;color:var(--text)">${col.nome}</div>
+                      <div style="font-size:0.7rem;color:var(--text3)">${col.cargo}</div>
+                    </div>
+                  </div>
+                </td>
+                <td style="font-weight:600;color:var(--gold);font-size:0.9rem">${total}</td>
                 <td><span class="badge badge-blue">${ativos}</span></td>
                 <td><span class="badge badge-green">${concl}</span></td>
-                <td>${total}</td>
-              </tr>`;
-            }).join('')}
-            ${!colaboradores.filter(c=>c.status==='ativo').length ? `<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">Nenhum colaborador ativo.</td></tr>` : ''}
+                <td><span class="badge ${pend>0?'badge-orange':'badge-gray'}">${pend}</span></td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div style="flex:1;height:6px;background:var(--navy4);border-radius:3px;min-width:50px">
+                      <div style="height:100%;width:${taxaCol}%;background:${taxaCol>=70?'#4ade80':taxaCol>=40?'var(--gold)':'#ef4444'};border-radius:3px"></div>
+                    </div>
+                    <span style="font-size:0.78rem;font-weight:700;color:${taxaCol>=70?'#4ade80':taxaCol>=40?'var(--gold)':'#ef4444'}">${taxaCol}%</span>
+                  </div>
+                </td>
+                <td style="font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--gold)">R$ ${(receita/1000).toFixed(1)}k</td>
+                <td style="text-align:center;font-size:0.82rem;color:var(--text3)">${countChat} msg(s)</td>
+              </tr>`).join('')}
+            ${colabStats.length > 1 ? `
+            <tr style="background:rgba(201,168,76,0.05);border-top:1px solid var(--border)">
+              <td style="font-weight:700;color:var(--gold)">Total Equipe</td>
+              <td style="font-weight:700">${clientes.length}</td>
+              <td><span class="badge badge-blue">${clientes.filter(c=>!['Concluído','Cancelado'].includes(c.status)).length}</span></td>
+              <td><span class="badge badge-green">${conc}</span></td>
+              <td><span class="badge badge-orange">${clientes.filter(c=>c.status==='Pendente Documentação').length}</span></td>
+              <td><span style="font-weight:700;color:var(--gold)">${taxa}%</span></td>
+              <td style="font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--gold)">R$ ${(receitaTotal/1000).toFixed(1)}k</td>
+              <td>—</td>
+            </tr>` : ''}
           </tbody>
         </table>
       </div>
     </div>
+
+    <!-- Histórico de alterações global -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📝 Histórico Recente de Alterações</span>
+        <button onclick="renderHistoricoCompleto()" class="btn btn-sm btn-outline">Ver tudo →</button>
+      </div>
+      <div class="panel-body" style="padding:0">
+        ${(() => {
+          const logs = [];
+          clientes.forEach(c => { (c.log||[]).slice(-3).forEach(l => logs.push({...l, clienteNome:c.nome, clienteId:c.id})); });
+          logs.sort((a,b) => (b.ts||0)-(a.ts||0));
+          const recentes = logs.slice(0,15);
+          if (!recentes.length) return '<div style="text-align:center;color:var(--text3);padding:24px">Nenhuma alteração registrada ainda.</div>';
+          return `<table class="tbl"><thead><tr><th>Data/Hora</th><th>Colaborador</th><th>Cliente</th><th>Ação</th></tr></thead><tbody>
+            ${recentes.map(l=>`<tr>
+              <td style="font-size:0.75rem;color:var(--text3);white-space:nowrap">${l.data||''} ${l.hora||''}</td>
+              <td style="font-size:0.8rem">${l.quem||'—'}</td>
+              <td><a onclick="openClienteModal(${l.clienteId})" style="color:var(--gold);cursor:pointer;font-size:0.82rem">${l.clienteNome}</a></td>
+              <td style="font-size:0.8rem">${l.acao||'—'}</td>
+            </tr>`).join('')}
+          </tbody></table>`;
+        })()}
+      </div>
+    </div>
   `;
 }
+
 
 // ─── COLABORADORES ───
 function renderColaboradores() {
@@ -2426,6 +2638,40 @@ function renderMeuProcesso() {
           </div>
         </div>
 
+    <!-- Contratos publicados pela WB -->
+    ${(c.docsPortal||[]).length > 0 ? `
+    <div class="panel" style="margin-top:0">
+      <div class="panel-header">
+        <span class="panel-title">📋 Meus Contratos & Documentos</span>
+        <span class="badge badge-green">${c.docsPortal.length} disponível(is)</span>
+      </div>
+      <div class="panel-body" style="padding:10px 16px">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${c.docsPortal.map((d,i)=>`
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--navy3);border-radius:10px;border:1px solid ${d.assinado?'rgba(74,222,128,0.25)':'var(--border2)'}">
+              <div style="font-size:1.6rem;flex-shrink:0">${d.icon||'📄'}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:0.85rem;font-weight:600;color:var(--text)">${d.titulo}</div>
+                <div style="font-size:0.7rem;color:var(--text3);margin-top:2px">
+                  ${d.data} às ${d.hora}
+                  ${d.assinado?'<span style="color:#4ade80;margin-left:6px;font-weight:600">✅ Assinado</span>':''}
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0">
+                <button onclick="_verDocPortal(${i})"
+                  style="background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:7px;padding:7px 12px;color:var(--gold);font-size:0.78rem;font-weight:700;cursor:pointer;white-space:nowrap">
+                  👁️ Ver
+                </button>
+                <button onclick="_pdfDocPortal(${i})"
+                  style="background:var(--navy4);border:1px solid var(--border2);border-radius:7px;padding:7px 12px;color:var(--text2);font-size:0.78rem;cursor:pointer;white-space:nowrap">
+                  ⬇️ PDF
+                </button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>` : ''}
+
     ${barraWhatsApp(c.nome, c.servico)}
   `;
 }
@@ -3102,6 +3348,7 @@ function openClienteModal(id, aba) {
     {k:'chat',   i:'💬', l:'Chat',    s:st},
     {k:'fin',    i:'💳', l:'Financeiro',s:st},
     {k:'gov',    i:'📸', l:'Gov.',    s:st},
+    {k:'hist',   i:'🕒', l:'Histórico', s:st},
   ].filter(t=>t.s!==false);
 
   openModal(`
@@ -3324,6 +3571,33 @@ function openClienteModal(id, aba) {
         </div>
       </div>
 
+      <!-- ── ABA: HISTÓRICO ── -->
+      <div id="_tp_hist" style="display:${aba==='hist'?'block':'none'}">
+        <div style="max-width:680px;margin:0 auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <div style="font-size:0.84rem;color:var(--text3)">${historico.filter(h=>h.clienteId===id).length} registro(s) de alterações</div>
+            <button onclick="if(confirm('Limpar histórico deste cliente?')){historico=historico.filter(h=>h.clienteId!==id);saveData();openClienteModal(id,'hist')}"
+              style="background:none;border:1px solid var(--border2);border-radius:7px;padding:5px 12px;color:var(--text3);font-size:0.75rem;cursor:pointer">🗑️ Limpar</button>
+          </div>
+          <div style="display:flex;flex-direction:column">
+            ${(()=>{
+              const logs=historico.filter(h=>h.clienteId===id);
+              const ICONES={'cliente':'👤','lead':'🎯','etapa':'📍','financeiro':'💳','docs':'📋','sistema':'⚙️','proposta':'📝','chat':'💬'};
+              const CORES={'cliente':'var(--gold)','etapa':'#4ade80','financeiro':'#60a5fa','docs':'var(--orange)','sistema':'var(--text3)','chat':'#34d399'};
+              if(!logs.length) return '<div style="text-align:center;color:var(--text3);padding:40px">Nenhuma alteração registrada ainda.</div>';
+              return logs.map(h=>`
+                <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border2)">
+                  <div style="width:30px;height:30px;border-radius:50%;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0">${ICONES[h.tipo]||'📌'}</div>
+                  <div style="flex:1">
+                    <div style="font-size:0.83rem;color:${CORES[h.tipo]||'var(--text)'};font-weight:500">${h.descricao}</div>
+                    <div style="font-size:0.7rem;color:var(--text3);margin-top:2px">${h.autor} · ${h.data} às ${h.hora}</div>
+                  </div>
+                </div>`).join('');
+            })()}
+          </div>
+        </div>
+      </div>
+
     </div>
   `,'modal-xl');
 }
@@ -3344,6 +3618,7 @@ function _saveDocs(cId){
   const custom=document.getElementById('ck_custom')?.value?.trim();
   if(custom)p.push(custom);
   c.docsPendentes=p;
+  _log(cId, `Docs pendentes atualizados (${p.length} marcado${p.length!==1?'s':''})`);
   saveData();showToast(`✅ ${p.length} doc(s) marcado(s).`);
   if(p.length){const tel=(c.tel||'').replace(/\D/g,'');const fone=tel.length>=10?(tel.startsWith('55')?tel:'55'+tel):null;if(fone&&confirm(`Notificar ${c.nome} dos docs pendentes via WhatsApp?`)){const lista=p.map((d,i)=>`${i+1}. ${d}`).join('\n');const msg=`Olá, ${c.nome.split(' ')[0]}! 👋\n\nA equipe WB identificou documentos pendentes:\n\n${lista}\n\nEnvie pelo portal ou entre em contato.\n\n_WB Assessoria_`;const a=document.createElement('a');a.href=`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`;a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();document.body.removeChild(a);}}
   navigateTo(currentPage);openClienteModal(cId,'docs');
@@ -3353,11 +3628,13 @@ function _sendChat(cId){
   const c=clientes.find(x=>x.id===cId);if(!c)return;
   c.chat=c.chat||[];
   c.chat.push({de:'wb',msg,hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),data:new Date().toLocaleDateString('pt-BR')});
+  _log(cId, `Mensagem enviada no chat`);
   saveData();showToast('✅ Mensagem enviada!');openClienteModal(cId,'chat');
 }
 function _savePago(cId){
   const c=clientes.find(x=>x.id===cId);if(!c)return;
   c.pago=!!document.getElementById('_fin_pago')?.checked;
+  _log(cId, c.pago ? 'Pagamento marcado como ✅ Pago' : 'Pagamento marcado como ⏳ Pendente');
   saveData();showToast('✅ Status financeiro atualizado!');openClienteModal(cId,'fin');
 }
 function _buildForm(c){
@@ -3485,7 +3762,9 @@ function salvarEdicaoCliente(id) {
   // Salva link como padrão global se preenchido
   if (c.cursoLink && !configEmpresa.cursoLink) configEmpresa.cursoLink = c.cursoLink;
   c.rnm = document.getElementById('ec2_rnm')?.value?.trim() || c.rnm || '';
+  _log(id, `Dados do cliente editados`);
   saveData();
+  _log(id, `Dados editados por ${currentUser?.nome||currentRole||'?'}`);
   showToast('✅ Cliente atualizado!');
   navigateTo(currentPage);
   openClienteModal(id, 'resumo');
@@ -3552,6 +3831,9 @@ function atualizarEtapa(id) {
   if (c && c.etapa < c.totalEtapas) {
     c.etapa++;
     if (c.etapa >= c.totalEtapas) c.status = 'Concluído';
+    const _etLabels = getEtapasCliente(c.servico);
+    _log(c.id, `Etapa avançada → ${_etLabels[c.etapa-1]?.label||'Etapa '+c.etapa}${c.status==='Concluído'?' 🎉 Concluído!':''}`);
+    _log(id, `Etapa avançada para ${c.etapa} de ${c.totalEtapas}`);
     saveData();
     navigateTo(currentPage);
     openClienteModal(id,'timeline');
@@ -4056,6 +4338,7 @@ function salvarNovoCliente() {
 
   clientes.push(novo);
   if (cursoLink&&!configEmpresa.cursoLink) configEmpresa.cursoLink=cursoLink;
+  _log(novo.id, `Novo cliente cadastrado — ${novo.nome}`);
   saveData(); closeModal(); _ncWizard={};
   navigateTo('clientes');
   setTimeout(()=>showToast(`✅ "${novo.nome}" cadastrado! ${docsOk.length} doc(s) marcado(s).`),100);
@@ -6276,6 +6559,764 @@ function excluirArquivo(clienteId, arquivoId) {
 // ══════════════════════════════════════════════════════════════════
 // ⚡ GERADOR DE CONTRATOS — Preenche automaticamente com dados do cliente
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// 📋 DOCUMENTOS OFICIAIS WB — 5 templates reais com assinatura digital
+// ══════════════════════════════════════════════════════════════════
+
+const WB_DOCS = [
+  { id:'contrato_nat',  icon:'📄', titulo:'Contrato de Naturalização',   cor:'var(--gold)',  descricao:'Contrato de Prestação de Serviços — Naturalização Brasileira' },
+  { id:'termo_imagem',  icon:'📸', titulo:'Termo de Uso de Imagem',       cor:'#60a5fa',      descricao:'Autorização de uso de imagem, voz e som para divulgação' },
+  { id:'checklist',     icon:'✅', titulo:'Checklist de Documentação',    cor:'#4ade80',      descricao:'Lista de documentos pessoais obrigatórios para o processo' },
+  { id:'adaptacao_nome',icon:'🔤', titulo:'Adaptação de Nome',            cor:'#f97316',      descricao:'Declaração de interesse (ou não) em adaptar o nome ao PT' },
+  { id:'recibo',        icon:'🧾', titulo:'Recibo de Pagamento',          cor:'#a78bfa',      descricao:'Recibo de Prestação de Serviço — Naturalização Brasileira' },
+];
+
+function renderDocumentosOficiais() {
+  return `
+    <div style="margin-bottom:24px">
+      <div style="font-size:0.83rem;color:var(--text3)">Selecione um cliente e gere qualquer documento oficial da WB. Todos os campos são pré-preenchidos automaticamente — edite o que precisar e baixe o .doc ou assine digitalmente.</div>
+    </div>
+
+    <!-- Seletor de cliente global -->
+    <div class="panel" style="margin-bottom:24px">
+      <div class="panel-header"><span class="panel-title">👤 Cliente para os Documentos</span></div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Selecione o Cliente <span style="color:var(--red)">*</span></label>
+            <select id="doc_cliente_sel" onchange="docPreviewCliente()" style="font-size:0.9rem">
+              <option value="">— Selecione um cliente —</option>
+              ${clientes.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}
+            </select>
+          </div>
+          <div id="doc_cli_preview" style="display:none">
+            <label style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--text3)">Dados do Cliente</label>
+            <div id="doc_cli_info" style="background:var(--navy3);border-radius:8px;padding:10px 14px;font-size:0.8rem;color:var(--text2);line-height:1.8;margin-top:4px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid dos 5 documentos -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+      ${WB_DOCS.map(d=>`
+        <div class="panel" style="margin:0;cursor:pointer;border-color:${d.cor}22;transition:border-color 0.2s,transform 0.15s"
+          onmouseover="this.style.borderColor='${d.cor}66';this.style.transform='translateY(-2px)'"
+          onmouseout="this.style.borderColor='${d.cor}22';this.style.transform='none'">
+          <div class="panel-body" style="padding:20px">
+            <div style="font-size:2rem;margin-bottom:12px">${d.icon}</div>
+            <div style="font-size:0.95rem;font-weight:700;color:${d.cor};margin-bottom:6px">${d.titulo}</div>
+            <div style="font-size:0.78rem;color:var(--text3);line-height:1.5;margin-bottom:16px">${d.descricao}</div>
+            <button onclick="abrirDocOficial('${d.id}')"
+              style="width:100%;background:${d.cor}18;border:1px solid ${d.cor}44;border-radius:8px;padding:10px;color:${d.cor};font-size:0.83rem;font-weight:700;cursor:pointer;transition:background 0.15s"
+              onmouseover="this.style.background='${d.cor}2e'"
+              onmouseout="this.style.background='${d.cor}18'">
+              📝 Preencher & Gerar
+            </button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function docPreviewCliente() {
+  const sel = document.getElementById('doc_cliente_sel');
+  const div = document.getElementById('doc_cli_preview');
+  const info = document.getElementById('doc_cli_info');
+  if (!sel?.value) { if(div) div.style.display='none'; return; }
+  const c = clientes.find(x=>x.id===parseInt(sel.value));
+  if (!c) return;
+  div.style.display = 'block';
+  info.innerHTML = `<b>${c.nome}</b> · CPF: ${c.cpf||'—'} · RNM: ${c.rnm||'—'}<br>Endereço: ${c.endereco||'—'} · Serviço: ${c.servico}`;
+}
+
+function abrirDocOficial(tipo) {
+  const sel = document.getElementById('doc_cliente_sel');
+  const cId = sel ? parseInt(sel.value) : 0;
+  const c = cId ? clientes.find(x=>x.id===cId) : null;
+
+  const D = WB_DOCS.find(x=>x.id===tipo);
+  const hoje = new Date();
+  const dataHoje = `${String(hoje.getDate()).padStart(2,'0')} de ${['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][hoje.getMonth()]} de ${hoje.getFullYear()}`;
+  const dataNum = hoje.toLocaleDateString('pt-BR');
+
+  // --- Formulário de campos editáveis por tipo ---
+  let campos = '';
+  if (tipo==='contrato_nat') {
+    const ent1 = c?.valorEntrada ? `R$ ${(c.valorEntrada||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '';
+    const totalStr = c ? `R$ ${c.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '';
+    campos = `
+      <div class="form-grid">
+        <div class="form-field form-full"><label>Nome Completo do Contratante</label><input id="df_nome" value="${c?.nome||''}"></div>
+        <div class="form-field"><label>CPF</label><input id="df_cpf" value="${c?.cpf||''}"></div>
+        <div class="form-field"><label>RNM</label><input id="df_rnm" value="${c?.rnm||''}"></div>
+        <div class="form-field form-full"><label>Endereço Completo</label><input id="df_end" value="${c?.endereco||''}"></div>
+        <div class="form-field form-full"><label>Objeto / Serviço Contratado</label><input id="df_servico" value="${c?.servico||'Naturalização Brasileira'}"></div>
+        <div class="form-field"><label>Valor Total (ex: R$ 2.600,00)</label><input id="df_valor" value="${totalStr}"></div>
+        <div class="form-field"><label>Valor Extenso</label><input id="df_valor_ext" placeholder="Ex: Dois Mil Seiscentos Reais" value="${c?.valorExtenso||''}"></div>
+        <div class="form-field"><label>Entrada em Espécie</label><input id="df_ent_esp" placeholder="R$ 600,00" value=""></div>
+        <div class="form-field"><label>Entrada via PIX</label><input id="df_ent_pix" placeholder="R$ 400,00" value=""></div>
+        <div class="form-field"><label>Data da Entrada</label><input id="df_data_ent" value="${dataNum}"></div>
+        <div class="form-field"><label>Valor do Saldo Restante</label><input id="df_saldo" placeholder="R$ 1.600,00" value=""></div>
+        <div class="form-field"><label>Data de Pagamento do Saldo</label><input id="df_data_saldo" placeholder="20/03/2026" value=""></div>
+        <div class="form-field"><label>Data do Contrato</label><input id="df_data" value="${dataHoje}"></div>
+      </div>`;
+  } else if (tipo==='termo_imagem') {
+    campos = `
+      <div class="form-grid">
+        <div class="form-field form-full"><label>Nome Completo</label><input id="df_nome" value="${c?.nome||''}"></div>
+        <div class="form-field"><label>CPF</label><input id="df_cpf" value="${c?.cpf||''}"></div>
+        <div class="form-field"><label>Data</label><input id="df_data" value="${dataHoje}"></div>
+      </div>`;
+  } else if (tipo==='checklist') {
+    campos = `
+      <div class="form-grid">
+        <div class="form-field form-full"><label>Nome Completo</label><input id="df_nome" value="${c?.nome||''}"></div>
+        <div class="form-field"><label>Data de Validade do Antecedente</label><input id="df_ant_venc" placeholder="__/__/________" value="${c?.antecedente?.vencimento||''}"></div>
+        <div class="form-field"><label>Senha Gov.BR do Cliente</label><input id="df_gov_senha" placeholder="Senha do gov.br" value="${c?.govSenha||''}"></div>
+        <div class="form-field"><label>Data</label><input id="df_data" value="${dataNum.toUpperCase()}"></div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text3);margin-top:4px">💡 Os checkboxes de SIM/NÃO aparecem no documento gerado para marcação física.</div>`;
+  } else if (tipo==='adaptacao_nome') {
+    campos = `
+      <div class="form-grid">
+        <div class="form-field form-full"><label>Nome Completo</label><input id="df_nome" value="${c?.nome||''}"></div>
+        <div class="form-field"><label>CPF</label><input id="df_cpf" value="${c?.cpf||''}"></div>
+        <div class="form-field"><label>Decisão</label>
+          <select id="df_adaptar">
+            <option value="nao">NÃO POSSUI INTERESSE em adaptar o nome</option>
+            <option value="sim">TEM INTERESSE em adaptar o nome</option>
+          </select>
+        </div>
+        <div class="form-field form-full" id="df_novo_nome_field" style="display:none">
+          <label>Nome Adaptado Pretendido</label>
+          <input id="df_novo_nome" placeholder="Novo nome em português">
+        </div>
+      </div>`;
+  } else if (tipo==='recibo') {
+    campos = `
+      <div class="form-grid">
+        <div class="form-field form-full"><label>Nome Completo do Cliente</label><input id="df_nome" value="${c?.nome||''}"></div>
+        <div class="form-field"><label>RNM / Documento de Identidade</label><input id="df_rnm" value="${c?.rnm||''}"></div>
+        <div class="form-field"><label>Valor Recebido (ex: R$ 1.000,00)</label><input id="df_valor" placeholder="R$ 1.000,00" value=""></div>
+        <div class="form-field"><label>Valor por Extenso</label><input id="df_valor_ext" placeholder="Ex: Mil Reais" value=""></div>
+        <div class="form-field"><label>Data do Pagamento</label><input id="df_data" value="${dataNum}"></div>
+        <div class="form-field"><label>Forma de Pagamento</label>
+          <select id="df_forma">
+            <option>PIX</option><option>Espécie</option><option>Transferência</option><option>Cartão de Débito</option><option>Cartão de Crédito</option>
+          </select>
+        </div>
+        <div class="form-field form-full"><label>Referência (Serviço / Parcela)</label>
+          <input id="df_referencia" value="${c?.servico||'Naturalização Brasileira'}">
+        </div>
+      </div>`;
+  }
+
+  openModal(`
+    <div class="mxl-head" style="padding:20px 24px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:${D.cor}">${D.icon} ${D.titulo}</div>
+          <div style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-top:4px">${D.descricao}</div>
+        </div>
+        <button onclick="closeModal()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:6px 12px;color:rgba(255,255,255,0.55);cursor:pointer">✕</button>
+      </div>
+      <div class="mxl-tabs">
+        <div class="mxl-tab on" data-t="form" onclick="_tab('form')">📝 Dados</div>
+        <div class="mxl-tab" data-t="preview" onclick="_tab('preview');_gerarPreviewDoc('${tipo}')">👁️ Preview</div>
+        <div class="mxl-tab" data-t="assinar" onclick="_tab('assinar');initSigCanvas()">🖊️ Assinar</div>
+      </div>
+    </div>
+
+    <div class="mxl-body">
+
+      <!-- ABA DADOS -->
+      <div id="_tp_form" style="display:block">
+        ${!c ? `<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:12px 16px;font-size:0.83rem;color:var(--gold);margin-bottom:16px">
+          ⚠️ Nenhum cliente selecionado — você pode preencher manualmente ou <a onclick="closeModal();document.getElementById('doc_cliente_sel').focus()" style="cursor:pointer;text-decoration:underline">selecionar um cliente</a> antes de gerar.
+        </div>` : `<div style="background:rgba(74,222,128,0.07);border:1px solid rgba(74,222,128,0.2);border-radius:10px;padding:10px 16px;font-size:0.8rem;color:#4ade80;margin-bottom:16px">
+          ✅ Preenchido com os dados de <strong>${c.nome}</strong>. Revise e edite o que precisar.
+        </div>`}
+        ${campos}
+        <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="_tab('preview');_gerarPreviewDoc('${tipo}')" class="btn btn-outline" style="flex:1">👁️ Preview</button>
+          <button onclick="_baixarDoc('${tipo}','${c?.id||0}')" class="btn btn-outline" style="flex:1;color:#60a5fa;border-color:rgba(96,165,250,0.4)">⬇️ Word</button>
+          <button onclick="_baixarPDF('${tipo}','${c?.id||0}')" class="btn btn-gold" style="flex:1">⬇️ PDF</button>
+          ${c ? `<button onclick="_publicarPortal('${tipo}',${c.id})" style="flex:1;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.35);border-radius:8px;padding:9px;color:#4ade80;font-size:0.8rem;font-weight:700;cursor:pointer">📤 Portal</button>` : ''}
+        </div>
+      </div>
+
+      <!-- ABA PREVIEW -->
+      <div id="_tp_preview" style="display:none">
+        <div id="doc_preview_area" style="background:#fff;color:#111;border-radius:10px;padding:32px 40px;font-family:'Times New Roman',serif;font-size:11pt;line-height:1.8;max-height:500px;overflow-y:auto;border:1px solid var(--border2)">
+          <div style="text-align:center;color:#999;padding:40px">Clique em "Preview" para gerar a visualização</div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="_tab('assinar');initSigCanvas()" class="btn btn-outline" style="flex:1">🖊️ Assinar</button>
+          <button onclick="_baixarDoc('${tipo}','${c?.id||0}')" class="btn btn-outline" style="flex:1;color:#60a5fa;border-color:rgba(96,165,250,0.4)">⬇️ Word</button>
+          <button onclick="_baixarPDF('${tipo}','${c?.id||0}')" class="btn btn-gold" style="flex:1">⬇️ PDF</button>
+          ${c ? `<button onclick="_publicarPortal('${tipo}',${c.id})" style="flex:1;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.35);border-radius:8px;padding:9px;color:#4ade80;font-size:0.8rem;font-weight:700;cursor:pointer">📤 Portal</button>` : ''}
+        </div>
+      </div>
+
+      <!-- ABA ASSINATURA -->
+      <div id="_tp_assinar" style="display:none">
+        <div style="text-align:center;margin-bottom:14px">
+          <div style="font-size:0.85rem;color:var(--text3)">Assine no espaço abaixo. A assinatura será embutida no documento baixado.</div>
+        </div>
+        <canvas id="sig_canvas" width="700" height="180"
+          style="width:100%;background:#fff;border:2px dashed var(--border2);border-radius:10px;cursor:crosshair;touch-action:none;display:block;margin-bottom:8px"></canvas>
+        <div style="display:flex;justify-content:space-between;margin-bottom:20px">
+          <span style="font-size:0.72rem;color:var(--text3)">✍️ Desenhe sua assinatura acima (mouse ou toque)</span>
+          <button onclick="limparAssinatura()" style="background:transparent;border:none;color:var(--text3);font-size:0.75rem;cursor:pointer;text-decoration:underline">Limpar</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="_baixarPDFComAssin('${tipo}','${c?.id||0}')" class="btn btn-gold" style="flex:1">✅ PDF com Assinatura</button>
+          <button onclick="_baixarDocComAssinatura('${tipo}','${c?.id||0}')" class="btn btn-outline" style="flex:1;color:#60a5fa;border-color:rgba(96,165,250,0.4)">⬇️ Word</button>
+          ${c ? `<button onclick="_publicarPortalAssinado('${tipo}',${c.id})" style="flex:1;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.35);border-radius:8px;padding:9px;color:#4ade80;font-size:0.8rem;font-weight:700;cursor:pointer">📤 Assinar & Publicar no Portal</button>` : ''}
+        </div>
+      </div>
+
+    </div>
+  `, 'modal-xl');
+
+  // Handle "adaptar nome" toggle
+  if (tipo==='adaptacao_nome') {
+    setTimeout(()=>{
+      const sel = document.getElementById('df_adaptar');
+      const field = document.getElementById('df_novo_nome_field');
+      if (sel && field) {
+        sel.onchange = () => { field.style.display = sel.value==='sim' ? 'block' : 'none'; };
+      }
+    },100);
+  }
+}
+
+// Collect form data by type
+function _coletarDados(tipo) {
+  const g = id => document.getElementById(id)?.value?.trim() || '';
+  const ch = id => document.getElementById(id)?.checked;
+
+  if (tipo==='contrato_nat') return {
+    nome:g('df_nome'), cpf:g('df_cpf'), rnm:g('df_rnm'), endereco:g('df_end'),
+    servico:g('df_servico'), valor:g('df_valor'), valorExt:g('df_valor_ext'),
+    entEsp:g('df_ent_esp'), entPix:g('df_ent_pix'), dataEnt:g('df_data_ent'),
+    saldo:g('df_saldo'), dataSaldo:g('df_data_saldo'), data:g('df_data'),
+  };
+  if (tipo==='termo_imagem') return { nome:g('df_nome'), cpf:g('df_cpf'), data:g('df_data') };
+  if (tipo==='checklist') return { nome:g('df_nome'), antVenc:g('df_ant_venc'), govSenha:g('df_gov_senha'), data:g('df_data') };
+  if (tipo==='adaptacao_nome') return { nome:g('df_nome'), cpf:g('df_cpf'), adaptar:g('df_adaptar'), novoNome:g('df_novo_nome') };
+  if (tipo==='recibo') return { nome:g('df_nome'), rnm:g('df_rnm'), valor:g('df_valor'), valorExt:g('df_valor_ext'), data:g('df_data'), forma:g('df_forma'), referencia:g('df_referencia') };
+  return {};
+}
+
+// Build HTML for document preview/download
+function _buildDocHTML(tipo, d, assinatura) {
+  const WB_HEADER = `
+    <div style="text-align:center;margin-bottom:30px;padding-bottom:20px;border-bottom:2px solid #c9a84c">
+      <div style="font-size:18pt;font-weight:bold;letter-spacing:2px;color:#0a0f1e">WB ASSESSORIA MIGRATÓRIA</div>
+      <div style="font-size:9pt;color:#666;margin-top:4px">CNPJ: 52.241.467/0001-27 · Av. Amador Bueno da Veiga, 1970 – Sala 19 – Penha – SP · (11) 91425-8886</div>
+    </div>`;
+  const SIG = assinatura ? `<div style="margin-top:30px;border-top:1px solid #999;padding-top:10px"><img src="${assinatura}" style="max-width:280px;max-height:80px"><br><div style="font-size:9pt;color:#333">${d.nome}</div></div>` : `<div style="margin-top:60px;border-top:1px solid #333;width:340px"><br><div style="font-size:9pt;color:#333">${d.nome||'_______________________________'}</div></div>`;
+  const WB_SIG = `<div style="margin-top:30px;border-top:1px solid #333;width:340px"><br><div style="font-size:9pt;color:#333">Renato Caires · WELCOME2 BRAZIL LTDA.</div></div>`;
+
+  if (tipo==='contrato_nat') return `<html><body style="font-family:Times New Roman,serif;font-size:11pt;line-height:1.8;color:#111;padding:50px 60px;max-width:760px;margin:auto">
+${WB_HEADER}
+<h2 style="text-align:center;font-size:14pt;margin-bottom:30px">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h2>
+<p>Pelo presente instrumento particular de contrato de prestação de serviços de assessoria, que entre si fazem, de um lado <strong>WELCOME2 BRAZIL ASSESSORIA PARA IMIGRANTES – CNPJ: 52.241.467/0001-27</strong>, com escritório sito a Av. Amador Bueno da Veiga, 1970 – Sala 19 – Penha – São Paulo, doravante simplesmente denominado de <strong>CONTRATADO</strong> e do outro lado.</p>
+<p><strong>EU, ${d.nome||'_______________________________'}</strong>, inscrito(a) sob o CPF/MF Nº <strong>${d.cpf||'___________________'}</strong>, inscrito(a) sob o RNM: <strong>${d.rnm||'___________________'}</strong>. Residente na ${d.endereco||'_______________________________'}, ora <strong>CONTRATANTE</strong>, convencionam e contratam o seguinte:</p>
+<p>Ambas as partes concordam e contratam o seguinte:</p>
+<p><strong>CLÁUSULA 1 – DO OBJETO.</strong></p>
+<p>A parte CONTRATADA, por meio do presente contrato se compromete à prestação de serviços profissionais especializados tendo por objeto o serviço de <strong>${d.servico||'NATURALIZAÇÃO BRASILEIRA'}</strong>, por parte da CONTRATADA, conforme os termos e condições detalhadas ao decorrer do presente documento.</p>
+<p><strong>CLÁUSULA 2 – DO PAGAMENTO.</strong></p>
+<p>Referente aos serviços denominados na CLÁUSULA 1 ficará por obrigação do CONTRATANTE o pagamento de <strong>${d.valor||'R$_____________'} (${d.valorExt||'_______________________________'})</strong>, sendo a entrada no valor de <strong>${d.entEsp||'R$_____________'}</strong> em Espécie e <strong>${d.entPix||'R$_____________'}</strong> no PIX na data de <strong>${d.dataEnt||'__/__/____'}</strong>, ficando um saldo no valor de <strong>${d.saldo||'R$_____________'}</strong> na data de <strong>${d.dataSaldo||'__/__/____'}</strong>. Adimplir com o pagamento, conforme consta neste contrato, nas datas especificadas, sob pena de acréscimo de multa e juros em caso de inadimplemento.</p>
+<p><strong>CLÁUSULA 3 – Obrigações do CONTRATANTE.</strong></p>
+<p>§1º - Arcar com demais despesas ou obrigações que tenham cunho pessoal, como providenciar atestado de antecedentes criminais de seu país de origem devidamente legalizado ou apostilado e certificação de língua portuguesa (caso necessário) que é de sua responsabilidade relacionada aos serviços especificados, e demais documentos denominados pessoais de única e total responsabilidade do CONTRATANTE.</p>
+<p>§2º - Fornecer ao CONTRATADO todas as informações e elementos necessários ao início e ao desenvolvimento do processo, dentro de um tempo razoável para evitar atrasos ou interrupções dos procedimentos que são objeto deste contrato.</p>
+<p><strong>CLÁUSULA 4 – Obrigações da CONTRATADA.</strong></p>
+<p>O CONTRATADO se obriga a prestar todos os serviços acordados diante desse documento, conforme descrito em suas especificações, com seriedade, ética e da forma e modo ajustados, seguindo as melhores e mais atuais práticas do mercado, respeitando todas as especificações técnicas, normas e as condições de segurança que serão aplicáveis aos serviços contratados.</p>
+<p>§1º Sempre fornecer recibos que comprovem os pagamentos feitos pelo CONTRATANTE após o recebimento de quaisquer valores pagos.</p>
+<p>§2º Executar os serviços contratados utilizando a melhor didática e aplicabilidade, visando sempre atingir o melhor resultado, sendo-lhe vedada a transferência dos mesmos a terceiros, sem prévia e expressa concordância.</p>
+<p><strong>CLÁUSULA 5 – DO PRAZO PROCESSUAL.</strong></p>
+<p>A CONTRATADA só iniciará o processo após o envio de toda documentação pessoal por parte do contratante juntando com a documentação de responsabilidade da CONTRATADA.</p>
+<p><strong>CLÁUSULA 6 – DO INADIMPLEMENTO.</strong></p>
+<p>Em caso de atraso no pagamento superior a 10 DIAS, será pago uma multa no valor de 2%, além dos juros mensais no valor de 1% (um por cento) e correção monetária, em relação à parcela adimplida. Ultrapassado o prazo, permanecendo o contratante inadimplente, suportará o cancelamento do contrato por falta de cumprimento das obrigações aqui dispostas.</p>
+<p><strong>CLÁUSULA 7 – DO FORO.</strong></p>
+<p>As partes elegem o Foro da Comarca de São Paulo/SP para dirimir quaisquer dúvidas ou litígios oriundos do presente Contrato, com renúncia a qualquer outro, por mais privilegiado que seja.</p>
+<p style="margin-top:30px">São Paulo, ${d.data||'____ de __________________ de ______'}.</p>
+<div style="display:flex;gap:80px;margin-top:40px;flex-wrap:wrap">
+  ${SIG}
+  ${WB_SIG}
+</div>
+</body></html>`;
+
+  if (tipo==='termo_imagem') return `<html><body style="font-family:Times New Roman,serif;font-size:11pt;line-height:1.8;color:#111;padding:50px 60px;max-width:760px;margin:auto">
+${WB_HEADER}
+<h2 style="text-align:center;font-size:13pt;margin-bottom:28px">TERMO DE AUTORIZAÇÃO DE USO DE IMAGEM, VOZ E SOM</h2>
+<p>Eu, <strong>${d.nome||'_______________________________'}</strong>, portador(a) do CPF <strong>${d.cpf||'___________________'}</strong>, <strong>AUTORIZO</strong> a <strong>WELCOME2 BRAZIL ASSESSORIA PARA IMIGRANTES – CNPJ: 52.241.467/0001-27</strong>, sediado(a) em Av. Amador Bueno da Veiga, 1970 – Sala 19 – Penha – São Paulo, a utilizar a minha imagem, em todo e qualquer material entre imagens de vídeo, fotos e voz, capturados dentro de sua unidade ou fora dela, para divulgação do resultado de meu processo de naturalização/RNE. A presente autorização é concedida a título gratuito, abrangendo o uso da imagem acima mencionada em todo território nacional e no exterior em todas as Mídias Sociais.</p>
+<p>Por meio desta autorização ora concedida, autorizo WELCOME2 BRAZIL ASSESSORIA PARA IMIGRANTES – CNPJ: 52.241.467/0001-27, ainda a realizar nas imagens e sons captados, cortes, reduções e edições. Esta autorização não gera e não gerará no futuro e também não ensejará interpretação de existir quaisquer vínculos ou obrigações trabalhistas, securitárias, previdenciária, indenizatória, ou mesmo empregatícia, entre o(a) cedente e a WELCOME2 BRAZIL ASSESSORIA PARA IMIGRANTES – CNPJ: 52.241.467/0001-27.</p>
+<p>DECLARO, portanto, que estou de acordo com essas imagens, que não violam os direitos de imagem e de privacidade do cedente, e que tenho ciência que este material constituído por imagens e sons pertence exclusivamente WELCOME2 BRAZIL ASSESSORIA PARA IMIGRANTES – CNPJ: 52.241.467/0001-27, que poderá usá-lo a seu exclusivo critério. Com base na Constituição da República Federativa do Brasil de 1988, Art 5º § X.</p>
+<p style="margin-top:30px">São Paulo, ${d.data||'____ de __________________ de ______'}.</p>
+<div style="margin-top:50px">${SIG}</div>
+</body></html>`;
+
+  if (tipo==='checklist') {
+    const DOCS = [
+      ['RNM/RNE', ''],
+      ['CPF', ''],
+      ['Comprovante de Endereço (Atualizado)', ''],
+      ['Passaporte / Papel de Entrada no País', ''],
+      ['Comprovante dos Últimos 4 Anos (se não tiver vínculo brasileiro)', ''],
+      [`Antecedente Criminal (Apostilado) — Validade: <strong>${d.antVenc||'__/__/________'}</strong>`, ''],
+      ['Certificado de Língua Portuguesa', ''],
+      ['Certidão de Prova Presencial', ''],
+      [`Senha do Gov.BR: <strong>${d.govSenha||'_____________________________'}</strong>`, ''],
+      ['Certidão de Nascimento ou RG do Filho Brasileiro (se tiver)', ''],
+      ['Certidão de Casamento ou União Estável (se tiver)', ''],
+      ['Carteira de Trabalho / CNPJ / MEI', ''],
+    ];
+    const rows = DOCS.map(([label])=>`
+      <tr>
+        <td style="padding:8px 12px;border:1px solid #ccc;font-size:10.5pt">${label}</td>
+        <td style="padding:8px 12px;border:1px solid #ccc;text-align:center;width:80px">SIM ☐</td>
+        <td style="padding:8px 12px;border:1px solid #ccc;text-align:center;width:80px">NÃO ☐</td>
+      </tr>`).join('');
+    return `<html><body style="font-family:Times New Roman,serif;font-size:11pt;line-height:1.8;color:#111;padding:50px 60px;max-width:760px;margin:auto">
+${WB_HEADER}
+<h2 style="text-align:center;font-size:13pt;margin-bottom:24px">CHECKLIST DE DOCUMENTAÇÃO PESSOAIS OBRIGATÓRIAS</h2>
+<table style="width:100%;border-collapse:collapse;margin-bottom:30px">
+  <thead><tr>
+    <th style="padding:10px 12px;border:1px solid #ccc;background:#f5f5f5;text-align:left">Documento</th>
+    <th style="padding:10px 12px;border:1px solid #ccc;background:#f5f5f5;width:80px;text-align:center">SIM</th>
+    <th style="padding:10px 12px;border:1px solid #ccc;background:#f5f5f5;width:80px;text-align:center">NÃO</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<p style="margin-top:20px">São Paulo, ${d.data||'____ DE ____________________ DE ______'}.</p>
+<div style="margin-top:40px">${SIG}</div>
+</body></html>`;
+  }
+
+  if (tipo==='adaptacao_nome') {
+    const texto = d.adaptar==='sim'
+      ? `TEM INTERESSE em adaptar o meu nome para língua portuguesa, passando a utilizar o nome: <strong>${d.novoNome||'_______________________________'}</strong>.`
+      : `NÃO POSSUO INTERESSE em adaptar o meu nome para língua portuguesa.`;
+    return `<html><body style="font-family:Times New Roman,serif;font-size:11pt;line-height:1.8;color:#111;padding:50px 60px;max-width:760px;margin:auto">
+${WB_HEADER}
+<h2 style="text-align:center;font-size:13pt;margin-bottom:30px">DECLARAÇÃO DE ADAPTAÇÃO DE NOME</h2>
+<p>Eu, <strong>${d.nome||'_______________________________'}</strong>, inscrito(a) sob o CPF/MF Nº <strong>${d.cpf||'___________________'}</strong>, declaro para os devidos fins que <strong>${texto}</strong></p>
+<div style="margin-top:60px">${SIG}</div>
+</body></html>`;
+  }
+
+  if (tipo==='recibo') return `<html><body style="font-family:Times New Roman,serif;font-size:11pt;line-height:1.8;color:#111;padding:50px 60px;max-width:760px;margin:auto">
+${WB_HEADER}
+<h2 style="text-align:center;font-size:14pt;margin-bottom:30px">RECIBO DE PRESTAÇÃO DE SERVIÇO</h2>
+<p>A contratada declara para os devidos fins de direito ter recebido integralmente, <strong>${d.nome||'_______________________________'}</strong>, inscrito sob <strong>${d.rnm||'___________________'}</strong>, a importância de <strong>${d.valor||'R$_____________'} (${d.valorExt||'_______________________________'})</strong> na data de <strong>${d.data||'__/__/____'}</strong> via <strong>${d.forma||'PIX'}</strong>, referente a parcela da prestação de serviço <strong>${d.referencia||'Naturalização Brasileira'}</strong>.</p>
+<p style="margin-top:30px">São Paulo, ${d.data||'____ de __________________ de ______'}.</p>
+<div style="margin-top:50px">
+  ${WB_SIG}
+</div>
+</body></html>`;
+
+  return `<html><body><p>Tipo desconhecido.</p></body></html>`;
+}
+
+function _gerarPreviewDoc(tipo) {
+  const d = _coletarDados(tipo);
+  const html = _buildDocHTML(tipo, d, null);
+  const area = document.getElementById('doc_preview_area');
+  if (area) {
+    // Extract body content for preview
+    const match = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    if (match) area.innerHTML = match[1];
+  }
+}
+
+function _baixarDoc(tipo, cId, assinatura) {
+  const d = _coletarDados(tipo);
+  const docHtml = _buildDocHTML(tipo, d, assinatura||null);
+  const D = WB_DOCS.find(x=>x.id===tipo);
+  const nomeArq = `WB_${D?.titulo.replace(/[^a-zA-Z0-9]/g,'_')}_${(d.nome||'Cliente').split(' ')[0]}_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.doc`;
+
+  const blob = new Blob(['\ufeff', docHtml], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nomeArq;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`⬇️ "${D?.titulo}" baixado com sucesso!`);
+
+  // Registra no histórico do cliente se selecionado
+  if (cId && parseInt(cId)) {
+    const c = clientes.find(x=>x.id===parseInt(cId));
+    if (c) {
+      c.docsGerados = c.docsGerados||[];
+      c.docsGerados.push({ tipo, titulo:D?.titulo, data:new Date().toLocaleDateString('pt-BR'), hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) });
+      saveData();
+    }
+  }
+}
+
+function _baixarDocComAssinatura(tipo, cId) {
+  const canvas = document.getElementById('sig_canvas');
+  if (!canvas) { _baixarDoc(tipo, cId); return; }
+  const ctx = canvas.getContext('2d');
+  const pixels = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  const hasContent = pixels.some(v=>v!==0);
+  if (!hasContent) { showToast('⚠️ Por favor, desenhe sua assinatura antes de confirmar','warn'); return; }
+  const assinatura = canvas.toDataURL('image/png');
+  _baixarDoc(tipo, cId, assinatura);
+  // Salvar no perfil do cliente
+  if (cId && parseInt(cId)) {
+    const c = clientes.find(x=>x.id===parseInt(cId));
+    const D = WB_DOCS.find(x=>x.id===tipo);
+    if (c) {
+      c.assinaturas = c.assinaturas||[];
+      c.assinaturas.push({ contrato:D?.titulo||tipo, data:new Date().toLocaleDateString('pt-BR'), hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), img:assinatura });
+      saveData();
+      showToast('✅ Assinatura salva no perfil do cliente!');
+    }
+  }
+}
+
+
+// ══════════════════════════════════════════════
+// 📄 PDF — abre janela de impressão → Salvar PDF
+// ══════════════════════════════════════════════
+function _abrirJanelaPDF(docHtml, titulo) {
+  const win = window.open('', '_blank', 'width=900,height=750');
+  const body = docHtml.replace(/<html[^>]*>|<\/html>|<head[\s\S]*?<\/head>|<body[^>]*>|<\/body>/gi, '');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <title>${titulo} — WB Assessoria</title>
+    <style>
+      @page { size:A4; margin:2cm; }
+      * { box-sizing:border-box; }
+      body { margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      @media screen { body { background:#e8e8e8; } .wb-page { background:#fff; max-width:21cm; margin:20px auto; padding:2cm; box-shadow:0 4px 24px rgba(0,0,0,0.18); } }
+      @media print { .wb-barra { display:none!important; } .wb-page { margin:0; padding:0; box-shadow:none; } }
+    </style>
+  </head><body>
+    <div class="wb-barra" style="background:#0d1929;color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:99">
+      <span style="font-weight:700;font-size:0.88rem">📄 ${titulo}</span>
+      <div style="display:flex;gap:8px">
+        <button onclick="window.print()" style="background:#c9a84c;color:#0a0f1e;border:none;border-radius:7px;padding:8px 20px;font-weight:800;cursor:pointer;font-size:0.85rem">🖨️ Salvar como PDF</button>
+        <button onclick="window.close()" style="background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:7px;padding:8px 14px;cursor:pointer;font-size:0.85rem">✕</button>
+      </div>
+    </div>
+    <div class="wb-page">${body}</div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 600);
+}
+
+function _baixarPDF(tipo, cId) {
+  const d = _coletarDados(tipo);
+  const D = WB_DOCS.find(x => x.id === tipo);
+  const docHtml = _buildDocHTML(tipo, d, null);
+  _abrirJanelaPDF(docHtml, D?.titulo || tipo);
+  _registrarDocGerado(tipo, cId, 'PDF');
+}
+
+function _baixarPDFComAssin(tipo, cId) {
+  const canvas = document.getElementById('sig_canvas');
+  if (!canvas) { _baixarPDF(tipo, cId); return; }
+  const ctx = canvas.getContext('2d');
+  const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  if (!px.some(v => v !== 0)) { showToast('⚠️ Desenhe a assinatura primeiro', 'warn'); return; }
+  const assin = canvas.toDataURL('image/png');
+  const d = _coletarDados(tipo);
+  const D = WB_DOCS.find(x => x.id === tipo);
+  const docHtml = _buildDocHTML(tipo, d, assin);
+  _abrirJanelaPDF(docHtml, D?.titulo || tipo);
+  _salvarAssinaturaCliente(tipo, cId, assin);
+  _registrarDocGerado(tipo, cId, 'PDF');
+}
+
+function _registrarDocGerado(tipo, cId, formato) {
+  if (!cId || !parseInt(cId)) return;
+  const c = clientes.find(x => x.id === parseInt(cId));
+  if (!c) return;
+  const D = WB_DOCS.find(x => x.id === tipo);
+  c.docsGerados = c.docsGerados || [];
+  c.docsGerados.push({ tipo, titulo: D?.titulo, data: new Date().toLocaleDateString('pt-BR'), hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}), formato });
+  saveData();
+}
+
+function _salvarAssinaturaCliente(tipo, cId, assin) {
+  if (!cId || !parseInt(cId)) return;
+  const c = clientes.find(x => x.id === parseInt(cId));
+  if (!c) return;
+  const D = WB_DOCS.find(x => x.id === tipo);
+  c.assinaturas = c.assinaturas || [];
+  c.assinaturas.push({ contrato: D?.titulo || tipo, data: new Date().toLocaleDateString('pt-BR'), hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), img: assin });
+  saveData();
+  showToast('✅ Assinatura salva no perfil do cliente!');
+}
+
+// ══════════════════════════════════════════════
+// 📤 PUBLICAR NO PORTAL DO CLIENTE
+// ══════════════════════════════════════════════
+function _publicarPortal(tipo, cId) {
+  const c = clientes.find(x => x.id === parseInt(cId));
+  if (!c) { showToast('⚠️ Selecione um cliente', 'warn'); return; }
+  const d = _coletarDados(tipo);
+  const D = WB_DOCS.find(x => x.id === tipo);
+  const docHtml = _buildDocHTML(tipo, d, null);
+  _gravarDocPortal(c, tipo, D, docHtml, null);
+}
+
+function _publicarPortalAssinado(tipo, cId) {
+  const canvas = document.getElementById('sig_canvas');
+  if (!canvas) { _publicarPortal(tipo, cId); return; }
+  const ctx = canvas.getContext('2d');
+  const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  if (!px.some(v => v !== 0)) { showToast('⚠️ Desenhe a assinatura primeiro', 'warn'); return; }
+  const assin = canvas.toDataURL('image/png');
+  const c = clientes.find(x => x.id === parseInt(cId));
+  if (!c) return;
+  const d = _coletarDados(tipo);
+  const D = WB_DOCS.find(x => x.id === tipo);
+  const docHtml = _buildDocHTML(tipo, d, assin);
+  _gravarDocPortal(c, tipo, D, docHtml, assin);
+  _salvarAssinaturaCliente(tipo, cId, assin);
+}
+
+function _gravarDocPortal(c, tipo, D, docHtml, assin) {
+  c.docsPortal = c.docsPortal || [];
+  const idx = c.docsPortal.findIndex(x => x.tipo === tipo);
+  const entry = {
+    tipo,
+    titulo: D?.titulo || tipo,
+    icon: D?.icon || '📄',
+    html: docHtml,
+    assinado: !!assin,
+    data: new Date().toLocaleDateString('pt-BR'),
+    hora: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}),
+  };
+  if (idx >= 0) c.docsPortal[idx] = entry;
+  else c.docsPortal.push(entry);
+  _log(c.id, `Documento "${D?.titulo}" publicado no portal`);
+  saveData();
+  showToast(`✅ "${D?.titulo}" publicado no portal de ${c.nome}!`);
+  closeModal();
+}
+
+// ── Portal do cliente: ver e baixar doc ──────────────────────────
+function _verDocPortal(idx) {
+  const c = clienteLogado();
+  if (!c) return;
+  const doc = (c.docsPortal || [])[idx];
+  if (!doc) return;
+  openModal(`
+    <div style="padding:18px 22px 0;background:var(--navy3);border-radius:18px 18px 0 0;flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:700;color:var(--gold)">${doc.icon||'📄'} ${doc.titulo}</div>
+          <div style="font-size:0.72rem;color:var(--text3);margin-top:3px">Disponibilizado em ${doc.data} às ${doc.hora}${doc.assinado?' · <span style="color:#4ade80">✅ Assinado digitalmente</span>':''}</div>
+        </div>
+        <button onclick="closeModal()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:6px 12px;color:rgba(255,255,255,0.6);cursor:pointer">✕</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:20px;max-height:58vh">
+      <div style="background:#fff;border-radius:10px;padding:28px 36px;font-family:'Times New Roman',serif;font-size:10.5pt;line-height:1.8;color:#111">
+        ${(doc.html||'').replace(/<html[^>]*>|<\/html>|<head[\s\S]*?<\/head>|<body[^>]*>|<\/body>/gi,'')}
+      </div>
+    </div>
+    <div style="padding:14px 22px;display:flex;gap:10px;border-top:1px solid var(--border2)">
+      <button onclick="_pdfDocPortal(${idx})" class="btn btn-gold" style="flex:1">⬇️ Baixar PDF</button>
+      <button onclick="closeModal()" class="btn btn-outline">Fechar</button>
+    </div>
+  `, 'modal-xl');
+}
+
+function _pdfDocPortal(idx) {
+  const c = clienteLogado();
+  if (!c) return;
+  const doc = (c.docsPortal || [])[idx];
+  if (!doc) return;
+  _abrirJanelaPDF(doc.html || '', doc.titulo);
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// 📝 HISTÓRICO DE ALTERAÇÕES — registra logs em cada cliente
+// ══════════════════════════════════════════════════════════════════
+function _log(clienteId, acao) {
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  c.log = c.log||[];
+  c.log.push({
+    ts:   Date.now(),
+    data: new Date().toLocaleDateString('pt-BR'),
+    hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+    quem: currentUser?.nome || currentRole || '?',
+    acao,
+  });
+  if (c.log.length > 100) c.log = c.log.slice(-100); // mantém últimas 100
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🔔 PAINEL DE ALERTAS AUTOMÁTICOS (abre ao logar)
+// ══════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════
+// 🗓️ CALENDÁRIO VISUAL DE PROCESSOS
+// ══════════════════════════════════════════════════════════════════
+let _calMes = new Date().getMonth();
+let _calAno = new Date().getFullYear();
+
+function renderCalendario() {
+  const hoje = new Date();
+  const mesLabel = new Date(_calAno, _calMes, 1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const primDia  = new Date(_calAno, _calMes, 1).getDay();
+  const diasMes  = new Date(_calAno, _calMes+1, 0).getDate();
+
+  // Coletar eventos
+  const eventos = {};
+  const addEv = (dia, ev) => { eventos[dia] = eventos[dia]||[]; eventos[dia].push(ev); };
+
+  clientes.forEach(c => {
+    // Vencimento antecedente
+    const venc = c.antecedente?.vencimento;
+    if (venc) {
+      const [d2,m2,y2] = venc.split('/');
+      if (parseInt(m2)-1===_calMes && parseInt(y2)===_calAno)
+        addEv(parseInt(d2), { label:`⚠️ ${c.nome.split(' ')[0]} - Ant. vence`, cor:'#ef4444', cId:c.id });
+    }
+    // Data cadastro
+    if (c.dataCadastro) {
+      const [d2,m2,y2] = c.dataCadastro.split('/');
+      if (parseInt(m2)-1===_calMes && parseInt(y2)===_calAno)
+        addEv(parseInt(d2), { label:`🆕 ${c.nome.split(' ')[0]} - Cadastro`, cor:'#4ade80', cId:c.id });
+    }
+    // Aniversário
+    if (c.dataNascimento) {
+      const [d2,m2] = c.dataNascimento.split('/');
+      if (parseInt(m2)-1===_calMes)
+        addEv(parseInt(d2), { label:`🎂 ${c.nome.split(' ')[0]}`, cor:'#c084fc', cId:c.id });
+    }
+  });
+  // Agendamentos
+  agendamentos.forEach(ag => {
+    if (!ag.data) return;
+    const [d2,m2,y2] = ag.data.split('/');
+    if (parseInt(m2)-1===_calMes && parseInt(y2)===_calAno)
+      addEv(parseInt(d2), { label:`📅 ${ag.nome||ag.tipo||'Agendamento'}`, cor:'#60a5fa', cId:null });
+  });
+
+  const semanas = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  let dias = '';
+  let celulas = primDia;
+  for (let i=0; i<primDia; i++) dias += `<div style="min-height:80px"></div>`;
+  for (let d=1; d<=diasMes; d++) {
+    const isHoje = d===hoje.getDate() && _calMes===hoje.getMonth() && _calAno===hoje.getFullYear();
+    const evs = eventos[d]||[];
+    dias += `<div style="min-height:80px;padding:6px;background:${isHoje?'rgba(201,168,76,0.1)':'var(--navy3)'};border-radius:8px;border:1px solid ${isHoje?'rgba(201,168,76,0.4)':'var(--border2)'};cursor:default">
+      <div style="font-weight:${isHoje?700:500};font-size:0.85rem;color:${isHoje?'var(--gold)':'var(--text)'};margin-bottom:4px">${d}${isHoje?' ◀':''}</div>
+      ${evs.slice(0,3).map(e=>`<div onclick="${e.cId?`openClienteModal(${e.cId})`:''}";
+        style="font-size:0.65rem;padding:2px 5px;border-radius:3px;background:${e.cor}22;border-left:2px solid ${e.cor};color:var(--text);margin-bottom:2px;cursor:${e.cId?'pointer':'default'};overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:100%"
+        title="${e.label}">${e.label}</div>`).join('')}
+      ${evs.length>3?`<div style="font-size:0.62rem;color:var(--text3);margin-top:1px">+${evs.length-3} mais</div>`:''}
+    </div>`;
+    celulas++;
+  }
+  while (celulas%7!==0) { dias += `<div style="min-height:80px"></div>`; celulas++; }
+
+  const totalEventos = Object.values(eventos).flat().length;
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button onclick="_calNav(-1)" style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:8px 14px;color:var(--text);cursor:pointer;font-size:1rem">‹</button>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:var(--gold);min-width:200px;text-align:center;text-transform:capitalize">${mesLabel}</div>
+        <button onclick="_calNav(1)" style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:8px 14px;color:var(--text);cursor:pointer;font-size:1rem">›</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div style="font-size:0.78rem;color:var(--text3)">${totalEventos} evento(s) neste mês</div>
+        <button onclick="_calNav(0,true)" style="background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:7px;padding:6px 14px;color:var(--gold);font-size:0.8rem;cursor:pointer;font-weight:600">Hoje</button>
+      </div>
+    </div>
+
+    <!-- Legenda -->
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;font-size:0.75rem">
+      ${[['#4ade80','Cadastro'],['#ef4444','Vencimento'],['#60a5fa','Agendamento'],['#c084fc','Aniversário']].map(([cor,label])=>
+        `<div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:${cor}"></div>${label}</div>`).join('')}
+    </div>
+
+    <!-- Grid -->
+    <div style="background:var(--navy2);border-radius:12px;overflow:hidden;border:1px solid var(--border2)">
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--navy3);border-bottom:1px solid var(--border2)">
+        ${semanas.map(s=>`<div style="padding:10px 6px;text-align:center;font-size:0.75rem;font-weight:700;color:var(--text3);letter-spacing:1px">${s}</div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:8px">${dias}</div>
+    </div>
+
+    <!-- Eventos do mês (lista) -->
+    ${totalEventos > 0 ? `
+    <div class="panel" style="margin-top:24px">
+      <div class="panel-header"><span class="panel-title">📋 Eventos de ${mesLabel}</span></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:7px">
+        ${Object.entries(eventos).sort((a,b)=>parseInt(a[0])-parseInt(b[0])).flatMap(([dia,evs])=>
+          evs.map(e=>`<div onclick="${e.cId?`openClienteModal(${e.cId})`:''}" style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--navy3);border-radius:8px;border-left:3px solid ${e.cor};cursor:${e.cId?'pointer':'default'}" ${e.cId?`onmouseover="this.style.background='var(--navy4)'" onmouseout="this.style.background='var(--navy3)'"`:''}>
+            <div style="font-weight:700;color:${e.cor};min-width:24px;text-align:center">${dia}</div>
+            <div style="font-size:0.83rem">${e.label}</div>
+          </div>`)
+        ).join('')}
+      </div>
+    </div>` : ''}
+  `;
+}
+
+function _calNav(delta, reset) {
+  if (reset) { _calMes = new Date().getMonth(); _calAno = new Date().getFullYear(); }
+  else { _calMes += delta; if(_calMes<0){_calMes=11;_calAno--;}else if(_calMes>11){_calMes=0;_calAno++;} }
+  navigateTo('calendario');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 💬 RESPOSTA AUTOMÁTICA NO CHAT
+// ══════════════════════════════════════════════════════════════════
+const CHAT_AUTO_CONFIG = {
+  ativo: true,
+  horarioInicio: 8,   // 8h
+  horarioFim:    18,  // 18h
+  diasUteis:     [1,2,3,4,5], // seg-sex
+  mensagem: `Olá! 👋 Recebemos sua mensagem e em breve um membro da nossa equipe irá respondê-la.\n\nNosso horário de atendimento é de segunda a sexta, das 8h às 18h.\n\nPara assuntos urgentes, fale direto no WhatsApp: (11) 91425-8886 🇧🇷\n\n— WB Assessoria Migratória`,
+};
+
+function _enviarAutoResposta(clienteId) {
+  if (!CHAT_AUTO_CONFIG.ativo) return;
+  const agora = new Date();
+  const hora  = agora.getHours();
+  const dia   = agora.getDay();
+  const dentroHorario = CHAT_AUTO_CONFIG.diasUteis.includes(dia) && hora >= CHAT_AUTO_CONFIG.horarioInicio && hora < CHAT_AUTO_CONFIG.horarioFim;
+  if (dentroHorario) return; // só envia fora do horário
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  // Evita spam: não envia se já foi enviado nas últimas 6h
+  const chat = c.chat||[];
+  const ultima = [...chat].reverse().find(m=>m.de==='auto');
+  if (ultima) {
+    const [h,mi] = (ultima.hora||'00:00').split(':');
+    const agH = agora.getHours(), agMi = agora.getMinutes();
+    const diffMin = (agH*60+agMi) - (parseInt(h)*60+parseInt(mi));
+    if (diffMin < 360) return;
+  }
+  setTimeout(() => {
+    const c2 = clientes.find(x=>x.id===clienteId);
+    if (!c2) return;
+    c2.chat = c2.chat||[];
+    c2.chat.push({
+      de:'auto',
+      msg: CHAT_AUTO_CONFIG.mensagem,
+      hora: agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+      data: agora.toLocaleDateString('pt-BR'),
+    });
+    saveData();
+  }, 2000); // leve delay para parecer mais natural
+}
+
 function renderGeradorContrato() {
   const todosModelos = [
     { id:'nat',  nome:'Contrato – Naturalização Brasileira',    servico:'Naturalização' },
@@ -9371,9 +10412,26 @@ function enviarRespostaChat(clienteId) {
   if (!c) return;
   c.chat = c.chat||[];
   c.chat.push({ de:'wb', msg, hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), data: new Date().toLocaleDateString('pt-BR') });
+  _log(clienteId, `Mensagem enviada via chat interno`);
   saveData();
   closeModal();
   showToast('✅ Resposta enviada ao cliente!');
+}
+
+// Chat do portal do cliente — com auto-resposta
+function enviarMsgCliente(clienteId) {
+  const inp = document.getElementById('chat_cli_input') || document.getElementById('chat_resp_input');
+  const msg = inp?.value?.trim();
+  if (!msg) return;
+  const c = clientes.find(x=>x.id===clienteId);
+  if (!c) return;
+  c.chat = c.chat||[];
+  c.chat.push({ de:'cliente', msg, hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), data:new Date().toLocaleDateString('pt-BR') });
+  _enviarAutoResposta(clienteId);
+  saveData();
+  if (inp) inp.value='';
+  showToast('✅ Mensagem enviada!');
+  navigateTo('mensagens-cliente');
 }
 
 // ══════════════════════════════════════════════════════════════════
