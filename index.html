@@ -10,7 +10,7 @@
 <meta name="description" content="WB Assessoria Migratória — Sistema de Gestão">
 <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;WB Assessoria Migrat%C3%B3ria&quot;,&quot;short_name&quot;:&quot;WB ERP&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%230a0f1e&quot;,&quot;theme_color&quot;:&quot;%230a0f1e&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230a0f1e'/%3E%3Ctext y='130' x='32' font-size='120' font-family='serif'%3E%F0%9F%87%A7%F0%9F%87%B7%3C/text%3E%3C/svg%3E&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}">
 <title>WB Assessoria Migratória — ERP</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --navy: #0a0f1e;
@@ -33,8 +33,19 @@
     --shadow: 0 20px 60px rgba(0,0,0,0.5);
   }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'DM Sans',sans-serif; background:var(--navy); color:var(--text); min-height:100vh; overflow-x:hidden; }
+  body { font-family:'Plus Jakarta Sans',sans-serif; background:var(--navy); color:var(--text); min-height:100vh; overflow-x:hidden; }
   
+
+  /* ── Financial Status Badges ── */
+  .fin-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:0.72rem; font-weight:700; letter-spacing:0.3px; white-space:nowrap; }
+  .fin-badge-quitado  { background:rgba(74,222,128,0.12);  border:1px solid rgba(74,222,128,0.35);  color:#4ade80; }
+  .fin-badge-emdia    { background:rgba(96,165,250,0.12);  border:1px solid rgba(96,165,250,0.35);  color:#60a5fa; }
+  .fin-badge-atrasado { background:rgba(239,68,68,0.12);   border:1px solid rgba(239,68,68,0.4);    color:#f87171; }
+  .fin-badge-futuro   { background:rgba(148,163,184,0.1);  border:1px solid rgba(148,163,184,0.2);  color:#94a3b8; }
+  .fin-row-quitado  { background:rgba(74,222,128,0.035) !important; }
+  .fin-row-atrasado { background:rgba(239,68,68,0.06)   !important; }
+  .fin-row-emdia    { background:rgba(96,165,250,0.035) !important; }
+
   /* SCROLLBAR */
   ::-webkit-scrollbar { width:6px; }
   ::-webkit-scrollbar-track { background:var(--navy2); }
@@ -61,7 +72,7 @@
     position:relative; z-index:1;
   }
   .login-logo { text-align:center; margin-bottom:40px; }
-  .login-logo .brand { font-family:'Cormorant Garamond',serif; font-size:2.6rem; font-weight:700; color:var(--gold); letter-spacing:2px; }
+  .login-logo .brand { font-family:'Space Grotesk',sans-serif; font-size:2.6rem; font-weight:700; color:var(--gold); letter-spacing:2px; }
   .login-logo .sub { font-size:0.7rem; letter-spacing:4px; color:var(--text2); text-transform:uppercase; margin-top:4px; }
   .login-logo .divider { width:60px; height:1px; background:linear-gradient(90deg,transparent,var(--gold),transparent); margin:16px auto; }
   .role-tabs { display:flex; gap:8px; margin-bottom:32px; background:var(--navy2); border-radius:12px; padding:4px; }
@@ -71,13 +82,13 @@
   .form-group label { display:block; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; color:var(--text2); margin-bottom:8px; }
   .form-group input {
     width:100%; background:var(--navy2); border:1px solid var(--border2);
-    border-radius:10px; padding:14px 16px; color:var(--text); font-family:'DM Sans',sans-serif;
+    border-radius:10px; padding:14px 16px; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;
     font-size:0.9rem; outline:none; transition:border-color 0.2s;
   }
   .form-group input:focus { border-color:var(--gold); }
   .login-btn {
     width:100%; padding:16px; background:linear-gradient(135deg,var(--gold),#a87f2e);
-    border:none; border-radius:12px; color:var(--navy); font-family:'DM Sans',sans-serif;
+    border:none; border-radius:12px; color:var(--navy); font-family:'Plus Jakarta Sans',sans-serif;
     font-size:0.9rem; font-weight:700; letter-spacing:1px; cursor:pointer; transition:all 0.25s; margin-top:8px;
     text-transform:uppercase;
   }
@@ -96,7 +107,7 @@
     transition:transform 0.3s;
   }
   .sidebar-logo { padding:28px 24px 20px; border-bottom:1px solid var(--border2); }
-  .sidebar-logo .brand { font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:700; color:var(--gold); }
+  .sidebar-logo .brand { font-family:'Space Grotesk',sans-serif; font-size:1.5rem; font-weight:700; color:var(--gold); }
   .sidebar-logo .sub { font-size:0.65rem; letter-spacing:3px; color:var(--text3); text-transform:uppercase; }
   .sidebar-user { padding:16px 24px; border-bottom:1px solid var(--border2); display:flex; align-items:center; gap:12px; }
   .user-avatar { width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,var(--gold),var(--navy4)); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.85rem; color:var(--navy); flex-shrink:0; }
@@ -114,7 +125,7 @@
   .nav-item .icon { width:18px; text-align:center; font-size:1rem; }
   .nav-badge { margin-left:auto; background:var(--gold); color:var(--navy); font-size:0.65rem; font-weight:700; padding:2px 7px; border-radius:10px; }
   .sidebar-bottom { padding:16px 24px; border-top:1px solid var(--border2); }
-  .logout-btn { display:flex; align-items:center; gap:10px; color:var(--text3); font-size:0.82rem; cursor:pointer; transition:color 0.2s; background:none; border:none; font-family:'DM Sans',sans-serif; }
+  .logout-btn { display:flex; align-items:center; gap:10px; color:var(--text3); font-size:0.82rem; cursor:pointer; transition:color 0.2s; background:none; border:none; font-family:'Plus Jakarta Sans',sans-serif; }
   .logout-btn:hover { color:var(--red); }
 
   /* MAIN */
@@ -124,7 +135,7 @@
     justify-content:space-between; background:rgba(10,15,30,0.8); backdrop-filter:blur(10px);
     position:sticky; top:0; z-index:50;
   }
-  .topbar-title { font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:600; color:var(--text); }
+  .topbar-title { font-family:'Space Grotesk',sans-serif; font-size:1.5rem; font-weight:600; color:var(--text); }
   .topbar-right { display:flex; align-items:center; gap:16px; }
   .notif-btn { width:38px; height:38px; border-radius:10px; background:var(--navy3); border:1px solid var(--border2); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1rem; position:relative; }
   .notif-dot { position:absolute; top:8px; right:8px; width:8px; height:8px; background:var(--gold); border-radius:50%; }
@@ -143,7 +154,7 @@
   .stat-card.green::after { background:linear-gradient(90deg,#10b981,#34d399); }
   .stat-card.red::after { background:linear-gradient(90deg,#ef4444,#f87171); }
   .stat-label { font-size:0.72rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--text3); margin-bottom:12px; }
-  .stat-value { font-family:'Cormorant Garamond',serif; font-size:2.4rem; font-weight:700; color:var(--text); line-height:1; }
+  .stat-value { font-family:'Space Grotesk',sans-serif; font-size:2.3rem; font-weight:700; color:var(--text); line-height:1; letter-spacing:-0.5px; }
   .stat-sub { font-size:0.75rem; color:var(--text3); margin-top:8px; }
   .stat-icon { position:absolute; right:20px; top:20px; font-size:1.8rem; opacity:0.15; }
 
@@ -181,7 +192,7 @@
   .progress-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--gold),var(--gold2)); transition:width 0.6s ease; }
 
   /* BTN */
-  .btn { padding:10px 20px; border-radius:10px; border:none; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.82rem; font-weight:600; letter-spacing:0.5px; transition:all 0.2s; display:inline-flex; align-items:center; gap:8px; }
+  .btn { padding:10px 20px; border-radius:10px; border:none; cursor:pointer; font-family:'Plus Jakarta Sans',sans-serif; font-size:0.82rem; font-weight:600; letter-spacing:0.5px; transition:all 0.2s; display:inline-flex; align-items:center; gap:8px; }
   .btn-gold { background:var(--gold); color:var(--navy); }
   .btn-gold:hover { background:var(--gold2); transform:translateY(-1px); }
   .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text2); }
@@ -205,7 +216,7 @@
   .form-field label { font-size:0.72rem; letter-spacing:1px; text-transform:uppercase; color:var(--text3); }
   .form-field input, .form-field select, .form-field textarea {
     background:var(--navy2); border:1px solid var(--border2); border-radius:10px;
-    padding:12px 14px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:0.85rem; outline:none; transition:border-color 0.2s;
+    padding:12px 14px; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif; font-size:0.85rem; outline:none; transition:border-color 0.2s;
   }
   .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color:var(--gold); }
   .form-field select option { background:var(--navy2); }
@@ -235,7 +246,7 @@
   .mxl-body { flex:1;overflow-y:auto;padding:22px 26px; }
   /* ── Wizard XL (cadastro) ── */
   .modal-wiz { width:min(820px,97vw)!important;max-height:94vh!important;overflow-y:auto!important; }
-  .modal-title { font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:600;margin-bottom:24px;color:var(--gold); }
+  .modal-title { font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:600;margin-bottom:24px;color:var(--gold); }
   .modal-actions { display:flex;gap:12px;margin-top:24px;justify-content:flex-end; }
 
   /* CHECKLIST */
@@ -275,7 +286,7 @@
     width:200px; height:200px; border-radius:50%;
     background:radial-gradient(circle,rgba(201,168,76,0.1),transparent 70%);
   }
-  .client-name { font-family:'Cormorant Garamond',serif; font-size:2rem; font-weight:700; color:var(--gold); }
+  .client-name { font-family:'Space Grotesk',sans-serif; font-size:2rem; font-weight:700; color:var(--gold); }
   .client-process { font-size:0.8rem; color:var(--text3); margin-top:4px; letter-spacing:1px; }
 
   /* ANIMATIONS */
@@ -1338,123 +1349,302 @@ function renderPage(page) {
 
 // ─── DASHBOARD ───
 function renderDashboard() {
-  const total       = clientes.length;
-  const ativos      = clientes.filter(c => c.status === 'Em andamento').length;
-  const concluidos  = clientes.filter(c => c.status === 'Concluído').length;
-  const receitaTotal= clientes.filter(c=>c.pago).reduce((a,b)=>a+b.valor,0);
+  const hoje     = new Date();
+  const total    = clientes.length;
+  const ativos   = clientes.filter(c=>c.status==='Em andamento').length;
+  const conc     = clientes.filter(c=>c.status==='Concluído').length;
+  const pend     = clientes.filter(c=>c.status==='Pendente Documentação').length;
+  const recTotal = clientes.filter(c=>c.pago).reduce((a,b)=>a+(b.valor||0),0);
+  const recPend  = clientes.filter(c=>!c.pago).reduce((a,b)=>a+(b.valor||0),0);
 
-  // Gráfico de receita mensal dinâmico (últimos 6 meses com clientes pagos)
-  const porMes = {};
+  // ── Receita mensal (últimos 6 meses, somando parcelas pagas + clientes pagos) ──
+  const mesesMap = {};
+  for (let i=5;i>=0;i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth()-i, 1);
+    const k = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}`;
+    mesesMap[k] = { label: MESES_PT[d.getMonth()].slice(0,3), receita:0, previsto:0 };
+  }
+  // Parcelas pagas (parcelasLivres)
   clientes.forEach(c => {
-    if (!c.pago || !c.dataCadastro) return;
-    const p = c.dataCadastro.split('/');
-    if (p.length < 3) return;
-    const key = `${p[2]}${p[1].padStart(2,'0')}`;
-    const label = MESES_PT[parseInt(p[1])-1];
-    if (!porMes[key]) porMes[key] = { mes: label, receita: 0 };
-    porMes[key].receita += c.valor || 0;
+    (c.parcelasLivres||[]).forEach(p => {
+      if (p.paga && p.dataPgtoISO) {
+        const k = p.dataPgtoISO.slice(0,7).replace('-','');
+        if (mesesMap[k]) mesesMap[k].receita += parseFloat(p.valor)||0;
+      } else if (!p.paga && p.vencISO) {
+        const k = p.vencISO.slice(0,7).replace('-','');
+        if (mesesMap[k]) mesesMap[k].previsto += parseFloat(p.valor)||0;
+      }
+    });
+    // Clientes pagos sem parcelasLivres (sistema antigo)
+    if (c.pago && c.dataCadastro && !(c.parcelasLivres||[]).length) {
+      const [d2,m2,y2] = c.dataCadastro.split('/');
+      const k = `${y2}${m2.padStart(2,'0')}`;
+      if (mesesMap[k]) mesesMap[k].receita += c.valor||0;
+    }
   });
-  const grafico  = Object.entries(porMes).sort((a,b)=>a[0]>b[0]?1:-1).slice(-6).map(e=>e[1]);
-  const maxR     = grafico.length ? Math.max(...grafico.map(f=>f.receita), 1) : 1;
+  const graf = Object.values(mesesMap);
+  const maxVal = Math.max(...graf.map(g=>g.receita+g.previsto), 1);
+
+  // ── Distribuição por etapa ──
+  const etapaCount = {};
+  clientes.filter(c=>c.status==='Em andamento').forEach(c => {
+    const etapas = getEtapasCliente(c.servico);
+    const label = etapas[c.etapa||0]?.label || `Etapa ${c.etapa}`;
+    etapaCount[label] = (etapaCount[label]||0)+1;
+  });
+  const etapasSorted = Object.entries(etapaCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // ── Leads pipeline ──
+  const leadEtapas = ['novo','contato','proposta','negociacao','ganho','perdido'];
+  const leadCount = {};
+  leadEtapas.forEach(e => leadCount[e] = (leads||[]).filter(l=>l.etapa===e).length);
+
+  // ── Alertas urgentes ──
+  const alertas = [];
+  clientes.forEach(c => {
+    const venc = c.antecedente?.vencimento;
+    if (venc) {
+      const [dv,mv,yv]=venc.split('/');
+      const diff=Math.ceil((new Date(yv,mv-1,dv)-hoje)/864e5);
+      if (diff<=30) alertas.push({nivel:diff<0?'🔴':'🟡',msg:`${c.nome.split(' ')[0]} — antecedente ${diff<0?`vencido ${Math.abs(diff)}d`:`vence ${diff}d`}`,cId:c.id});
+    }
+    (c.parcelasLivres||[]).forEach(p => {
+      if (!p.paga && p.vencISO) {
+        const diff=Math.ceil((new Date(p.vencISO)-hoje)/864e5);
+        if (diff<0) alertas.push({nivel:'🔴',msg:`${c.nome.split(' ')[0]} — parcela "${p.desc||''}" vencida ${Math.abs(diff)}d`,cId:c.id});
+        else if (diff<=7) alertas.push({nivel:'🟡',msg:`${c.nome.split(' ')[0]} — parcela vence em ${diff}d`,cId:c.id});
+      }
+    });
+    if ((c.docsPendentes||[]).length>0) alertas.push({nivel:'🟡',msg:`${c.nome.split(' ')[0]} — ${c.docsPendentes.length} doc(s) pendente(s)`,cId:c.id});
+  });
+
+  // ── Agenda hoje ──
+  const dataHoje = hoje.toLocaleDateString('pt-BR');
+  const agHoje   = (agendamentos||[]).filter(a=>a.data===dataHoje).sort((a,b)=>a.hora>b.hora?1:-1);
+
+  // ── Aniversários hoje/essa semana ──
+  const anivHoje = clientes.filter(c=>{
+    if(!c.dataNascimento) return false;
+    const [d2,m2]=c.dataNascimento.split('/');
+    return parseInt(d2)===hoje.getDate() && parseInt(m2)-1===hoje.getMonth();
+  });
 
   return `
     ${widgetAniversarios()}
-    <div class="stat-grid">
-      <div class="stat-card gold"><div class="stat-icon">👥</div><div class="stat-label">Total de Clientes</div><div class="stat-value">${total}</div><div class="stat-sub">Todos os serviços</div></div>
-      <div class="stat-card blue"><div class="stat-icon">⚙️</div><div class="stat-label">Processos Ativos</div><div class="stat-value">${ativos}</div><div class="stat-sub">Em andamento</div></div>
-      <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-label">Concluídos</div><div class="stat-value">${concluidos}</div><div class="stat-sub">Este ano</div></div>
-      <div class="stat-card red"><div class="stat-icon">💰</div><div class="stat-label">Receita Total</div><div class="stat-value">R$${(receitaTotal/1000).toFixed(0)}k</div><div class="stat-sub">Processada</div></div>
+
+    <!-- KPIs principais -->
+    <div class="stat-grid" style="margin-bottom:24px">
+      <div class="stat-card gold" style="cursor:pointer" onclick="navigateTo('clientes')">
+        <div class="stat-icon">👥</div><div class="stat-label">Total Clientes</div>
+        <div class="stat-value">${total}</div><div class="stat-sub">${ativos} em andamento</div>
+      </div>
+      <div class="stat-card green" style="cursor:pointer" onclick="navigateTo('clientes')">
+        <div class="stat-icon">✅</div><div class="stat-label">Concluídos</div>
+        <div class="stat-value">${conc}</div>
+        <div class="stat-sub">${total?Math.round(conc/total*100):0}% taxa</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-icon">💰</div><div class="stat-label">Receita Realizada</div>
+        <div class="stat-value">R$${(recTotal/1000).toFixed(1)}k</div>
+        <div class="stat-sub" style="color:var(--orange)">+R$${(recPend/1000).toFixed(1)}k pendente</div>
+      </div>
+      <div class="stat-card ${alertas.filter(a=>a.nivel==='🔴').length?'red':'gold'}" style="cursor:pointer" onclick="navigateTo('prazos')">
+        <div class="stat-icon">🔔</div><div class="stat-label">Alertas</div>
+        <div class="stat-value">${alertas.length}</div>
+        <div class="stat-sub">${alertas.filter(a=>a.nivel==='🔴').length} urgente(s)</div>
+      </div>
     </div>
 
-    <div class="grid-3">
-      <div class="panel">
+    <!-- Linha 1: Gráfico receita + Distribuição serviços -->
+    <div class="grid-2" style="margin-bottom:20px">
+
+      <!-- Gráfico receita mensal -->
+      <div class="panel" style="margin:0">
         <div class="panel-header">
-          <span class="panel-title">Processos Recentes</span>
-          <button class="btn btn-outline btn-sm" onclick="navigateTo('clientes')">Ver todos</button>
+          <span class="panel-title">📈 Receita Mensal</span>
+          <div style="display:flex;gap:10px;font-size:0.72rem">
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--gold);display:inline-block"></span>Realizada</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(201,168,76,0.2);border:1px solid var(--gold);display:inline-block"></span>Prevista</span>
+          </div>
+        </div>
+        <div class="panel-body">
+          ${graf.length ? `
+          <div style="display:flex;align-items:flex-end;justify-content:space-around;gap:6px;height:140px;padding-bottom:28px;position:relative">
+            <!-- Grade horizontal -->
+            ${[0,25,50,75,100].map(p=>`
+              <div style="position:absolute;left:0;right:0;bottom:${28+p*1.12}px;border-top:1px dashed rgba(255,255,255,0.06);pointer-events:none">
+                ${p>0?`<span style="position:absolute;left:0;top:-8px;font-size:0.6rem;color:var(--text3)">R$${((maxVal*p/100)/1000).toFixed(0)}k</span>`:''}
+              </div>`).join('')}
+            ${graf.map(g=>`
+              <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;height:100%;justify-content:flex-end">
+                <div style="position:relative;width:100%;display:flex;justify-content:center;align-items:flex-end;gap:2px">
+                  <!-- Barra previsto (fundo) -->
+                  ${g.previsto>0?`<div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:calc(100% - 4px);max-width:36px;height:${Math.round((g.receita+g.previsto)/maxVal*112)}px;background:rgba(201,168,76,0.15);border:1px dashed rgba(201,168,76,0.4);border-radius:4px 4px 0 0;transition:height 0.5s" title="Previsto: R$${g.previsto.toLocaleString('pt-BR')}"></div>`:''}
+                  <!-- Barra receita (frente) -->
+                  <div style="position:relative;width:calc(100% - 4px);max-width:36px;height:${Math.max(g.receita>0?Math.round(g.receita/maxVal*112):2,2)}px;background:linear-gradient(180deg,var(--gold),#a87f2e);border-radius:4px 4px 0 0;transition:height 0.5s;z-index:1" title="Recebido: R$${g.receita.toLocaleString('pt-BR')}">
+                    ${g.receita>0?`<div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:0.58rem;color:var(--gold);white-space:nowrap;font-weight:700">R$${(g.receita/1000).toFixed(1)}k</div>`:''}
+                  </div>
+                </div>
+                <div style="font-size:0.68rem;color:var(--text3);text-align:center;position:absolute;bottom:4px">${g.label}</div>
+              </div>`).join('')}
+          </div>` : `<div style="text-align:center;padding:40px;color:var(--text3);font-size:0.82rem">Nenhuma receita registrada ainda.</div>`}
+        </div>
+      </div>
+
+      <!-- Distribuição de serviços + por etapa -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="panel" style="margin:0;flex:1">
+          <div class="panel-header"><span class="panel-title">🗂️ Por Serviço</span></div>
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:12px">
+            ${[['🇧🇷','Naturalização',clientes.filter(c=>c.servico.includes('Naturaliz')).length,'#c9a84c'],
+               ['🪪','RNM / RNE',clientes.filter(c=>c.servico.includes('RNM')).length,'#60a5fa'],
+               ['✈️','Visto EUA',clientes.filter(c=>c.servico.includes('Visto')).length,'#4ade80']].map(([ic,s,n,cor])=>`
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:0.8rem">
+                  <span>${ic} ${s}</span>
+                  <span style="color:${cor};font-weight:700">${n} <span style="color:var(--text3);font-weight:400">(${total?Math.round(n/total*100):0}%)</span></span>
+                </div>
+                <div style="background:var(--navy4);border-radius:4px;height:7px">
+                  <div style="height:100%;width:${total?Math.round(n/total*100):0}%;background:${cor};border-radius:4px;transition:width 0.6s"></div>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <div class="panel" style="margin:0;flex:1">
+          <div class="panel-header"><span class="panel-title">⚙️ Etapas Ativas</span></div>
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:8px">
+            ${etapasSorted.length ? etapasSorted.map(([label,n])=>`
+              <div style="display:flex;align-items:center;gap:10px;font-size:0.8rem">
+                <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${label}</div>
+                <div style="background:rgba(201,168,76,0.12);border-radius:20px;padding:2px 10px;color:var(--gold);font-weight:700;font-size:0.75rem;flex-shrink:0">${n}</div>
+              </div>`).join('')
+            : `<div style="color:var(--text3);font-size:0.8rem;text-align:center;padding:10px">Nenhum processo ativo</div>`}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Linha 2: Processos recentes + Alertas + Agenda -->
+    <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:16px;margin-bottom:20px">
+
+      <!-- Processos recentes -->
+      <div class="panel" style="margin:0">
+        <div class="panel-header">
+          <span class="panel-title">🕒 Processos Recentes</span>
+          <button class="btn btn-outline btn-sm" onclick="navigateTo('clientes')">Ver todos →</button>
         </div>
         <div class="panel-body" style="padding:0">
           <table class="tbl">
-            <thead><tr><th>Cliente</th><th>Serviço</th><th>Status</th><th>Progresso</th></tr></thead>
+            <thead><tr><th>Cliente</th><th>Serviço</th><th>Progresso</th><th>Status</th></tr></thead>
             <tbody>
-              ${clientes.slice(0,5).map(c=>`
+              ${[...clientes].sort((a,b)=>b.id-a.id).slice(0,6).map(c=>`
                 <tr style="cursor:pointer" onclick="openClienteModal(${c.id})">
-                  <td><strong style="color:var(--text)">${c.nome.split(' ').slice(0,2).join(' ')}</strong></td>
-                  <td style="font-size:0.75rem">${servicoBadge(c.servico)}</td>
+                  <td><div style="font-weight:600;font-size:0.83rem">${c.nome.split(' ').slice(0,2).join(' ')}</div></td>
+                  <td style="font-size:0.73rem">${servicoBadge(c.servico)}</td>
+                  <td style="min-width:70px">
+                    <div style="background:var(--navy4);border-radius:3px;height:5px;margin-bottom:3px">
+                      <div style="height:100%;width:${c.totalEtapas?Math.round(c.etapa/c.totalEtapas*100):0}%;background:var(--gold);border-radius:3px"></div>
+                    </div>
+                    <div style="font-size:0.64rem;color:var(--text3)">${c.totalEtapas?Math.round(c.etapa/c.totalEtapas*100):0}%</div>
+                  </td>
                   <td>${statusBadge(c.status)}</td>
-                  <td style="min-width:80px"><div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:${Math.round(c.etapa/c.totalEtapas*100)}%"></div></div></td>
                 </tr>`).join('')}
             </tbody>
           </table>
         </div>
       </div>
 
-      <div style="display:flex;flex-direction:column;gap:20px">
-        <div class="panel">
-          <div class="panel-header"><span class="panel-title">Receita Mensal</span></div>
-          <div class="panel-body">
-            ${grafico.length > 0 ? `
-            <div class="chart-bar-group">
-              ${grafico.map(f=>`
-                <div class="chart-bar-wrap">
-                  <div class="chart-bar" style="height:${Math.round(f.receita/maxR*100)}px" title="R$${f.receita.toLocaleString('pt-BR')}"></div>
-                  <div class="chart-bar-label">${f.mes}</div>
-                </div>`).join('')}
-            </div>` : `<div style="text-align:center;color:var(--text3);padding:20px;font-size:0.82rem">Nenhuma receita ainda.</div>`}
+      <!-- Alertas -->
+      <div class="panel" style="margin:0">
+        <div class="panel-header">
+          <span class="panel-title">🔔 Alertas</span>
+          <button class="btn btn-outline btn-sm" onclick="navigateTo('prazos')">Ver todos →</button>
+        </div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto">
+          ${alertas.length ? alertas.slice(0,8).map(a=>`
+            <div onclick="${a.cId?`openClienteModal(${a.cId})`:'navigateTo(\'prazos\')'}"
+              style="padding:8px 10px;background:${a.nivel==='🔴'?'rgba(239,68,68,0.07)':'rgba(245,158,11,0.07)'};border-left:3px solid ${a.nivel==='🔴'?'#ef4444':'#f59e0b'};border-radius:0 6px 6px 0;cursor:pointer;font-size:0.77rem;line-height:1.4">
+              ${a.nivel} ${a.msg}
+            </div>`).join('')
+          : `<div style="text-align:center;padding:30px;color:#4ade80;font-size:0.82rem">✅ Nenhum alerta!</div>`}
+        </div>
+      </div>
+
+      <!-- Agenda + aniversários -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="panel" style="margin:0;flex:1">
+          <div class="panel-header">
+            <span class="panel-title">📅 Hoje</span>
+            <button class="btn btn-outline btn-sm" onclick="navigateTo('agendamentos')">Agenda →</button>
+          </div>
+          <div class="panel-body" style="padding:8px 12px">
+            ${agHoje.length ? agHoje.slice(0,4).map(a=>`
+              <div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2);align-items:flex-start">
+                <div style="font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--gold);flex-shrink:0;min-width:38px">${a.hora}</div>
+                <div style="font-size:0.78rem;line-height:1.3">
+                  <div style="font-weight:600">${(a.nome||a.cliente||'').split(' ')[0]}</div>
+                  <div style="color:var(--text3);font-size:0.7rem">${a.tipo||''}</div>
+                </div>
+              </div>`).join('')
+            : `<div style="text-align:center;padding:16px;color:var(--text3);font-size:0.78rem">Sem agendamentos hoje</div>`}
           </div>
         </div>
 
-        <div class="panel">
-          <div class="panel-header"><span class="panel-title">Distribuição de Serviços</span></div>
-          <div class="panel-body" style="display:flex;flex-direction:column;gap:12px">
-            ${[['Naturalização','🇧🇷',clientes.filter(c=>c.servico.includes('Naturalização')).length,total],
-               ['RNM / RNE','🪪',clientes.filter(c=>c.servico.includes('RNM')).length,total],
-               ['Visto EUA','✈️',clientes.filter(c=>c.servico.includes('Visto')).length,total]].map(([s,ic,n,t])=>`
-              <div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.8rem">
-                  <span>${ic} ${s}</span><span style="color:var(--gold);font-weight:600">${n}</span>
-                </div>
-                <div class="progress-bar"><div class="progress-fill" style="width:${Math.round(n/t*100)}%"></div></div>
+        ${anivHoje.length ? `
+        <div class="panel" style="margin:0;border-color:rgba(192,132,252,0.3)">
+          <div class="panel-header" style="background:rgba(192,132,252,0.06)">
+            <span class="panel-title" style="color:#c084fc">🎂 Aniversário hoje!</span>
+          </div>
+          <div class="panel-body" style="padding:8px 12px">
+            ${anivHoje.map(c=>`
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0">
+                <span style="font-size:0.83rem;font-weight:600">${c.nome.split(' ').slice(0,2).join(' ')}</span>
+                <button onclick="whatsAppCliente(${c.id})" style="background:#25d366;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.72rem;cursor:pointer;font-weight:600">💬 Parabéns</button>
               </div>`).join('')}
           </div>
-        </div>
+        </div>` : ''}
+
       </div>
     </div>
 
-    <div class="grid-2">
-      <div class="panel">
-        <div class="panel-header"><span class="panel-title">📅 Agenda do Dia</span></div>
-        <div class="panel-body" style="padding:0">
-          <table class="tbl">
-            <thead><tr><th>Hora</th><th>Cliente</th><th>Tipo</th></tr></thead>
-            <tbody>
-              ${agendamentos.slice(0,4).map(a=>`
-                <tr><td style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--gold)">${a.hora}</td><td>${a.cliente.split(' ').slice(0,2).join(' ')}</td><td style="font-size:0.75rem;color:var(--text3)">${a.tipo}</td></tr>`).join('')}
-            </tbody>
-          </table>
+    <!-- Linha 3: Funil de leads -->
+    ${(leads||[]).length ? `
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">🎯 Funil de Leads</span>
+        <button class="btn btn-outline btn-sm" onclick="navigateTo('crm-leads')">CRM →</button>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;gap:4px;align-items:flex-end;justify-content:center;height:80px;padding-bottom:20px;position:relative">
+          ${[['novo','🆕','Novos','#60a5fa'],['contato','📞','Contato','#a78bfa'],['proposta','📋','Proposta','#f472b6'],['negociacao','🤝','Negoc.','#fb923c'],['ganho','🏆','Fechado','#4ade80']].map(([e,ic,label,cor])=>{
+            const n = leadCount[e]||0;
+            const maxL = Math.max(...Object.values(leadCount),1);
+            return `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1">
+              <div style="font-size:0.7rem;color:${cor};font-weight:700">${n}</div>
+              <div style="width:calc(100% - 6px);max-width:60px;height:${Math.max(n?Math.round(n/maxL*52):3,3)}px;background:${cor}33;border:1px solid ${cor}66;border-radius:4px 4px 0 0;transition:height 0.5s" title="${label}: ${n}"></div>
+              <div style="font-size:0.65rem;color:var(--text3);position:absolute;bottom:2px">${ic} ${label}</div>
+            </div>`;}).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text3);margin-top:4px;padding:0 2px">
+          <span>Total leads: <strong style="color:var(--text)">${(leads||[]).length}</strong></span>
+          <span>Convertidos: <strong style="color:#4ade80">${leadCount['ganho']||0}</strong></span>
+          <span>Taxa: <strong style="color:var(--gold)">${(leads||[]).length?Math.round((leadCount['ganho']||0)/(leads||[]).length*100):0}%</strong></span>
         </div>
       </div>
-
-      <div class="panel">
-        <div class="panel-header"><span class="panel-title">⚠️ Alertas & Pendências</span></div>
-        <div class="panel-body" style="display:flex;flex-direction:column;gap:10px">
-          ${clientes.filter(c=>c.docsPendentes.length>0).map(c=>`
-            <div style="background:var(--navy4);border-radius:10px;padding:12px 14px;border-left:3px solid var(--orange)">
-              <div style="font-size:0.82rem;font-weight:600;color:var(--text)">${c.nome.split(' ').slice(0,2).join(' ')}</div>
-              <div style="font-size:0.72rem;color:var(--text3);margin-top:3px">${c.docsPendentes.length} documento(s) pendente(s)</div>
-            </div>`).join('')}
-        </div>
-      </div>
-    </div>
+    </div>` : ''}
   `;
 }
+
 
 // ─── CLIENTES ───
 function renderClientes() {
   return `
     <div style="display:flex;gap:12px;margin-bottom:24px;align-items:center">
       <input type="text" placeholder="🔍  Buscar cliente..." oninput="filterClientes(this.value)"
-        style="background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:12px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;outline:none;flex:1">
-      <select onchange="filterClienteStatus(this.value)" style="background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:12px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.82rem;outline:none">
+        style="background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:12px 16px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:0.85rem;outline:none;flex:1">
+      <select onchange="filterClienteStatus(this.value)" style="background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:12px 16px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:0.82rem;outline:none">
         <option value="">Todos os Status</option>
         <option value="Em andamento">Em andamento</option>
         <option value="Concluído">Concluído</option>
@@ -1809,7 +1999,7 @@ function renderColaboradores() {
         ${c.tel&&c.tel!=='—'?`<div style="font-size:0.7rem;color:var(--text3)">${c.tel}</div>`:''}
       </div>
       <div style="text-align:center;flex-shrink:0">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:var(--gold)">${c.processos}</div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:1.5rem;font-weight:700;color:var(--gold)">${c.processos}</div>
         <div style="font-size:0.65rem;color:var(--text3)">processos</div>
       </div>
       <button class="btn btn-sm btn-outline" onclick="openEditarColaborador(${c.id})" style="flex-shrink:0">✏️</button>
@@ -2917,113 +3107,160 @@ function renderMeuFinanceiro() {
   const c = clienteLogado();
   if (!c) return `<div style="text-align:center;padding:60px;color:var(--text3)">Processo não encontrado. ${barraWhatsApp('','')}</div>`;
 
-  const nome1       = c.nome.split(' ')[0];
-  const total       = c.valor || 0;
-  const entrada     = c.valorEntrada || 0;
-  const nParcelas   = c.parcelas || 0;
-  const vlrParcela  = c.valorParcela || (nParcelas>0 ? (total-entrada)/nParcelas : 0);
-  const pago        = c.pago;
-  const parcelasReg = c.parcelasRegistradas || []; // {n, paga, data}
-  const totalPago   = entrada + parcelasReg.filter(p=>p.paga).reduce((s,p)=>s+vlrParcela,0);
-  const totalPend   = total - totalPago;
+  const nome1   = c.nome.split(' ')[0];
+  const parc    = c.parcelasLivres||[];
+  const total   = c.valor||0;
+  const recebido= parc.filter(p=>p.paga).reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const pendente= parc.filter(p=>!p.paga).reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const pct     = total>0 ? Math.min(100,Math.round(recebido/total*100)) : (c.pago?100:0);
+  const pixKey  = WB_PIX_KEY;
 
-  // Gera QR code PIX via API pública do gerarqrcodepix
-  const pixKey = WB_PIX_KEY;
-  const msgPix = `Olá! Sou ${nome1} e quero pagar minha parcela do processo de ${c.servico}.`;
+  // próxima parcela pendente
+  const hoje = new Date();
+  const proxima = parc.filter(p=>!p.paga && p.vencISO).sort((a,b)=>a.vencISO>b.vencISO?1:-1)[0];
 
   return `
-    <!-- Header financeiro -->
+    <!-- Header com gradiente -->
     <div style="background:linear-gradient(135deg,#1e3a5f,#162032);border-radius:18px;padding:24px;margin-bottom:24px;position:relative;overflow:hidden">
-      <div style="position:absolute;right:-10px;top:-10px;font-size:7rem;opacity:0.05">💳</div>
-      <div style="font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:8px">Resumo Financeiro</div>
-      <div style="font-size:1.6rem;font-weight:800;color:var(--gold)">${fmtMoeda(total)}</div>
-      <div style="font-size:0.82rem;color:rgba(255,255,255,0.6);margin-top:4px">${c.servico}</div>
-      <div style="display:flex;gap:20px;margin-top:20px;flex-wrap:wrap">
-        <div><div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-bottom:3px">Pago</div>
-          <div style="font-size:1rem;font-weight:700;color:#4ade80">${fmtMoeda(totalPago)}</div></div>
-        <div><div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-bottom:3px">Pendente</div>
-          <div style="font-size:1rem;font-weight:700;color:${totalPend>0?'var(--orange)':'#4ade80'}">${fmtMoeda(Math.max(0,totalPend))}</div></div>
-        ${nParcelas>0?`<div><div style="font-size:0.7rem;color:rgba(255,255,255,0.5);margin-bottom:3px">Parcelas</div>
-          <div style="font-size:1rem;font-weight:700;color:#fff">${nParcelas}x de ${fmtMoeda(vlrParcela)}</div></div>`:''}
+      <div style="position:absolute;right:-10px;top:-10px;font-size:7rem;opacity:0.04">💳</div>
+      <div style="font-size:0.7rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:6px">Resumo Financeiro</div>
+      <div style="font-size:1.7rem;font-weight:800;color:var(--gold)">${fmtMoeda(total)}</div>
+      <div style="font-size:0.8rem;color:rgba(255,255,255,0.5);margin-top:2px">${c.servico}</div>
+
+      <div style="display:flex;gap:24px;margin-top:18px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:0.68rem;color:rgba(255,255,255,0.45);margin-bottom:3px">Pago</div>
+          <div style="font-size:1.05rem;font-weight:700;color:#4ade80">${fmtMoeda(recebido)}</div>
+        </div>
+        <div>
+          <div style="font-size:0.68rem;color:rgba(255,255,255,0.45);margin-bottom:3px">Pendente</div>
+          <div style="font-size:1.05rem;font-weight:700;color:${pendente>0?'var(--orange)':'#4ade80'}">${fmtMoeda(pendente)}</div>
+        </div>
+        <div>
+          <div style="font-size:0.68rem;color:rgba(255,255,255,0.45);margin-bottom:3px">Parcelas</div>
+          <div style="font-size:1.05rem;font-weight:700;color:#fff">${parc.filter(p=>p.paga).length}/${parc.length}</div>
+        </div>
       </div>
-      <div style="margin-top:16px;background:rgba(255,255,255,0.08);border-radius:8px;height:8px">
-        <div style="background:linear-gradient(90deg,#4ade80,var(--gold));border-radius:8px;height:100%;width:${total>0?Math.min(100,(totalPago/total*100)):0}%;transition:width 1s"></div>
+
+      <!-- Barra de progresso -->
+      <div style="margin-top:16px;background:rgba(255,255,255,0.1);border-radius:8px;height:10px">
+        <div style="background:linear-gradient(90deg,#4ade80,var(--gold));border-radius:8px;height:100%;width:${pct}%;transition:width 1s ease"></div>
       </div>
-      <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);margin-top:4px">${total>0?Math.round(totalPago/total*100):0}% quitado</div>
+      <div style="font-size:0.68rem;color:rgba(255,255,255,0.4);margin-top:5px">${pct}% quitado</div>
+
+      ${proxima ? `
+      <div style="margin-top:14px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.5)">Próxima parcela</div>
+          <div style="font-size:0.88rem;font-weight:700;color:#fbbf24">${proxima.desc||'Parcela'} — ${fmtMoeda(parseFloat(proxima.valor)||0)}</div>
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.45)">Vencimento: ${proxima.venc||'—'}</div>
+        </div>
+        <span style="background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.4);border-radius:20px;padding:3px 12px;font-size:0.72rem;color:#fbbf24;font-weight:700">
+          ${(()=>{const d=Math.ceil((new Date(proxima.vencISO)-hoje)/864e5);return d<0?`⚠️ ${Math.abs(d)}d atraso`:d===0?'⚠️ Vence hoje':`📅 ${d} dias`;})()}
+        </span>
+      </div>` : ''}
     </div>
 
     <div class="grid-2">
-      <!-- PIX -->
-      <div class="panel" style="border-color:rgba(79,209,197,0.3)">
-        <div class="panel-header" style="background:rgba(79,209,197,0.06)">
-          <span class="panel-title" style="color:#4fc3f7">💳 Pagar via PIX</span>
-        </div>
-        <div class="panel-body">
-          <div style="text-align:center;padding:10px 0">
-            <div style="font-size:0.72rem;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">Chave PIX da WB Assessoria</div>
-            <div style="background:var(--navy3);border:2px solid rgba(79,195,247,0.3);border-radius:12px;padding:14px;margin-bottom:14px">
-              <div style="font-size:0.72rem;color:var(--text3);margin-bottom:4px">📧 E-mail</div>
-              <div style="font-size:0.92rem;font-weight:700;color:#4fc3f7;font-family:'DM Mono',monospace;word-break:break-all">${pixKey}</div>
-            </div>
-            <button onclick="navigator.clipboard.writeText('${pixKey}').then(()=>showToast('📋 Chave PIX copiada!'))"
-              style="width:100%;background:linear-gradient(135deg,#0284c7,#0ea5e9);color:#fff;border:none;border-radius:10px;
-              padding:12px;font-size:0.9rem;font-weight:700;cursor:pointer;margin-bottom:10px">
-              📋 Copiar chave PIX
-            </button>
-            <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
-style="width:100%;background:#25d366;color:#fff;border:none;border-radius:10px;
-              padding:11px;font-size:0.85rem;font-weight:600;cursor:pointer">
-              💬 Avisar WB após o pagamento
-            </button>
-          </div>
-          <div style="margin-top:14px;padding:10px 12px;background:rgba(201,168,76,0.06);border-radius:8px;font-size:0.72rem;color:var(--text3);line-height:1.6">
-            ⚠️ Após realizar o PIX, envie o comprovante para a WB pelo WhatsApp para confirmação.
-          </div>
-        </div>
-      </div>
 
-      <!-- Histórico de parcelas -->
+      <!-- Tabela de parcelas -->
       <div class="panel">
-        <div class="panel-header"><span class="panel-title">📋 Histórico de Pagamentos</span></div>
-        <div class="panel-body">
-          ${entrada > 0 ? `
-          <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(16,185,129,0.06);border-radius:8px;margin-bottom:8px;border:1px solid rgba(16,185,129,0.2)">
-            <span style="font-size:1rem">✅</span>
-            <div style="flex:1">
-              <div style="font-size:0.82rem;font-weight:600">Entrada</div>
-              <div style="font-size:0.72rem;color:var(--text3)">Pago no contrato</div>
-            </div>
-            <div style="font-size:0.88rem;font-weight:700;color:var(--green)">${fmtMoeda(entrada)}</div>
-          </div>` : ''}
+        <div class="panel-header"><span class="panel-title">📋 Minhas Parcelas</span></div>
+        <div class="panel-body" style="padding:0">
+          ${(()=>{
+            if (!parc.length) return `
+              <div style="text-align:center;padding:32px;color:var(--text3)">
+                <div style="font-size:2rem;margin-bottom:8px">📋</div>
+                <div style="font-size:0.83rem">Nenhuma parcela cadastrada.<br>Fale com a equipe WB.</div>
+              </div>`;
 
-          ${nParcelas > 0 ? Array.from({length:nParcelas},(_,i)=>{
-            const reg  = parcelasReg.find(p=>p.n===i+1);
-            const paga = reg?.paga || false;
-            return `
-            <div style="display:flex;align-items:center;gap:10px;padding:10px;background:${paga?'rgba(16,185,129,0.06)':'rgba(251,146,60,0.05)'};
-              border-radius:8px;margin-bottom:6px;border:1px solid ${paga?'rgba(16,185,129,0.2)':'rgba(251,146,60,0.2)'}">
-              <span style="font-size:1rem">${paga?'✅':'⏳'}</span>
-              <div style="flex:1">
-                <div style="font-size:0.82rem;font-weight:600">${i+1}ª Parcela</div>
-                <div style="font-size:0.72rem;color:var(--text3)">${paga?(reg?.data||'Pago'):'Pendente'}</div>
-              </div>
-              <div style="font-size:0.88rem;font-weight:700;color:${paga?'var(--green)':'var(--orange)'}">${fmtMoeda(vlrParcela)}</div>
-            </div>`; }).join('')
-          : nParcelas===0 ? `<div style="text-align:center;padding:16px;color:var(--green);font-size:0.85rem">
-              ${pago?'✅ Pagamento à vista confirmado!':'⏳ Pagamento à vista pendente'}
-            </div>` : ''}
+            const hoje2 = new Date(); hoje2.setHours(0,0,0,0);
+            const getStatus = p => {
+              if (p.paga) return 'quitado';
+              if (!p.vencISO) return 'futuro';
+              return new Date(p.vencISO) < hoje2 ? 'atrasado' : 'emdia';
+            };
+            const badgeMap = {
+              quitado:  ['fin-badge-quitado',  '✅ Quitado'],
+              emdia:    ['fin-badge-emdia',     '📅 Em dia'],
+              atrasado: ['fin-badge-atrasado',  '🚨 Atrasado'],
+              futuro:   ['fin-badge-futuro',    '⏳ A vencer'],
+            };
+            const rowMap = { quitado:'fin-row-quitado', emdia:'fin-row-emdia', atrasado:'fin-row-atrasado', futuro:'' };
 
-          ${!pago && totalPend > 0 ? `
-          <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
-style="width:100%;margin-top:10px;background:#25d366;color:#fff;border:none;border-radius:8px;padding:10px;font-size:0.82rem;font-weight:600;cursor:pointer">
-            💬 Falar sobre pagamento
-          </button>` : ''}
+            return `<table class="tbl">
+              <thead><tr><th>#</th><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th></tr></thead>
+              <tbody>
+                ${parc.map((p,i)=>{
+                  const st = getStatus(p);
+                  const [badgeClass, badgeLabel] = badgeMap[st];
+                  let diasInfo = '';
+                  if (st==='atrasado') {
+                    const d = Math.ceil((hoje2-new Date(p.vencISO))/864e5);
+                    diasInfo = `<div style="font-size:0.65rem;color:#f87171;margin-top:2px;font-weight:700">${d} dia(s) em atraso</div>`;
+                  } else if (st==='emdia' && p.vencISO) {
+                    const d = Math.ceil((new Date(p.vencISO)-hoje2)/864e5);
+                    if (d<=10) diasInfo = `<div style="font-size:0.65rem;color:#60a5fa;margin-top:2px">vence em ${d}d</div>`;
+                  }
+                  return `<tr class="${rowMap[st]}">
+                    <td style="color:var(--text3);font-size:0.74rem;font-weight:600">${i+1}</td>
+                    <td>
+                      <div style="font-size:0.83rem;font-weight:500">${p.desc||('Parcela '+(i+1))}</div>
+                      ${p.paga&&p.dataPgto?`<div style="font-size:0.64rem;color:var(--text3)">pago em ${p.dataPgto}</div>`:''}
+                    </td>
+                    <td style="font-family:'DM Mono',monospace;font-size:0.86rem;color:var(--gold);font-weight:700;white-space:nowrap">
+                      ${fmtMoeda(parseFloat(p.valor)||0)}
+                    </td>
+                    <td style="font-size:0.79rem;color:${st==='atrasado'?'#f87171':'var(--text2)'}">${p.venc||'—'}${diasInfo}</td>
+                    <td><span class="fin-badge ${badgeClass}">${badgeLabel}</span></td>
+                  </tr>`;}).join('')}
+              </tbody>
+            </table>`;
+          })()}
         </div>
       </div>
+
+      <!-- PIX + observações -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="panel" style="border-color:rgba(79,195,247,0.3)">
+          <div class="panel-header" style="background:rgba(79,195,247,0.05)">
+            <span class="panel-title" style="color:#4fc3f7">💳 Pagar via PIX</span>
+          </div>
+          <div class="panel-body">
+            <div style="text-align:center">
+              <div style="font-size:0.7rem;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Chave PIX — WB Assessoria</div>
+              <div style="background:var(--navy3);border:2px solid rgba(79,195,247,0.25);border-radius:10px;padding:12px;margin-bottom:12px">
+                <div style="font-size:0.68rem;color:var(--text3);margin-bottom:3px">📧 E-mail</div>
+                <div style="font-size:0.88rem;font-weight:700;color:#4fc3f7;font-family:'DM Mono',monospace;word-break:break-all">${pixKey}</div>
+              </div>
+              <button onclick="navigator.clipboard.writeText('${pixKey}').then(()=>showToast('📋 Chave PIX copiada!'))"
+                style="width:100%;background:linear-gradient(135deg,#0284c7,#0ea5e9);color:#fff;border:none;border-radius:10px;padding:11px;font-size:0.87rem;font-weight:700;cursor:pointer;margin-bottom:8px">
+                📋 Copiar chave PIX
+              </button>
+              <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
+                style="display:block;width:100%;background:#25d366;color:#fff;border-radius:10px;padding:11px;font-size:0.85rem;font-weight:600;cursor:pointer;text-decoration:none;text-align:center">
+                💬 Enviar comprovante pelo WhatsApp
+              </a>
+            </div>
+            <div style="margin-top:12px;padding:9px 12px;background:rgba(201,168,76,0.06);border-radius:8px;font-size:0.71rem;color:var(--text3);line-height:1.6">
+              ⚠️ Após realizar o PIX, envie o comprovante para a WB pelo WhatsApp para confirmação e atualização do sistema.
+            </div>
+          </div>
+        </div>
+
+        ${pendente===0&&parc.length>0 ? `
+        <div style="background:rgba(74,222,128,0.07);border:1px solid rgba(74,222,128,0.25);border-radius:14px;padding:20px;text-align:center">
+          <div style="font-size:2rem;margin-bottom:8px">🎉</div>
+          <div style="font-weight:700;color:#4ade80;font-size:0.95rem">Tudo pago!</div>
+          <div style="font-size:0.78rem;color:var(--text3);margin-top:4px">Obrigado pela confiança na WB Assessoria.</div>
+        </div>` : ''}
+      </div>
+
     </div>
     ${barraWhatsApp(c.nome, c.servico)}
   `;
 }
+
 
 // ─── CLIENTE: AVALIAÇÃO ──────────────────────────────────────────
 let _avaliacaoTemp = { estrelas: 0, texto: '' };
@@ -3355,7 +3592,7 @@ function openClienteModal(id, aba) {
     <div class="mxl-head">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
         <div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:1.65rem;font-weight:700;color:var(--gold);line-height:1.1">${c.nome}</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:1.65rem;font-weight:700;color:var(--gold);line-height:1.1">${c.nome}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             ${statusBadge(c.status)}
             ${servicoBadge(c.servico)}
@@ -3526,39 +3763,166 @@ function openClienteModal(id, aba) {
 
       <!-- ── ABA: FINANCEIRO ── -->
       <div id="_tp_fin" style="display:${aba==='fin'?'block':'none'}">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px">
-          <div class="panel" style="margin:0">
-            <div class="panel-header"><span class="panel-title">💳 Dados Financeiros</span></div>
-            <div class="panel-body">
-              ${[['Serviço',c.servico],['Valor Total','R$ '+(c.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})],['Entrada',c.valorEntrada?'R$ '+(c.valorEntrada||0).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'],['Parcelas',c.parcelas?c.parcelas+'x R$ '+(c.valorParcela||0).toLocaleString('pt-BR',{minimumFractionDigits:2}):'Não parcelado'],['Forma','c.formaPgto'||'—'],['Status',c.pago?'✅ Pago':'⏳ Pendente']].map(([k,v])=>`
-                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2);font-size:0.82rem">
-                  <span style="color:var(--text3)">${k}</span>
-                  <span style="color:${k==='Status'?(c.pago?'var(--green)':'var(--orange)'):'var(--text)'};font-weight:500">${v}</span>
-                </div>`).join('')}
-              <label style="display:flex;align-items:center;gap:9px;cursor:pointer;padding:9px 11px;background:var(--navy3);border-radius:8px;margin-top:12px;border:1px solid ${c.pago?'rgba(74,222,128,0.3)':'var(--border2)'}">
-                <input type="checkbox" id="_fin_pago" ${c.pago?'checked':''} style="width:16px;height:16px;accent-color:var(--green)">
-                <span style="font-size:0.85rem;font-weight:600">Marcar como Pago</span>
-              </label>
-              <button onclick="_savePago(${c.id})" class="btn btn-gold" style="width:100%;margin-top:8px">💾 Salvar</button>
+
+        ${(()=>{
+          const parc     = c.parcelasLivres||[];
+          const hoje2    = new Date(); hoje2.setHours(0,0,0,0);
+          const recebido = parc.filter(p=>p.paga).reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+          const atrasado = parc.filter(p=>!p.paga&&p.vencISO&&new Date(p.vencISO)<hoje2).reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+          const aVencer  = parc.filter(p=>!p.paga&&(!p.vencISO||new Date(p.vencISO)>=hoje2)).reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+          const nAtrasado= parc.filter(p=>!p.paga&&p.vencISO&&new Date(p.vencISO)<hoje2).length;
+          return `
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+            <div style="background:linear-gradient(135deg,rgba(201,168,76,0.15),rgba(201,168,76,0.05));border:1px solid rgba(201,168,76,0.3);border-radius:14px;padding:16px 18px">
+              <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:6px;font-weight:600">Total contratado</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:1.35rem;font-weight:700;color:var(--gold)">R$ ${(c.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
             </div>
-          </div>
+            <div style="background:linear-gradient(135deg,rgba(74,222,128,0.12),rgba(74,222,128,0.04));border:1px solid rgba(74,222,128,0.3);border-radius:14px;padding:16px 18px">
+              <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:#4ade80;margin-bottom:6px;font-weight:600">✅ Quitado</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:1.35rem;font-weight:700;color:#4ade80">R$ ${recebido.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+            </div>
+            <div style="background:linear-gradient(135deg,${nAtrasado>0?'rgba(239,68,68,0.12),rgba(239,68,68,0.04)':'rgba(96,165,250,0.1),rgba(96,165,250,0.03)'});border:1px solid ${nAtrasado>0?'rgba(239,68,68,0.3)':'rgba(96,165,250,0.3)'};border-radius:14px;padding:16px 18px">
+              <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:${nAtrasado>0?'#f87171':'#60a5fa'};margin-bottom:6px;font-weight:600">${nAtrasado>0?'🚨 Atrasado':'📅 Em dia'}</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:1.35rem;font-weight:700;color:${nAtrasado>0?'#f87171':'#60a5fa'}">R$ ${atrasado.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+              ${nAtrasado>0?`<div style="font-size:0.68rem;color:rgba(248,113,113,0.7);margin-top:3px">${nAtrasado} parcela(s) em atraso</div>`:''}
+            </div>
+            <div style="background:linear-gradient(135deg,rgba(148,163,184,0.1),rgba(148,163,184,0.03));border:1px solid rgba(148,163,184,0.2);border-radius:14px;padding:16px 18px">
+              <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:6px;font-weight:600">⏳ A vencer</div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-size:1.35rem;font-weight:700;color:#94a3b8">R$ ${aVencer.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+            </div>
+          </div>`;
+        })()}
+
+        <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start">
+
+          <!-- Tabela de parcelas -->
           <div class="panel" style="margin:0">
-            <div class="panel-header"><span class="panel-title">📄 Contrato</span></div>
-            <div class="panel-body">
-              ${[['Nº Contrato',c.numeroContrato||'—'],['Data Contrato',c.dataContrato||'—'],['Prazo',c.prazo||'—']].map(([k,v])=>`
-                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2);font-size:0.82rem">
-                  <span style="color:var(--text3)">${k}</span><span style="color:var(--text);font-weight:500">${v}</span>
-                </div>`).join('')}
-              <button onclick="closeModal();navigateTo('contratos')"
-                style="width:100%;margin-top:13px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3);border-radius:8px;padding:9px;color:var(--gold);font-size:0.82rem;cursor:pointer;font-weight:600">
-                📋 Ir para Contratos →
+            <div class="panel-header">
+              <span class="panel-title">💳 Parcelas & Pagamentos</span>
+              <button onclick="_addParcela(${c.id})"
+                style="background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.35);border-radius:7px;padding:5px 14px;color:var(--gold);font-size:0.8rem;font-weight:700;cursor:pointer">
+                + Adicionar
               </button>
             </div>
+            <div class="panel-body" style="padding:0">
+              ${(()=>{
+                const parc = c.parcelasLivres||[];
+                const hoje3 = new Date(); hoje3.setHours(0,0,0,0);
+                if (!parc.length) return `
+                  <div style="text-align:center;padding:40px 20px;color:var(--text3)">
+                    <div style="font-size:2.5rem;margin-bottom:12px">💳</div>
+                    <div style="font-size:0.85rem;margin-bottom:14px">Nenhuma parcela cadastrada ainda</div>
+                    <button onclick="_addParcela(${c.id})" class="btn btn-gold">+ Adicionar primeira parcela</button>
+                  </div>`;
+
+                // helper: calcula status da parcela
+                const getStatus = p => {
+                  if (p.paga) return 'quitado';
+                  if (!p.vencISO) return 'futuro';
+                  return new Date(p.vencISO) < hoje3 ? 'atrasado' : 'emdia';
+                };
+                const badgeMap = {
+                  quitado:  ['fin-badge-quitado',  '✅ Quitado'],
+                  emdia:    ['fin-badge-emdia',     '📅 Em dia'],
+                  atrasado: ['fin-badge-atrasado',  '🚨 Atrasado'],
+                  futuro:   ['fin-badge-futuro',    '⏳ A vencer'],
+                };
+                const rowMap = {
+                  quitado:'fin-row-quitado', emdia:'fin-row-emdia', atrasado:'fin-row-atrasado', futuro:''
+                };
+
+                return `<table class="tbl">
+                  <thead><tr>
+                    <th style="width:30px">#</th>
+                    <th>Descrição</th>
+                    <th>Valor</th>
+                    <th>Vencimento</th>
+                    <th>Forma</th>
+                    <th>Status</th>
+                    <th style="width:60px"></th>
+                  </tr></thead>
+                  <tbody>
+                    ${parc.map((p,i)=>{
+                      const st = getStatus(p);
+                      const [badgeClass, badgeLabel] = badgeMap[st];
+                      let diasInfo = '';
+                      if (st==='atrasado') {
+                        const d = Math.ceil((hoje3-new Date(p.vencISO))/864e5);
+                        diasInfo = `<div style="font-size:0.65rem;color:#f87171;margin-top:2px">${d}d em atraso</div>`;
+                      } else if (st==='emdia' && p.vencISO) {
+                        const d = Math.ceil((new Date(p.vencISO)-hoje3)/864e5);
+                        if (d<=10) diasInfo = `<div style="font-size:0.65rem;color:#60a5fa;margin-top:2px">vence em ${d}d</div>`;
+                      }
+                      return `<tr class="${rowMap[st]}">
+                        <td style="font-size:0.74rem;color:var(--text3);font-weight:600">${i+1}</td>
+                        <td>
+                          <div style="font-size:0.83rem;font-weight:500">${p.desc||('Parcela '+(i+1))}</div>
+                          ${p.paga&&p.dataPgto?`<div style="font-size:0.65rem;color:var(--text3)">pago em ${p.dataPgto}</div>`:''}
+                          ${p.obs?`<div style="font-size:0.63rem;color:var(--text3);font-style:italic">${p.obs}</div>`:''}
+                        </td>
+                        <td style="font-family:'DM Mono',monospace;font-size:0.86rem;color:var(--gold);font-weight:700;white-space:nowrap">
+                          R$ ${(parseFloat(p.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}
+                        </td>
+                        <td style="font-size:0.79rem;color:${st==='atrasado'?'#f87171':'var(--text2)'}">${p.venc||'—'}${diasInfo}</td>
+                        <td style="font-size:0.74rem;color:var(--text3)">${p.forma||'—'}</td>
+                        <td>
+                          <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
+                            <span class="fin-badge ${badgeClass}">${badgeLabel}</span>
+                            <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+                              <input type="checkbox" ${p.paga?'checked':''} onchange="_toggleParcela(${c.id},${i},this.checked)"
+                                style="width:13px;height:13px;accent-color:var(--green);cursor:pointer">
+                              <span style="font-size:0.68rem;color:var(--text3)">Marcar pago</span>
+                            </label>
+                          </div>
+                        </td>
+                        <td style="display:flex;gap:3px">
+                          <button onclick="_editParcela(${c.id},${i})"
+                            style="background:transparent;border:1px solid var(--border2);border-radius:5px;padding:4px 7px;color:var(--text3);cursor:pointer;font-size:0.72rem">✏️</button>
+                          <button onclick="_delParcela(${c.id},${i})"
+                            style="background:transparent;border:1px solid rgba(239,68,68,0.3);border-radius:5px;padding:4px 7px;color:#ef4444;cursor:pointer;font-size:0.72rem">🗑</button>
+                        </td>
+                      </tr>`;}).join('')}
+                  </tbody>
+                </table>`;
+              })()}
+            </div>
           </div>
+
+          <!-- Coluna direita -->
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="panel" style="margin:0">
+              <div class="panel-header"><span class="panel-title">📋 Dados Gerais</span></div>
+              <div class="panel-body">
+                ${[['Serviço',c.servico],['Valor Total','R$ '+(c.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})],['Forma Pgto',c.formaPgto||'—'],['Status',c.pago?'✅ Pago':'⏳ Pendente']].map(([k,v])=>`
+                  <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border2);font-size:0.82rem">
+                    <span style="color:var(--text3)">${k}</span>
+                    <span style="color:${k==='Status'?(c.pago?'#4ade80':'var(--orange)'):'var(--text)'};font-weight:500">${v}</span>
+                  </div>`).join('')}
+                <label style="display:flex;align-items:center;gap:9px;cursor:pointer;padding:10px 12px;background:var(--navy3);border-radius:10px;margin-top:14px;border:1px solid ${c.pago?'rgba(74,222,128,0.3)':'var(--border2)'}">
+                  <input type="checkbox" id="_fin_pago" ${c.pago?'checked':''} style="width:16px;height:16px;accent-color:var(--green)">
+                  <span style="font-size:0.84rem;font-weight:600">Contrato quitado</span>
+                </label>
+                <button onclick="_savePago(${c.id})" class="btn btn-gold" style="width:100%;margin-top:8px">💾 Salvar</button>
+              </div>
+            </div>
+            <div class="panel" style="margin:0">
+              <div class="panel-header"><span class="panel-title">📄 Contrato</span></div>
+              <div class="panel-body">
+                ${[['Nº',c.numeroContrato||'—'],['Data',c.dataContrato||'—'],['Prazo',c.prazo||'—']].map(([k,v])=>`
+                  <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2);font-size:0.82rem">
+                    <span style="color:var(--text3)">${k}</span><span style="color:var(--text);font-weight:500">${v}</span>
+                  </div>`).join('')}
+                <button onclick="closeModal();navigateTo('contratos')"
+                  style="width:100%;margin-top:12px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3);border-radius:9px;padding:9px;color:var(--gold);font-size:0.82rem;cursor:pointer;font-weight:600">
+                  📋 Contratos →
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
-      <!-- ── ABA: GOV ── -->
       <div id="_tp_gov" style="display:${aba==='gov'?'block':'none'}">
         <div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
@@ -6146,7 +6510,7 @@ function renderFinanceiroAvancado() {
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title">Todas as Parcelas</span>
-        <select id="filtro-status-parcela" onchange="filtrarParcelasStatus(this.value)" style="background:var(--navy2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.78rem;outline:none">
+        <select id="filtro-status-parcela" onchange="filtrarParcelasStatus(this.value)" style="background:var(--navy2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:0.78rem;outline:none">
           <option value="">Todos</option>
           <option value="atrasado">Atrasados</option>
           <option value="pendente">Pendentes</option>
@@ -6715,7 +7079,7 @@ function abrirDocOficial(tipo) {
     <div class="mxl-head" style="padding:20px 24px 0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
         <div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:${D.cor}">${D.icon} ${D.titulo}</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:1.5rem;font-weight:700;color:${D.cor}">${D.icon} ${D.titulo}</div>
           <div style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-top:4px">${D.descricao}</div>
         </div>
         <button onclick="closeModal()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:6px 12px;color:rgba(255,255,255,0.55);cursor:pointer">✕</button>
@@ -7112,7 +7476,7 @@ function _verDocPortal(idx) {
     <div style="padding:18px 22px 0;background:var(--navy3);border-radius:18px 18px 0 0;flex-shrink:0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
         <div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:700;color:var(--gold)">${doc.icon||'📄'} ${doc.titulo}</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">${doc.icon||'📄'} ${doc.titulo}</div>
           <div style="font-size:0.72rem;color:var(--text3);margin-top:3px">Disponibilizado em ${doc.data} às ${doc.hora}${doc.assinado?' · <span style="color:#4ade80">✅ Assinado digitalmente</span>':''}</div>
         </div>
         <button onclick="closeModal()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:6px 12px;color:rgba(255,255,255,0.6);cursor:pointer">✕</button>
@@ -7229,7 +7593,7 @@ function renderCalendario() {
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
       <div style="display:flex;align-items:center;gap:12px">
         <button onclick="_calNav(-1)" style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:8px 14px;color:var(--text);cursor:pointer;font-size:1rem">‹</button>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:var(--gold);min-width:200px;text-align:center;text-transform:capitalize">${mesLabel}</div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:1.5rem;font-weight:700;color:var(--gold);min-width:200px;text-align:center;text-transform:capitalize">${mesLabel}</div>
         <button onclick="_calNav(1)" style="background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:8px 14px;color:var(--text);cursor:pointer;font-size:1rem">›</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -7315,6 +7679,139 @@ function _enviarAutoResposta(clienteId) {
     });
     saveData();
   }, 2000); // leve delay para parecer mais natural
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// 💳 PARCELAS LIVRES — adicionar, editar, deletar, marcar pago
+// ══════════════════════════════════════════════════════════════════
+
+function _addParcela(cId) {
+  _openParcelaModal(cId, null);
+}
+
+function _editParcela(cId, idx) {
+  _openParcelaModal(cId, idx);
+}
+
+function _openParcelaModal(cId, idx) {
+  const c = clientes.find(x=>x.id===cId);
+  if (!c) return;
+  c.parcelasLivres = c.parcelasLivres||[];
+  const p = idx !== null ? c.parcelasLivres[idx] : null;
+  const titulo = p ? 'Editar Parcela' : 'Nova Parcela';
+
+  openModal(`
+    <div class="modal-title">💳 ${titulo}</div>
+    <div class="form-grid">
+      <div class="form-field form-full">
+        <label>Descrição <span style="color:var(--text3);font-size:0.75rem">(ex: Entrada, Parcela 1, Saldo...)</span></label>
+        <input id="parc_desc" placeholder="Ex: Entrada, Parcela 1 de 3, Saldo final..." value="${p?.desc||''}">
+      </div>
+      <div class="form-field">
+        <label>Valor (R$) <span style="color:var(--red)">*</span></label>
+        <input id="parc_valor" type="number" step="0.01" min="0" placeholder="0,00" value="${p?.valor||''}">
+      </div>
+      <div class="form-field">
+        <label>Data de Vencimento</label>
+        <input id="parc_venc" type="date" value="${p?.vencISO||''}">
+      </div>
+      <div class="form-field">
+        <label>Forma de Pagamento</label>
+        <select id="parc_forma">
+          ${['—','PIX','Espécie','Transferência','Cartão de Débito','Cartão de Crédito','Boleto'].map(f=>`<option ${(p?.forma||'PIX')===f?'selected':''}>${f}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Data de Pagamento <span style="color:var(--text3);font-size:0.75rem">(se já pago)</span></label>
+        <input id="parc_datapgto" type="date" value="${p?.dataPgtoISO||''}">
+      </div>
+      <div class="form-field">
+        <label>Status</label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px;background:var(--navy3);border-radius:8px;border:1px solid var(--border2);margin-top:4px">
+          <input type="checkbox" id="parc_paga" ${p?.paga?'checked':''} style="width:16px;height:16px;accent-color:var(--green)">
+          <span style="font-size:0.85rem;font-weight:600">Marcar como Pago</span>
+        </label>
+      </div>
+      <div class="form-field form-full">
+        <label>Observação <span style="color:var(--text3);font-size:0.75rem">(opcional)</span></label>
+        <input id="parc_obs" placeholder="Ex: Pago via WhatsApp, comprovante enviado..." value="${p?.obs||''}">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" onclick="_salvarParcela(${cId},${idx!==null?idx:'null'})">💾 Salvar</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+function _salvarParcela(cId, idx) {
+  const c = clientes.find(x=>x.id===cId);
+  if (!c) return;
+  const valor = parseFloat(document.getElementById('parc_valor')?.value||'0');
+  if (!valor) { showToast('⚠️ Informe o valor da parcela','warn'); return; }
+
+  c.parcelasLivres = c.parcelasLivres||[];
+
+  // Formatar data vencimento
+  const vencISO = document.getElementById('parc_venc')?.value||'';
+  const venc = vencISO ? vencISO.split('-').reverse().join('/') : '';
+
+  // Formatar data pagamento
+  const pgtoISO = document.getElementById('parc_datapgto')?.value||'';
+  const dataPgto = pgtoISO ? pgtoISO.split('-').reverse().join('/') : '';
+
+  const entry = {
+    desc:       document.getElementById('parc_desc')?.value?.trim()||'',
+    valor:      valor,
+    venc:       venc,
+    vencISO:    vencISO,
+    forma:      document.getElementById('parc_forma')?.value||'—',
+    paga:       !!document.getElementById('parc_paga')?.checked,
+    dataPgto:   dataPgto,
+    dataPgtoISO: pgtoISO,
+    obs:        document.getElementById('parc_obs')?.value?.trim()||'',
+  };
+
+  if (idx !== null && idx !== undefined && idx !== 'null') {
+    c.parcelasLivres[idx] = entry;
+    _log(cId, `Parcela "${entry.desc||idx+1}" editada — R$ ${valor.toLocaleString('pt-BR',{minimumFractionDigits:2})}`);
+  } else {
+    c.parcelasLivres.push(entry);
+    _log(cId, `Parcela "${entry.desc||'nova'}" adicionada — R$ ${valor.toLocaleString('pt-BR',{minimumFractionDigits:2})}`);
+  }
+
+  saveData();
+  closeModal();
+  showToast('✅ Parcela salva!');
+  openClienteModal(cId, 'fin');
+}
+
+function _toggleParcela(cId, idx, checked) {
+  const c = clientes.find(x=>x.id===cId);
+  if (!c || !c.parcelasLivres?.[idx]) return;
+  c.parcelasLivres[idx].paga = checked;
+  if (checked) {
+    const hoje = new Date();
+    c.parcelasLivres[idx].dataPgto = hoje.toLocaleDateString('pt-BR');
+    c.parcelasLivres[idx].dataPgtoISO = hoje.toISOString().split('T')[0];
+  }
+  _log(cId, `Parcela "${c.parcelasLivres[idx].desc||idx+1}" marcada como ${checked?'✅ Paga':'⏳ Pendente'}`);
+  saveData();
+  showToast(checked ? '✅ Parcela marcada como paga!' : '⏳ Parcela marcada como pendente');
+  openClienteModal(cId, 'fin');
+}
+
+function _delParcela(cId, idx) {
+  const c = clientes.find(x=>x.id===cId);
+  if (!c) return;
+  const p = c.parcelasLivres?.[idx];
+  if (!confirm(`Excluir parcela "${p?.desc||idx+1}" (R$ ${(p?.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})})?`)) return;
+  c.parcelasLivres.splice(idx, 1);
+  _log(cId, `Parcela "${p?.desc||idx+1}" excluída`);
+  saveData();
+  showToast('🗑️ Parcela excluída');
+  openClienteModal(cId, 'fin');
 }
 
 function renderGeradorContrato() {
