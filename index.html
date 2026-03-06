@@ -1168,9 +1168,13 @@ function buildNav() {
       ${(()=>{
         const cl = clienteLogado();
         if (!cl) return '';
-        const CPLP_P = ['portugal','angola','moçambique','mozambique','cabo verde','são tomé','sao tome','guiné','guinea','timor'];
-        const ehCPLP = CPLP_P.some(p=>(cl.pais||'').toLowerCase().includes(p));
-        const ehIsento = cl.cursoPgto==='isento' || cl.cursoStatus==='dispensado' || ehCPLP;
+        // Curso só aparece para Naturalização
+        const ehNaturalizacao = (cl.servico||'').includes('Naturaliz');
+        if (!ehNaturalizacao) return '';
+        // Verificar isenção: CPLP, isento ou dispensado
+        const CPLP_P = ['portugal','angola','moçambique','mozambique','cabo verde','são tomé','sao tome','guiné-bissau','guiné equatorial','guinea','timor-leste','timor'];
+        const ehCPLP    = CPLP_P.some(p=>(cl.pais||'').toLowerCase().includes(p));
+        const ehIsento  = cl.cursoPgto === 'isento' || cl.cursoStatus === 'dispensado' || ehCPLP;
         return ehIsento ? '' : navItem('meu-curso','📚',t('curso'));
       })()}
       ${navItem('minhas-indicacoes','🤝',t('indicacoes'))}
@@ -3449,10 +3453,24 @@ function renderMeuCurso() {
   const c = clienteLogado();
   if (!c) return `<div style="text-align:center;padding:60px;color:var(--text3)">Processo não encontrado.</div>`;
 
-  // ── Verificar se cliente é isento do curso ──
-  const CPLP_PAISES = ['Portugal','Angola','Moçambique','Cabo Verde','São Tomé','Guiné-Bissau','Guiné Equatorial','Timor-Leste','Timor'];
-  const ehCPLP      = CPLP_PAISES.some(p => (c.pais||'').toLowerCase().includes(p.toLowerCase()));
-  const ehIsento    = c.cursoPgto === 'isento' || c.cursoStatus === 'dispensado' || ehCPLP;
+  // ── Verificar se cliente precisa do curso ──
+  const CPLP_PAISES = ['Portugal','Angola','Moçambique','Mozambique','Cabo Verde','São Tomé','Sao Tome','Guiné-Bissau','Guiné Equatorial','Guinea','Timor-Leste','Timor'];
+  const ehNaturalizacao = (c.servico||'').includes('Naturaliz');
+  const ehCPLP          = CPLP_PAISES.some(p => (c.pais||'').toLowerCase().includes(p.toLowerCase()));
+  const ehIsento        = c.cursoPgto === 'isento' || c.cursoStatus === 'dispensado' || ehCPLP;
+
+  // Serviço não é Naturalização — redireciona para processo
+  if (!ehNaturalizacao) {
+    return `
+      <div style="text-align:center;padding:60px 20px;color:var(--text3)">
+        <div style="font-size:3rem;margin-bottom:16px">📋</div>
+        <div style="font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:8px">Esta seção não se aplica ao seu processo</div>
+        <div style="font-size:0.8rem">O Curso de Língua Portuguesa é necessário apenas para o processo de Naturalização.</div>
+        <button onclick="navigateTo('meu-processo')" class="btn btn-gold" style="margin-top:20px">← Voltar ao Processo</button>
+      </div>
+      ${barraWhatsApp(c.nome, c.servico)}
+    `;
+  }
 
   // Se isento/CPLP — mostrar mensagem de dispensa e encerrar
   if (ehIsento) {
