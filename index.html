@@ -1168,13 +1168,14 @@ function buildNav() {
       ${(()=>{
         const cl = clienteLogado();
         if (!cl) return '';
-        // Curso só aparece para Naturalização
-        const ehNaturalizacao = (cl.servico||'').includes('Naturaliz');
-        if (!ehNaturalizacao) return '';
-        // Verificar isenção: CPLP, isento ou dispensado
-        const CPLP_P = ['portugal','angola','moçambique','mozambique','cabo verde','são tomé','sao tome','guiné-bissau','guiné equatorial','guinea','timor-leste','timor'];
-        const ehCPLP    = CPLP_P.some(p=>(cl.pais||'').toLowerCase().includes(p));
-        const ehIsento  = cl.cursoPgto === 'isento' || cl.cursoStatus === 'dispensado' || ehCPLP;
+        // 1. Só para Naturalização
+        if (!(cl.servico||'').includes('Naturaliz')) return '';
+        // 2. Verificar isenção por CPLP
+        const paisLower = (cl.pais||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+        const CPLP_NORM = ['portugal','angola','mocambique','cabo verde','sao tome','guine','timor'];
+        const ehCPLP = CPLP_NORM.some(p => paisLower.includes(p));
+        // 3. Verificar isenção explícita
+        const ehIsento = cl.cursoPgto === 'isento' || cl.cursoStatus === 'dispensado' || ehCPLP;
         return ehIsento ? '' : navItem('meu-curso','📚',t('curso'));
       })()}
       ${navItem('minhas-indicacoes','🤝',t('indicacoes'))}
@@ -2554,20 +2555,21 @@ function barraWhatsApp(nomeCliente, servico) {
 // ── Helper: encontrar cliente logado ────────────────────────────
 function clienteLogado() {
   if (!currentUser || currentRole !== 'cliente') return null;
-  // Prioridade 1: match por portalLogin (mais específico)
+  // Prioridade 1: ID direto (armazenado no momento do login — 100% preciso)
+  if (currentUser.clienteId) {
+    const byId = clientes.find(c => c.id === currentUser.clienteId);
+    if (byId) return byId;
+  }
+  // Prioridade 2: portalLogin exato
   const byLogin = clientes.find(c =>
     (c.portalLogin||c.email)?.toLowerCase() === currentUser.email?.toLowerCase()
   );
   if (byLogin) return byLogin;
-  // Prioridade 2: match por email exato
-  const byEmail = clientes.find(c =>
-    c.email?.toLowerCase() === currentUser.email?.toLowerCase()
-  );
-  if (byEmail) return byEmail;
-  // Prioridade 3: match por nome (apenas se os dois anteriores falharem)
+  // Prioridade 3: email exato (nunca retorna cliente errado pois email é único por cliente)
   return clientes.find(c =>
-    c.nome?.toLowerCase() === currentUser.name?.toLowerCase()
+    c.email?.toLowerCase() === currentUser.email?.toLowerCase()
   ) || null;
+  // NOTA: match por nome foi REMOVIDO — muito propenso a retornar cliente errado
 }
 
 // ── ETAPAS POR SERVIÇO ───────────────────────────────────────────
@@ -3454,9 +3456,10 @@ function renderMeuCurso() {
   if (!c) return `<div style="text-align:center;padding:60px;color:var(--text3)">Processo não encontrado.</div>`;
 
   // ── Verificar se cliente precisa do curso ──
-  const CPLP_PAISES = ['Portugal','Angola','Moçambique','Mozambique','Cabo Verde','São Tomé','Sao Tome','Guiné-Bissau','Guiné Equatorial','Guinea','Timor-Leste','Timor'];
   const ehNaturalizacao = (c.servico||'').includes('Naturaliz');
-  const ehCPLP          = CPLP_PAISES.some(p => (c.pais||'').toLowerCase().includes(p.toLowerCase()));
+  const paisNorm  = (c.pais||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const CPLP_NORM = ['portugal','angola','mocambique','cabo verde','sao tome','guine','timor'];
+  const ehCPLP    = CPLP_NORM.some(p => paisNorm.includes(p));
   const ehIsento        = c.cursoPgto === 'isento' || c.cursoStatus === 'dispensado' || ehCPLP;
 
   // Serviço não é Naturalização — redireciona para processo
