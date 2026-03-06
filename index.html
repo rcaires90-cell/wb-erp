@@ -1165,7 +1165,14 @@ function buildNav() {
       ${navItem('mensagens-cliente','💬',t('mensagens'))}
       ${navItem('agendamento-online','📅',t('agendar'))}
       ${navItem('agendamentos-cliente','🗓️',t('agendamentos'))}
-      ${navItem('meu-curso','📚',t('curso'))}
+      ${(()=>{
+        const cl = clienteLogado();
+        if (!cl) return '';
+        const CPLP_P = ['portugal','angola','moçambique','mozambique','cabo verde','são tomé','sao tome','guiné','guinea','timor'];
+        const ehCPLP = CPLP_P.some(p=>(cl.pais||'').toLowerCase().includes(p));
+        const ehIsento = cl.cursoPgto==='isento' || cl.cursoStatus==='dispensado' || ehCPLP;
+        return ehIsento ? '' : navItem('meu-curso','📚',t('curso'));
+      })()}
       ${navItem('minhas-indicacoes','🤝',t('indicacoes'))}
       <div class="nav-section">Informações</div>
       ${navItem('faq-cliente','📚',t('faq'))}
@@ -2542,10 +2549,20 @@ function barraWhatsApp(nomeCliente, servico) {
 }
 // ── Helper: encontrar cliente logado ────────────────────────────
 function clienteLogado() {
-  if (!currentUser) return null;
+  if (!currentUser || currentRole !== 'cliente') return null;
+  // Prioridade 1: match por portalLogin (mais específico)
+  const byLogin = clientes.find(c =>
+    (c.portalLogin||c.email)?.toLowerCase() === currentUser.email?.toLowerCase()
+  );
+  if (byLogin) return byLogin;
+  // Prioridade 2: match por email exato
+  const byEmail = clientes.find(c =>
+    c.email?.toLowerCase() === currentUser.email?.toLowerCase()
+  );
+  if (byEmail) return byEmail;
+  // Prioridade 3: match por nome (apenas se os dois anteriores falharem)
   return clientes.find(c =>
-    c.email?.toLowerCase() === currentUser.email?.toLowerCase() ||
-    c.nome?.toLowerCase()  === currentUser.name?.toLowerCase()
+    c.nome?.toLowerCase() === currentUser.name?.toLowerCase()
   ) || null;
 }
 
@@ -2875,9 +2892,9 @@ function renderMeusDocumentos() {
       <div style="font-size:2.5rem;margin-bottom:12px">📁</div>
       <div>Nenhum processo vinculado ainda.</div>
       <a href="https://wa.link/pp2gw8" target="_blank" rel="noopener noreferrer"
-style="margin-top:20px;display:inline-flex;align-items:center;gap:8px;background:#25d366;color:#fff;border:none;border-radius:10px;padding:12px 20px;font-weight:700;cursor:pointer">
+style="margin-top:20px;display:inline-flex;align-items:center;gap:8px;background:#25d366;color:#fff;border-radius:10px;padding:12px 20px;font-weight:700;text-decoration:none">
         💬 Falar com a WB
-      </button>
+      </a>
     </div>
     ${barraWhatsApp('','')}`;
 
@@ -3430,11 +3447,38 @@ function salvarChecklistDocs(clienteId, docsPadrao) {
 // ─── CLIENTE: CURSO DE PROFICIÊNCIA ──────────────────────────────
 function renderMeuCurso() {
   const c = clienteLogado();
-  const temCurso = c && (c.cursoLogin || c.cursoLink);
-  const link  = c?.cursoLink  || configEmpresa.cursoLink || '';
-  const login = c?.cursoLogin || '';
-  const senha = c?.cursoSenha || '';
-  const nome  = c?.nome?.split(' ')[0] || 'Cliente';
+  if (!c) return `<div style="text-align:center;padding:60px;color:var(--text3)">Processo não encontrado.</div>`;
+
+  // ── Verificar se cliente é isento do curso ──
+  const CPLP_PAISES = ['Portugal','Angola','Moçambique','Cabo Verde','São Tomé','Guiné-Bissau','Guiné Equatorial','Timor-Leste','Timor'];
+  const ehCPLP      = CPLP_PAISES.some(p => (c.pais||'').toLowerCase().includes(p.toLowerCase()));
+  const ehIsento    = c.cursoPgto === 'isento' || c.cursoStatus === 'dispensado' || ehCPLP;
+
+  // Se isento/CPLP — mostrar mensagem de dispensa e encerrar
+  if (ehIsento) {
+    return `
+      <div style="background:linear-gradient(135deg,#064e3b,#065f46);border-radius:18px;padding:32px;text-align:center;margin-bottom:24px">
+        <div style="font-size:3rem;margin-bottom:14px">🇧🇷</div>
+        <div style="font-size:1.3rem;font-weight:800;color:#4ade80;margin-bottom:8px">Você está dispensado do Curso!</div>
+        <div style="font-size:0.9rem;color:rgba(255,255,255,0.8);max-width:420px;margin:0 auto;line-height:1.7">
+          ${ehCPLP
+            ? `Cidadãos de países da <strong>CPLP</strong> (Comunidade dos Países de Língua Portuguesa) são naturalmente isentos da prova de proficiência em Língua Portuguesa.`
+            : `A equipe WB registrou sua isenção do Curso de Língua Portuguesa. Você não precisa realizar esta etapa.`}
+        </div>
+        <div style="margin-top:18px;background:rgba(74,222,128,0.15);border:1px solid rgba(74,222,128,0.3);border-radius:10px;padding:12px 18px;display:inline-block;font-size:0.82rem;color:#4ade80">
+          ✅ ${c.pais ? `País de origem: <strong>${c.pais}</strong>` : 'Dispensa registrada pela equipe WB'}
+        </div>
+      </div>
+      ${barraWhatsApp(c.nome, c.servico)}
+    `;
+  }
+
+  // ── Dados EXCLUSIVOS do cliente logado (sem fallback global) ──
+  const link  = c.cursoLink  || ''; // NUNCA usa configEmpresa.cursoLink
+  const login = c.cursoLogin || '';
+  const senha = c.cursoSenha || '';
+  const temCurso = !!(login || link);
+  const nome  = c.nome?.split(' ')[0] || 'Cliente';
   const msgWA = `Olá! Sou ${nome} e tenho dúvidas sobre o Curso de Proficiência em Português da WB.`;
 
   return `
@@ -3499,10 +3543,16 @@ function renderMeuCurso() {
               </div>
             </div>
           ` : `
-            <div style="text-align:center;padding:30px;color:var(--text3)">
+            <div style="text-align:center;padding:30px">
               <div style="font-size:2.5rem;margin-bottom:12px">⏳</div>
-              <div style="font-size:0.85rem;font-weight:600;color:var(--text);margin-bottom:6px">Acesso em configuração</div>
-              <div style="font-size:0.78rem">A equipe WB está configurando seu acesso ao curso. Em breve você receberá as credenciais.</div>
+              <div style="font-size:0.9rem;font-weight:700;color:var(--text);margin-bottom:8px">Acesso em preparação</div>
+              <div style="font-size:0.8rem;color:var(--text3);line-height:1.6;max-width:280px;margin:0 auto">
+                A equipe WB está configurando seu acesso personalizado ao curso.<br>
+                Você receberá login e senha em breve pelo WhatsApp.
+              </div>
+              <div style="margin-top:14px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px;font-size:0.74rem;color:var(--text3)">
+                Status atual: <strong style="color:var(--gold)">${{matriculado:'📋 Matriculado',em_andamento:'📖 Em Andamento',concluido:'✅ Concluído',reprovado:'❌ Reprovado'}[c.cursoStatus]||'⏳ Não iniciado'}</strong>
+              </div>
             </div>
           `}
         </div>
@@ -4112,7 +4162,7 @@ function _buildForm(c){
           <input id="ec2_curso_senha" value="${c.cursoSenha||''}">
         </div>
         <div class="form-field form-full"><label>Link da Plataforma</label>
-          <input id="ec2_curso_link" value="${c.cursoLink||configEmpresa.cursoLink||''}">
+          <input id="ec2_curso_link" value="${c.cursoLink||''}" placeholder="Link específico deste cliente">
         </div>
         <div class="form-field form-full"><label>Observações do Curso</label>
           <input id="ec2_curso_obs" placeholder="Ex: Prova agendada para 15/03, notas parciais..." value="${c.cursoObs||''}">
@@ -4165,7 +4215,7 @@ function salvarEdicaoCliente(id) {
   c.cursoValor    = parseFloat(document.getElementById('ec2_curso_valor')?.value)||c.cursoValor||0;
   c.cursoDataMat  = document.getElementById('ec2_curso_data_mat')?.value?.trim()||c.cursoDataMat||'';
   c.cursoObs      = document.getElementById('ec2_curso_obs')?.value?.trim()||c.cursoObs||'';
-  if (c.cursoLink && !configEmpresa.cursoLink) configEmpresa.cursoLink = c.cursoLink;
+  // cursoLink é POR CLIENTE — nunca propagar para configEmpresa
   c.rnm = document.getElementById('ec2_rnm')?.value?.trim() || c.rnm || '';
   _log(id, `Dados do cliente editados`);
   saveData();
@@ -4703,7 +4753,7 @@ function salvarNovoCliente() {
   const portalSenha = document.getElementById('nc_portal_senha')?.value?.trim() || gerarSenhaPortal(_ncWizard.nome);
   const cursoLogin  = document.getElementById('nc_curso_login')?.value?.trim()  || '';
   const cursoSenha  = document.getElementById('nc_curso_senha')?.value?.trim()  || '';
-  const cursoLink   = document.getElementById('nc_curso_link')?.value?.trim()   || configEmpresa.cursoLink||'';
+  const cursoLink   = document.getElementById('nc_curso_link')?.value?.trim()   || ''; // não herda global
   const serv        = _ncWizard.servico||'Naturalização Brasileira';
   const totalEtapas = serv.includes('Naturaliz')?8:serv.includes('RNM')?6:7;
   const hoje        = new Date().toLocaleDateString('pt-BR');
@@ -4742,7 +4792,7 @@ function salvarNovoCliente() {
   };
 
   clientes.push(novo);
-  if (cursoLink&&!configEmpresa.cursoLink) configEmpresa.cursoLink=cursoLink;
+  // cursoLink é individual — não propagar
   _log(novo.id, `Novo cliente cadastrado — ${novo.nome}`);
   saveData(); closeModal(); _ncWizard={};
   navigateTo('clientes');
