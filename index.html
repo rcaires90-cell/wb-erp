@@ -3280,7 +3280,7 @@ function renderConfiguracoes() {
         </div>
       </div>
     </div>
-  \`;
+  `;
 }
 
 function salvarConfigEmpresa() {
@@ -5189,11 +5189,11 @@ function enviarCredenciaisWhatsApp(nome, login, senha, tel) {
 function excluirCliente(id) {
   const c = clientes.find(x=>x.id===id);
   if (!c) return;
-  }});
   confirmarAcao({ icone:'🗑️', cor:'#ef4444', titulo:`Excluir "${c.nome}"?`, msg:`Todos os dados serão apagados permanentemente. <strong>Não pode ser desfeita.</strong>`, label:'🗑️ Excluir', onConfirm: () => {
-  clientes = clientes.filter(x=>x.id!==id);
-  saveData(); closeModal(); navigateTo('clientes');
-  showToast('🗑️ Cliente excluído.');
+    clientes = clientes.filter(x=>x.id!==id);
+    saveData(); closeModal(); navigateTo('clientes');
+    showToast('🗑️ Cliente excluído.');
+  }});
 }
 
 function atualizarEtapa_UNUSED(id) { /* replaced below */ }
@@ -9656,7 +9656,7 @@ function _delParcela(cId, idx) {
       if (!c2) return;
       const p2 = c2.parcelasLivres?.[idx];
       c2.parcelasLivres.splice(idx, 1);
-      _log(cId, \`Parcela "\${p2?.desc||idx+1}" excluída\`);
+      _log(cId, `Parcela "\${p2?.desc||idx+1}" excluída`);
       saveData();
       showToast('🗑️ Parcela excluída');
       openClienteModal(cId, 'fin');
