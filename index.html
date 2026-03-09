@@ -726,6 +726,13 @@
   <div class="modal" id="modal-body"></div>
 </div>
 
+<!-- 📱 BOTTOM NAV — Portal do Cliente (mobile only) -->
+<nav id="client-bottom-nav">
+  <div class="bnav-inner" id="bnav-inner">
+    <!-- populated by JS after login -->
+  </div>
+</nav>
+
 <script>
 // ══════════════════════════════════════
 // DATA
@@ -1386,7 +1393,7 @@ function doLogout() {
   document.getElementById('app').classList.remove('active');
   currentUser = null;
   document.body.classList.remove('cliente-mobile');
-  document.getElementById('client-bottom-nav').style.display = 'none';
+  const _bnav = document.getElementById('client-bottom-nav'); if (_bnav) _bnav.style.display = 'none';
   // Fecha sidebar no mobile
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebar-overlay').classList.remove('open');
@@ -1630,6 +1637,13 @@ function navigateTo(page) {
   };
   document.getElementById('page-title').textContent = titles[page] || page;
   renderPage(page);
+  // Portal mobile: reconstrói bottom nav e faz scroll para o topo
+  if (currentRole === 'cliente' && window.innerWidth <= 768) {
+    _buildBottomNav();
+    _updateMobileTopbar();
+    const mc = document.getElementById('main-content');
+    if (mc) mc.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 }
 
 // ══════════════════════════════════════
@@ -13020,13 +13034,6 @@ function exportarRelatorio(tipo) {
     </div>
     ${conteudo}
     <script>setTimeout(()=>window.print(),500)<\/script>
-  
-  <!-- 📱 BOTTOM NAV — Portal do Cliente (mobile only) -->
-  <nav id="client-bottom-nav">
-    <div class="bnav-inner" id="bnav-inner">
-      <!-- populated by JS after login -->
-    </div>
-  </nav>
 </body></html>`);
   win.document.close();
 }
@@ -13200,21 +13207,6 @@ document.addEventListener('click', e => {
     _toggleBnavMore(true);
   }
 });
-
-// Update bottom nav active state on each navigation
-const _origNavigateTo = navigateTo;
-function navigateTo(page) {
-  _origNavigateTo(page);
-  if (currentRole === 'cliente' && window.innerWidth <= 768) {
-    // Reconstrói bottom nav (garante CPLP/isento correto a cada navegação)
-    _buildBottomNav();
-    // Atualiza título da topbar
-    _updateMobileTopbar();
-    // Scroll para o topo suavemente
-    const content = document.getElementById('app-content');
-    if (content) content.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-}
 
 // Call on login and on resize
 window.addEventListener('resize', _clienteMobileSetup);
