@@ -1,0 +1,50 @@
+# ── Dependências ─────────────────────────────────
+node_modules/
+
+# ── Variáveis de ambiente (NUNCA commitar!) ───────
+.env
+.env.local
+.env.production
+.env.staging
+
+# ── Logs ─────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Build / dist ──────────────────────────────────
+dist/
+build/
+.cache/
+
+# ── Sistema operacional ───────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── Editor ────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Upload temporário ─────────────────────────────
+uploads/tmp/
+
+# ── Scripts de importação única (dados sensíveis) ─
+# Estes arquivos contêm dados reais de clientes e senhas — nunca commitar!
+reimportar_clientes_reais.js
+reimportar_utf8.js
+backend/reimportar.js
+backend/reimportar_utf8.js
+backend/fix_utf8.js
+backend/importar_parcelas.js
+gerar-senhas.js
