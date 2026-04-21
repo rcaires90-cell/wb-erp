@@ -78,9 +78,9 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ── SERVIR FRONTEND ──
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (_req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/wb_new.html'));
+  res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 // ── ERRO 404 ──────────────────────────────────────
