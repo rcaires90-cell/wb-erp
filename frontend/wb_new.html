@@ -1271,6 +1271,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Theme
   if (localStorage.getItem('wb_theme') === 'light') applyLight();
+
+  // Restaurar sessão se token salvo
+  const savedToken = localStorage.getItem('wb_token');
+  if (savedToken) {
+    AUTH_TOKEN = savedToken;
+    apiFetch('/auth/me').then(data => {
+      if (data && data.id) {
+        finishLogin(data);
+      } else {
+        localStorage.removeItem('wb_token');
+        AUTH_TOKEN = '';
+      }
+    }).catch(() => {
+      localStorage.removeItem('wb_token');
+      AUTH_TOKEN = '';
+    });
+  }
 });
 
 // ══════════════════════════════════
@@ -1945,7 +1962,7 @@ async function openCliente(id) {
     </div>
 
     <!-- ABA: PROCESSO -->
-    <div id="tab-processo" class="modal-tab-pane" style="padding:18px 22px">
+    <div id="tab-processo" class="modal-tab-pane" style="display:block;padding:18px 22px">
       
       <!-- Fases do processo -->
       <div style="margin-bottom:18px">
