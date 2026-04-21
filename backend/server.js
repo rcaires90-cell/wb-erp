@@ -77,19 +77,11 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// ── SERVIR FRONTEND (produção e desenvolvimento) ──
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../frontend/dist')));
-  app.get('*', (_req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-  });
-} else {
-  // Em dev, serve a pasta frontend diretamente
-  app.use(express.static(path.join(__dirname, '../frontend')));
-  app.get('/', (_req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/wb_new.html'));
-  });
-}
+// ── SERVIR FRONTEND ──
+app.use(express.static(path.join(__dirname, '../frontend')));
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/wb_new.html'));
+});
 
 // ── ERRO 404 ──────────────────────────────────────
 app.use((req, res) => {
