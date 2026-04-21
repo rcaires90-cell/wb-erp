@@ -8,7 +8,7 @@ async function notificarEtapa(cliente, novaEtapa) {
   console.log(`[email] tentando enviar para ${cliente.email}, EMAIL_USER=${process.env.EMAIL_USER ? 'set' : 'não set'}`);
   if (!process.env.EMAIL_USER || !cliente.email) return;
   try {
-    const t = nodemailer.createTransport({ service:'gmail', auth:{ user:process.env.EMAIL_USER, pass:process.env.EMAIL_PASS } });
+    const t = nodemailer.createTransport({ host:'smtp.gmail.com', port:465, secure:true, family:4, auth:{ user:process.env.EMAIL_USER, pass:process.env.EMAIL_PASS } });
     await t.sendMail({
       from: `"WB Assessoria Migratória" <${process.env.EMAIL_USER}>`,
       to: cliente.email,
