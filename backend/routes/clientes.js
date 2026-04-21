@@ -218,6 +218,9 @@ router.patch('/:id', async (req, res) => {
       'etapa', 'total_etapas', 'responsavel', 'valor', 'pago', 'protocolo',
       'portal_login', 'portal_senha', 'prioridade', 'drive_folder_url',
       'drive_folder_id', 'dados_json', 'foto', 'arquivado',
+      'processo_fase', 'processo_protocolo', 'processo_data_inicio',
+      'proficiencia_status', 'proficiencia_obs', 'gov_login', 'gov_senha',
+      'doc_rnm', 'doc_passaporte', 'doc_certidao', 'doc_comprovante',
     ];
 
     const setClauses = [];
