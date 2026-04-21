@@ -578,8 +578,7 @@ function renderMeusDocs() {
   if (!c) return '<div class="empty"><p>Acesso não disponível</p></div>';
   const dados = c.dados_json || {};
   const docs  = dados.docsPendentes || [];
-  const arqs  = dados.arquivos || [];
-
+  setTimeout(() => carregarDocsPortal(c.id), 100);
   return `
     <h2 style="margin-bottom:20px">Documentos</h2>
     ${docs.length ? `
@@ -597,72 +596,168 @@ function renderMeusDocs() {
         </div>
       </div>` : ''}
 
-    ${arqs.length ? `
-      <div class="panel" style="margin-bottom:16px">
-        <div class="panel-header"><span class="panel-title">📁 Meus Arquivos</span></div>
-        <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
-          ${arqs.map(a => `
-            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px">
-              <span>📄</span>
-              <div style="flex:1">
-                <div style="font-size:0.82rem;font-weight:500">${a.nome||'Arquivo'}</div>
-                <div style="font-size:0.7rem;color:var(--text3)">${a.cat||''} · ${a.data||''}</div>
-              </div>
-              ${a.base64 ? `<button class="btn btn-outline btn-sm" onclick="window.open(this.closest('div').querySelector('div').dataset.b64,'_blank')" >Ver</button>` : ''}
-            </div>`).join('')}
-        </div>
-      </div>` : ''}
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-header"><span class="panel-title">📤 Enviar Documento</span></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+        <input id="doc-nome" type="text" class="form-input" placeholder="Nome do documento (ex: RNM, CPF, Passaporte...)">
+        <input id="doc-file" type="file" class="form-input" accept=".pdf,.jpg,.jpeg,.png" style="padding:8px">
+        <button class="btn btn-primary" onclick="enviarDocPortal(${c.id})">📤 Enviar</button>
+        <div id="doc-status" style="font-size:0.8rem;color:var(--text3)"></div>
+      </div>
+    </div>
 
-    ${c.drive_folder_url ? `
-      <div class="panel">
-        <div class="panel-header"><span class="panel-title">📁 Minha Pasta no Drive</span></div>
-        <div class="panel-body">
-          <a href="${c.drive_folder_url}" target="_blank" class="drive-item">
-            <span style="font-size:1.5rem">📁</span>
-            <div><div style="font-size:0.84rem;font-weight:600">Pasta WB — ${c.nome}</div><div style="font-size:0.72rem;color:var(--text3)">Clique para abrir no Google Drive</div></div>
-            <span style="margin-left:auto;color:var(--text3)">↗</span>
-          </a>
-        </div>
-      </div>` : `
-      <div class="empty">
-        <div class="icon">📁</div>
-        <h3>Sem documentos</h3>
-        <p>Seus documentos aparecerão aqui quando a equipe os adicionar</p>
-        <br><a href="${WB_WA}" target="_blank" class="btn btn-primary">💬 Falar com WB</a>
-      </div>`}`;
+    <div class="panel" id="docs-enviados-wrap">
+      <div class="panel-header"><span class="panel-title">📁 Documentos Enviados</span></div>
+      <div id="docs-enviados-lista" style="padding:12px">
+        <div style="color:var(--text3);font-size:0.82rem;text-align:center;padding:20px">Carregando...</div>
+      </div>
+    </div>`;
+}
+
+async function enviarDocPortal(clienteId) {
+  const nome = document.getElementById('doc-nome').value.trim();
+  const file = document.getElementById('doc-file').files[0];
+  const status = document.getElementById('doc-status');
+  if (!nome) { status.textContent = 'Informe o nome do documento.'; status.style.color='var(--orange)'; return; }
+  if (!file) { status.textContent = 'Selecione um arquivo.'; status.style.color='var(--orange)'; return; }
+  if (file.size > 5 * 1024 * 1024) { status.textContent = 'Arquivo muito grande. Máximo 5MB.'; status.style.color='var(--red)'; return; }
+  status.textContent = 'Enviando...'; status.style.color='var(--text3)';
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result;
+    const res = await apiFetch('/portal/documentos', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, nome, tipo: file.type, base64 }) });
+    if (res?.id) {
+      status.textContent = '✅ Documento enviado com sucesso!'; status.style.color='var(--green)';
+      document.getElementById('doc-nome').value = '';
+      document.getElementById('doc-file').value = '';
+      carregarDocsPortal(clienteId);
+    } else { status.textContent = 'Erro ao enviar.'; status.style.color='var(--red)'; }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function carregarDocsPortal(clienteId) {
+  const el = document.getElementById('docs-enviados-lista');
+  if (!el) return;
+  const docs = await apiFetch(`/portal/documentos/${clienteId}`);
+  if (!Array.isArray(docs) || !docs.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:0.82rem;text-align:center;padding:20px">Nenhum documento enviado ainda.</div>';
+    return;
+  }
+  const badgeColor = { pendente:'var(--orange)', aprovado:'var(--green)', rejeitado:'var(--red)' };
+  el.innerHTML = docs.map(d => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:8px">
+      <span>📄</span>
+      <div style="flex:1">
+        <div style="font-size:0.82rem;font-weight:600">${d.nome}</div>
+        <div style="font-size:0.7rem;color:var(--text3)">${new Date(d.criado_em).toLocaleDateString('pt-BR')}${d.obs ? ' · '+d.obs : ''}</div>
+      </div>
+      <span style="font-size:0.72rem;font-weight:700;color:${badgeColor[d.status]||'var(--text3)'};text-transform:uppercase">${d.status}</span>
+    </div>`).join('');
 }
 
 function renderMensagens() {
   const c = clienteLogado();
-  const nome = c?.nome.split(' ')[0] || 'Cliente';
+  if (!c) return '<div class="empty"><p>Acesso não disponível</p></div>';
+  setTimeout(() => carregarMensagensPortal(c.id), 100);
   return `
-    <h2 style="margin-bottom:20px">Contato</h2>
+    <h2 style="margin-bottom:20px">Mensagens</h2>
+    <div class="panel" style="display:flex;flex-direction:column;height:500px">
+      <div id="chat-msgs" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px">
+        <div style="color:var(--text3);font-size:0.82rem;text-align:center">Carregando...</div>
+      </div>
+      <div style="padding:12px;border-top:1px solid var(--border);display:flex;gap:8px">
+        <input id="chat-input" type="text" class="form-input" placeholder="Digite sua mensagem..." style="flex:1"
+          onkeydown="if(event.key==='Enter')enviarMensagemPortal(${c.id})">
+        <button class="btn btn-primary" onclick="enviarMensagemPortal(${c.id})">Enviar</button>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <a href="${WB_WA}" target="_blank" class="btn btn-outline" style="width:100%;display:block;text-align:center">💬 Falar pelo WhatsApp</a>
+    </div>`;
+}
+
+async function carregarMensagensPortal(clienteId) {
+  const el = document.getElementById('chat-msgs');
+  if (!el) return;
+  const msgs = await apiFetch(`/portal/mensagens/${clienteId}`);
+  if (!Array.isArray(msgs) || !msgs.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:0.82rem;text-align:center;padding:20px">Nenhuma mensagem ainda. Diga olá!</div>';
+    return;
+  }
+  el.innerHTML = msgs.map(m => {
+    const mine = m.remetente === (currentRole === 'cliente' ? 'cliente' : 'equipe');
+    return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'}">
+      <div style="max-width:75%;padding:10px 14px;border-radius:${mine?'14px 14px 4px 14px':'14px 14px 14px 4px'};background:${mine?'var(--gold-dim)':'var(--bg3)'};border:1px solid ${mine?'var(--gold-glow)':'var(--border)'};font-size:0.84rem">
+        <div>${m.texto}</div>
+        <div style="font-size:0.68rem;color:var(--text3);margin-top:4px;text-align:right">${new Date(m.criado_em).toLocaleString('pt-BR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function enviarMensagemPortal(clienteId) {
+  const input = document.getElementById('chat-input');
+  const texto = input?.value?.trim();
+  if (!texto) return;
+  input.value = '';
+  const res = await apiFetch('/portal/mensagens', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, texto }) });
+  if (res?.id) carregarMensagensPortal(clienteId);
+}
+
+function renderMeusDados() {
+  const c = clienteLogado();
+  if (!c) return '<div class="empty"><p>Acesso não disponível</p></div>';
+  return `
+    <h2 style="margin-bottom:20px">Meus Dados</h2>
     <div class="panel" style="margin-bottom:16px">
-      <div class="panel-body">
-        <a href="${WB_WA}" target="_blank" style="display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#128c7e,#25d366);border-radius:var(--radius-lg);padding:20px;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
-          <span style="font-size:2rem">💬</span>
-          <div><div style="font-size:1rem;font-weight:700;color:#fff">WhatsApp WB Assessoria</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.8);margin-top:2px">(11) 91425-8886 · Respondemos rapidamente</div></div>
-          <span style="margin-left:auto;color:#fff">→</span>
-        </a>
+      <div class="panel-header"><span class="panel-title">👤 Dados Pessoais</span></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><div style="font-size:0.7rem;color:var(--text3);margin-bottom:4px">NOME</div><div style="font-size:0.88rem;font-weight:600">${c.nome}</div></div>
+          <div><div style="font-size:0.7rem;color:var(--text3);margin-bottom:4px">PAÍS</div><div style="font-size:0.88rem">${c.pais||'—'}</div></div>
+          <div><div style="font-size:0.7rem;color:var(--text3);margin-bottom:4px">CPF</div><div style="font-size:0.88rem;font-family:'Geist Mono',monospace">${c.cpf||'—'}</div></div>
+          <div><div style="font-size:0.7rem;color:var(--text3);margin-bottom:4px">RNM</div><div style="font-size:0.88rem;font-family:'Geist Mono',monospace">${c.rnm||'—'}</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-header"><span class="panel-title">✏️ Atualizar Contato</span></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+        <div class="form-group"><label>Telefone</label><input id="dados-tel" class="form-input" value="${c.tel||''}" placeholder="(11) 9 9999-9999"></div>
+        <div class="form-group"><label>Endereço</label><input id="dados-end" class="form-input" value="${c.endereco||''}" placeholder="Rua, número, cidade..."></div>
+        <button class="btn btn-primary" onclick="salvarDadosPortal()">Salvar Alterações</button>
+        <div id="dados-status" style="font-size:0.8rem"></div>
       </div>
     </div>
     <div class="panel">
-      <div class="panel-header"><span class="panel-title">Mensagens Rápidas</span></div>
-      <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
-        ${[
-          ['📄 Status do processo', `Olá! Sou ${nome} e gostaria de saber o status do meu processo.`],
-          ['💳 Dúvida financeira', `Olá! Sou ${nome} e tenho uma dúvida sobre o pagamento.`],
-          ['📁 Documentação pendente', `Olá! Sou ${nome} e quero informações sobre minha documentação pendente.`],
-          ['❓ Outra dúvida', `Olá! Sou ${nome} e tenho uma dúvida sobre meu processo na WB.`],
-        ].map(([label, msg]) => `
-          <a href="https://wa.me/5511914258886?text=${encodeURIComponent(msg)}" target="_blank"
-            style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;text-decoration:none;transition:border-color 0.15s"
-            onmouseover="this.style.borderColor='#25d366'" onmouseout="this.style.borderColor='var(--border)'">
-            <span style="font-size:0.88rem">${label}</span>
-            <span style="margin-left:auto;color:#25d366;font-size:0.8rem">Enviar →</span>
-          </a>`).join('')}
+      <div class="panel-header"><span class="panel-title">🔐 Alterar Senha do Portal</span></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+        <div class="form-group"><label>Nova Senha</label><input id="dados-senha" class="form-input" type="password" placeholder="Nova senha..."></div>
+        <div class="form-group"><label>Confirmar Senha</label><input id="dados-senha2" class="form-input" type="password" placeholder="Confirme a senha..."></div>
+        <button class="btn btn-outline" onclick="salvarDadosPortal(true)">Alterar Senha</button>
       </div>
     </div>`;
+}
+
+async function salvarDadosPortal(comSenha = false) {
+  const tel = document.getElementById('dados-tel')?.value?.trim();
+  const endereco = document.getElementById('dados-end')?.value?.trim();
+  const status = document.getElementById('dados-status');
+  const body = { tel, endereco };
+  if (comSenha) {
+    const s1 = document.getElementById('dados-senha')?.value;
+    const s2 = document.getElementById('dados-senha2')?.value;
+    if (!s1 || s1.length < 6) { if(status){status.textContent='Senha deve ter no mínimo 6 caracteres';status.style.color='var(--red)';} return; }
+    if (s1 !== s2) { if(status){status.textContent='Senhas não coincidem';status.style.color='var(--red)';} return; }
+    body.nova_senha = s1;
+  }
+  const res = await apiFetch('/portal/dados', { method:'PUT', body: JSON.stringify(body) });
+  if (status) {
+    if (res?.ok) { status.textContent = '✅ Salvo com sucesso!'; status.style.color='var(--green)'; }
+    else { status.textContent = 'Erro ao salvar.'; status.style.color='var(--red)'; }
+  }
 }
 
 
@@ -1413,19 +1508,18 @@ async function loginCliente() {
   err.style.display = 'none';
   btn.textContent = 'Verificando...'; btn.disabled = true;
   try {
-    pip('spin');
     const res = await fetch(API_BASE + '/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: login, senha: pass, tipo: 'cliente' })
     });
     const data = await res.json();
-    if (!res.ok) { err.textContent = data.erro || 'Dados incorretos'; err.style.display='block'; pip('err'); return; }
+    if (!res.ok) { err.textContent = data.erro || 'Dados incorretos'; err.style.display='block'; return; }
     AUTH_TOKEN = data.token;
     localStorage.setItem('wb_token', data.token);
     await finishLogin(data.user);
   } catch(e) {
-    err.textContent = 'Erro: ' + e.message; err.style.display='block'; pip('err');
+    err.textContent = 'Erro: ' + e.message; err.style.display='block';
   }
   btn.textContent = 'Acessar Meu Portal'; btn.disabled = false;
 }
@@ -1544,7 +1638,7 @@ const PAGE_TITLES = {
   prolabore: 'Pró-labore', relatorio: 'Relatório Financeiro',
   inadimplencia: 'Inadimplência', leads: 'Pipeline de Leads',
   'meu-processo': 'Meu Processo', 'meu-financeiro': 'Financeiro',
-  'meus-docs': 'Documentos', 'mensagens': 'Contato',
+  'meus-docs': 'Documentos', 'mensagens': 'Mensagens', 'meus-dados': 'Meus Dados',
   conciliacao: 'Conciliação Bancária', 'curso-proficiencia': 'Curso de Proficiência',
 };
 
@@ -1576,7 +1670,8 @@ function buildNav() {
       ${ni('meu-processo','📋','Meu Processo')}
       ${ni('meu-financeiro','💳','Financeiro')}
       ${ni('meus-docs','📁','Documentos')}
-      ${ni('mensagens','💬','Contato')}`;
+      ${ni('mensagens','💬','Mensagens')}
+      ${ni('meus-dados','👤','Meus Dados')}`;
   } else {
     const venc   = parcelas.filter(p => !p.paga && p.vencimento && new Date(p.vencimento) <= new Date(Date.now() + 7*864e5)).length;
     const inadim = parcelas.filter(p => !p.paga && p.vencimento && new Date(p.vencimento) < new Date()).length;
@@ -1630,6 +1725,7 @@ function renderPage(page) {
     'meu-financeiro':renderMeuFinanceiro,
     'meus-docs':    renderMeusDocs,
     'mensagens':    renderMensagens,
+    'meus-dados':   renderMeusDados,
     'conciliacao':  renderConciliacao,
     'curso-proficiencia': renderCursoProficiencia,
     'inadimplencia': renderInadimplencia,

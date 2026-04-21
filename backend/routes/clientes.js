@@ -1,7 +1,21 @@
-const router = require('express').Router();
-const db     = require('../db');
-const auth   = require('../middleware/auth');
-const bcrypt = require('bcryptjs');
+const router       = require('express').Router();
+const db           = require('../db');
+const auth         = require('../middleware/auth');
+const bcrypt       = require('bcryptjs');
+const nodemailer   = require('nodemailer');
+
+async function notificarEtapa(cliente, novaEtapa) {
+  if (!process.env.EMAIL_USER || !cliente.email) return;
+  try {
+    const t = nodemailer.createTransport({ service:'gmail', auth:{ user:process.env.EMAIL_USER, pass:process.env.EMAIL_PASS } });
+    await t.sendMail({
+      from: process.env.EMAIL_USER,
+      to: cliente.email,
+      subject: `✅ Seu processo avançou — WB Assessoria`,
+      html: `<p>Olá, <b>${cliente.nome}</b>!</p><p>Seu processo de <b>${cliente.servico}</b> avançou para a etapa <b>${novaEtapa}</b>.</p><p>Acesse seu portal para acompanhar.</p>`
+    });
+  } catch {}
+}
 
 router.use(auth);
 
@@ -219,6 +233,7 @@ router.patch('/:id', async (req, res) => {
       return res.status(400).json({ erro: 'Nenhum campo válido para atualizar' });
     }
 
+    const [[antes]] = await db.query('SELECT etapa, email, nome, servico FROM clientes WHERE id=?', [id]);
     params.push(id);
     await db.query(
       `UPDATE clientes SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = ?`,
@@ -227,6 +242,11 @@ router.patch('/:id', async (req, res) => {
 
     const [updated] = await db.query('SELECT * FROM clientes WHERE id = ?', [id]);
     if (!updated.length) return res.status(404).json({ erro: 'Cliente não encontrado' });
+
+    if ('etapa' in fields && parseInt(fields.etapa) !== parseInt(antes?.etapa)) {
+      notificarEtapa(antes, parseInt(fields.etapa) + 1);
+    }
+
     res.json(updated[0]);
   } catch (err) {
     console.error('[clientes PATCH]', err);
