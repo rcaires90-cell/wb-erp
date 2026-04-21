@@ -20,19 +20,8 @@ app.use((req, res, next) => {
 });
 
 // ── CORS ──────────────────────────────────────────
-const origensPermitidas = (process.env.CORS_ORIGIN || 'http://localhost:5500')
-  .split(',')
-  .map(o => o.trim());
-
 app.use(cors({
-  origin: (origin, callback) => {
-    // Permite requisições sem origin (Postman, apps mobile, etc.)
-    if (!origin) return callback(null, true);
-    if (origensPermitidas.includes('*') || origensPermitidas.includes(origin)) {
-      return callback(null, true);
-    }
-    callback(new Error(`CORS bloqueado para origin: ${origin}`));
-  },
+  origin: true,
   methods:        ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials:    true,
