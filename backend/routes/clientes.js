@@ -5,6 +5,7 @@ const bcrypt       = require('bcryptjs');
 const nodemailer   = require('nodemailer');
 
 async function notificarEtapa(cliente, novaEtapa) {
+  console.log(`[email] tentando enviar para ${cliente.email}, EMAIL_USER=${process.env.EMAIL_USER ? 'set' : 'não set'}`);
   if (!process.env.EMAIL_USER || !cliente.email) return;
   try {
     const t = nodemailer.createTransport({ service:'gmail', auth:{ user:process.env.EMAIL_USER, pass:process.env.EMAIL_PASS } });
