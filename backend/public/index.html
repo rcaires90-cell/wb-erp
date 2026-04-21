@@ -1413,19 +1413,18 @@ async function loginCliente() {
   err.style.display = 'none';
   btn.textContent = 'Verificando...'; btn.disabled = true;
   try {
-    pip('spin');
     const res = await fetch(API_BASE + '/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: login, senha: pass, tipo: 'cliente' })
     });
     const data = await res.json();
-    if (!res.ok) { err.textContent = data.erro || 'Dados incorretos'; err.style.display='block'; pip('err'); return; }
+    if (!res.ok) { err.textContent = data.erro || 'Dados incorretos'; err.style.display='block'; return; }
     AUTH_TOKEN = data.token;
     localStorage.setItem('wb_token', data.token);
     await finishLogin(data.user);
   } catch(e) {
-    err.textContent = 'Erro: ' + e.message; err.style.display='block'; pip('err');
+    err.textContent = 'Erro: ' + e.message; err.style.display='block';
   }
   btn.textContent = 'Acessar Meu Portal'; btn.disabled = false;
 }
