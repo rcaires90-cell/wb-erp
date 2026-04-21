@@ -1271,6 +1271,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Theme
   if (localStorage.getItem('wb_theme') === 'light') applyLight();
+
+  // Restaurar sessão se token salvo
+  const savedToken = localStorage.getItem('wb_token');
+  if (savedToken) {
+    AUTH_TOKEN = savedToken;
+    apiFetch('/auth/me').then(data => {
+      if (data && data.id) {
+        finishLogin(data);
+      } else {
+        localStorage.removeItem('wb_token');
+        AUTH_TOKEN = '';
+      }
+    }).catch(() => {
+      localStorage.removeItem('wb_token');
+      AUTH_TOKEN = '';
+    });
+  }
 });
 
 // ══════════════════════════════════
