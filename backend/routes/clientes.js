@@ -23,7 +23,8 @@ async function notificarEtapa(cliente, novaEtapa) {
           <p style="margin-top:24px;font-size:12px;color:#999">WB Assessoria Migratória · (11) 91425-8886</p>
         </div>`
     });
-  } catch(e) { console.error('[email]', e.message); }
+    console.log('[email] enviado com sucesso para', cliente.email);
+  } catch(e) { console.error('[email] ERRO:', e.message, e.code || ''); }
 }
 
 router.use(auth);
