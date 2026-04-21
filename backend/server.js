@@ -93,5 +93,5 @@ app.listen(PORT, () => {
   console.log(`\n🚀 WB ERP Backend v5.1 — http://localhost:${PORT}`);
   console.log(`📊 Ambiente : ${process.env.NODE_ENV || 'development'}`);
   console.log(`🗄️  Banco    : ${process.env.DB_NAME}@${process.env.DB_HOST}`);
-  console.log(`🌐 CORS     : ${origensPermitidas.join(', ')}\n`);
+  console.log(`🌐 CORS     : all origins\n`);
 });
