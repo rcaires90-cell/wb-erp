@@ -9,12 +9,20 @@ async function notificarEtapa(cliente, novaEtapa) {
   try {
     const t = nodemailer.createTransport({ service:'gmail', auth:{ user:process.env.EMAIL_USER, pass:process.env.EMAIL_PASS } });
     await t.sendMail({
-      from: process.env.EMAIL_USER,
+      from: `"WB Assessoria Migratória" <${process.env.EMAIL_USER}>`,
       to: cliente.email,
-      subject: `✅ Seu processo avançou — WB Assessoria`,
-      html: `<p>Olá, <b>${cliente.nome}</b>!</p><p>Seu processo de <b>${cliente.servico}</b> avançou para a etapa <b>${novaEtapa}</b>.</p><p>Acesse seu portal para acompanhar.</p>`
+      subject: `✅ Atualização no seu processo — WB Assessoria`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:24px;background:#f9f9f9;border-radius:8px">
+          <h2 style="color:#c9a84c">WB Assessoria Migratória</h2>
+          <p>Olá, <b>${cliente.nome}</b>!</p>
+          <p>Seu processo de <b>${cliente.servico}</b> foi atualizado para: <b>${novaEtapa}</b>.</p>
+          <p>Acesse seu portal para acompanhar todas as informações.</p>
+          <a href="https://wb-erp-production.up.railway.app" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Acessar Portal</a>
+          <p style="margin-top:24px;font-size:12px;color:#999">WB Assessoria Migratória · (11) 91425-8886</p>
+        </div>`
     });
-  } catch {}
+  } catch(e) { console.error('[email]', e.message); }
 }
 
 router.use(auth);
@@ -236,7 +244,7 @@ router.patch('/:id', async (req, res) => {
       return res.status(400).json({ erro: 'Nenhum campo válido para atualizar' });
     }
 
-    const [[antes]] = await db.query('SELECT etapa, email, nome, servico FROM clientes WHERE id=?', [id]);
+    const [[antes]] = await db.query('SELECT etapa, processo_fase, email, nome, servico FROM clientes WHERE id=?', [id]);
     params.push(id);
     await db.query(
       `UPDATE clientes SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = ?`,
@@ -248,6 +256,8 @@ router.patch('/:id', async (req, res) => {
 
     if ('etapa' in fields && parseInt(fields.etapa) !== parseInt(antes?.etapa)) {
       notificarEtapa(antes, parseInt(fields.etapa) + 1);
+    } else if ('processo_fase' in fields && fields.processo_fase !== antes?.processo_fase) {
+      notificarEtapa(antes, fields.processo_fase);
     }
 
     res.json(updated[0]);
