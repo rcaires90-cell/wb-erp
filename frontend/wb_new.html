@@ -615,9 +615,10 @@ function renderConfiguracoes() {
             <div style="font-size:0.78rem;color:var(--text3);font-family:'Geist Mono',monospace">
               ${API_BASE}
             </div>
-            <div style="display:flex;gap:8px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-outline btn-sm" onclick="loadData().then(()=>{renderPage(currentPage);showToast('✅ Dados atualizados!','success')})">🔄 Sincronizar agora</button>
               <button class="btn btn-outline btn-sm" onclick="exportarJSON()">📤 Exportar JSON</button>
+              <button class="btn btn-outline btn-sm" onclick="baixarBackupCompleto()">💾 Backup Completo</button>
             </div>
           </div>
         </div>
@@ -889,6 +890,36 @@ async function enviarMensagemPortal(clienteId) {
   input.value = '';
   const res = await apiFetch('/portal/mensagens', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, texto }) });
   if (res?.id) carregarMensagensPortal(clienteId);
+}
+
+async function carregarMsgsEquipe(clienteId) {
+  const el = document.getElementById('msgs-equipe-lista');
+  if (!el) return;
+  const msgs = await apiFetch(`/portal/mensagens/${clienteId}`);
+  if (!Array.isArray(msgs) || !msgs.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:0.82rem;text-align:center;padding:20px">Nenhuma mensagem trocada ainda.</div>';
+    return;
+  }
+  el.innerHTML = msgs.map(m => {
+    const mine = m.remetente === 'equipe';
+    return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'}">
+      <div style="max-width:75%;padding:8px 12px;border-radius:${mine?'12px 12px 4px 12px':'12px 12px 12px 4px'};background:${mine?'var(--gold-dim)':'var(--bg3)'};border:1px solid ${mine?'var(--gold-glow)':'var(--border)'};font-size:0.82rem">
+        <div style="font-size:0.65rem;color:var(--text3);margin-bottom:3px;font-weight:600">${mine?'Equipe WB':'Cliente'}</div>
+        <div>${m.texto}</div>
+        <div style="font-size:0.65rem;color:var(--text3);margin-top:3px;text-align:right">${new Date(m.criado_em).toLocaleString('pt-BR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function enviarMsgEquipe(clienteId) {
+  const input = document.getElementById('msgs-equipe-input');
+  const texto = input?.value?.trim();
+  if (!texto || !clienteId) return;
+  input.value = '';
+  const res = await apiFetch('/portal/mensagens', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, texto }) });
+  if (res?.id) carregarMsgsEquipe(clienteId);
 }
 
 function renderMeusDados() {
@@ -1179,6 +1210,24 @@ function exportarJSON() {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast('✅ Backup exportado!','success');
+}
+
+async function baixarBackupCompleto() {
+  showToast('⏳ Gerando backup, aguarde...', 'info');
+  try {
+    const resp = await fetch(`${API_BASE}/exportar/backup.json`, {
+      headers: { Authorization: `Bearer ${AUTH_TOKEN}` }
+    });
+    if (!resp.ok) { const e = await resp.json(); return showToast('Erro: ' + (e.erro || resp.status), 'error'); }
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const data = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    a.href = url; a.download = `wb-erp-backup-${data}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('✅ Backup completo baixado!', 'success');
+  } catch(e) { showToast('Erro ao gerar backup', 'error'); }
 }
 
 function importarCSV() {
@@ -2222,6 +2271,7 @@ async function openCliente(id) {
     diasAnteced < 0 ? 'var(--red)' :
     diasAnteced <= 30 ? 'var(--orange)' : 'var(--green)';
 
+  window._modalClienteId = c.id;
   openModal(`
     <div class="modal-header" style="border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:12px">
@@ -2244,6 +2294,7 @@ async function openCliente(id) {
       <button class="modal-tab" onclick="switchModalTab(this,'tab-financeiro')">💳 Financeiro</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-dados')">👤 Dados</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-notas');carregarNotas(${c.id})">📝 Notas</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'tab-msgs');carregarMsgsEquipe(${c.id})">💬 Mensagens</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-ia')">🤖 IA</button>
     </div>
 
@@ -2491,6 +2542,18 @@ async function openCliente(id) {
           style="background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:8px 16px;cursor:pointer;font-family:inherit;font-size:0.76rem;font-weight:700">
           🗑️ Arquivar
         </button>
+      </div>
+    </div>
+
+    <!-- ABA: MENSAGENS PORTAL -->
+    <div id="tab-msgs" class="modal-tab-pane" style="display:none;padding:0">
+      <div id="msgs-equipe-lista" style="height:280px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px">
+        <div style="color:var(--text3);font-size:0.82rem;text-align:center">Carregando...</div>
+      </div>
+      <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px">
+        <input id="msgs-equipe-input" type="text" class="form-input" placeholder="Responder ao cliente..." style="flex:1"
+          onkeydown="if(event.key==='Enter')enviarMsgEquipe(window._modalClienteId)">
+        <button class="btn btn-primary btn-sm" onclick="enviarMsgEquipe(window._modalClienteId)">Enviar</button>
       </div>
     </div>
 

@@ -70,4 +70,24 @@ router.get('/financeiro.csv', async (req, res) => {
   res.send(toCSV(cols, rows));
 });
 
+// GET /api/exportar/backup.json  — exporta todas as tabelas principais (só CEO)
+router.get('/backup.json', async (req, res) => {
+  if (req.user.role !== 'ceo') return res.status(403).json({ erro: 'Acesso negado' });
+  try {
+    const tabelas = ['clientes','parcelas','agendamentos','despesas','prolabore',
+                     'leads','mensagens_portal','documentos_portal','metas_mensais'];
+    const backup = { gerado_em: new Date().toISOString(), tabelas: {} };
+    for (const t of tabelas) {
+      try {
+        const [rows] = await db.query(`SELECT * FROM \`${t}\``);
+        backup.tabelas[t] = rows;
+      } catch { backup.tabelas[t] = []; }
+    }
+    const data = new Date().toISOString().slice(0,10);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="wb-erp-backup-${data}.json"`);
+    res.send(JSON.stringify(backup, null, 2));
+  } catch(e) { res.status(500).json({ erro: e.message }); }
+});
+
 module.exports = router;
