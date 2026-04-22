@@ -413,7 +413,182 @@ html, body { margin:0; padding:0; height:100%; overflow:hidden; }
 // ══════════════════════════════════
 // CONFIGURAÇÕES
 // ══════════════════════════════════
+async function carregarMetasDashboard(pagoAtual, contratosAtual) {
+  const el = document.getElementById('metas-dashboard-widget');
+  if (!el) return;
+  const mes = new Date().toISOString().slice(0,7);
+  const meta = await apiFetch(`/metas?mes=${mes}`);
+  if (!meta || (!meta.meta_receita && !meta.meta_contratos)) {
+    el.innerHTML = `
+      <div class="panel" style="border-color:rgba(201,168,76,0.2)">
+        <div class="panel-header" style="background:rgba(201,168,76,0.05)">
+          <span class="panel-title">🎯 Metas do Mês</span>
+          <button class="btn btn-ghost btn-sm" onclick="abrirModalMetas()">Definir metas →</button>
+        </div>
+        <div style="padding:16px;text-align:center;color:var(--text3);font-size:0.82rem">
+          Nenhuma meta definida para este mês.
+          <button class="btn btn-outline btn-sm" style="margin-left:8px" onclick="abrirModalMetas()">Definir agora</button>
+        </div>
+      </div>`;
+    return;
+  }
+  const pctReceita  = meta.meta_receita  ? Math.min(100, Math.round(pagoAtual / meta.meta_receita * 100))  : 0;
+  const pctContr    = meta.meta_contratos ? Math.min(100, Math.round(contratosAtual / meta.meta_contratos * 100)) : 0;
+  el.innerHTML = `
+    <div class="panel" style="border-color:rgba(201,168,76,0.2)">
+      <div class="panel-header" style="background:rgba(201,168,76,0.05)">
+        <span class="panel-title">🎯 Metas de ${new Date().toLocaleString('pt-BR',{month:'long',year:'numeric'})}</span>
+        <button class="btn btn-ghost btn-sm" onclick="abrirModalMetas()">Editar →</button>
+      </div>
+      <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:6px">
+            <span style="color:var(--text3)">Receita</span>
+            <span style="color:${pctReceita>=100?'var(--green)':'var(--gold)'};font-weight:700">R$ ${pagoAtual.toLocaleString('pt-BR',{minimumFractionDigits:0})} / R$ ${(meta.meta_receita||0).toLocaleString('pt-BR')}</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pctReceita}%;background:${pctReceita>=100?'var(--green)':'var(--gold)'}"></div></div>
+          <div style="font-size:0.68rem;color:var(--text3);margin-top:4px">${pctReceita}% atingido</div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:6px">
+            <span style="color:var(--text3)">Contratos</span>
+            <span style="color:${pctContr>=100?'var(--green)':'var(--gold)'};font-weight:700">${contratosAtual} / ${meta.meta_contratos}</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pctContr}%;background:${pctContr>=100?'var(--green)':'var(--gold)'}"></div></div>
+          <div style="font-size:0.68rem;color:var(--text3);margin-top:4px">${pctContr}% atingido</div>
+        </div>
+      </div>
+      ${meta.obs ? `<div style="padding:0 16px 12px;font-size:0.78rem;color:var(--text3)">📝 ${meta.obs}</div>` : ''}
+    </div>`;
+}
+
+function abrirModalMetas() {
+  const mes = new Date().toISOString().slice(0,7);
+  const label = new Date().toLocaleString('pt-BR',{month:'long',year:'numeric'});
+  openModal(`
+    <div class="modal-header"><span style="font-weight:700">🎯 Metas — ${label}</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div class="form-group"><label>Meta de Receita (R$)</label>
+        <input id="meta-receita" type="number" class="form-input" placeholder="Ex: 20000"></div>
+      <div class="form-group"><label>Meta de Contratos</label>
+        <input id="meta-contratos" type="number" class="form-input" placeholder="Ex: 10"></div>
+      <div class="form-group"><label>Observação (opcional)</label>
+        <input id="meta-obs" class="form-input" placeholder="Foco do mês..."></div>
+      <button class="btn btn-primary" onclick="salvarMetas('${mes}')">Salvar Metas</button>
+    </div>`);
+  apiFetch(`/metas?mes=${mes}`).then(m => {
+    if (m?.meta_receita) document.getElementById('meta-receita').value = m.meta_receita;
+    if (m?.meta_contratos) document.getElementById('meta-contratos').value = m.meta_contratos;
+    if (m?.obs) document.getElementById('meta-obs').value = m.obs;
+  });
+}
+
+async function salvarMetas(mes) {
+  const meta_receita   = parseFloat(document.getElementById('meta-receita').value) || 0;
+  const meta_contratos = parseInt(document.getElementById('meta-contratos').value) || 0;
+  const obs            = document.getElementById('meta-obs').value.trim();
+  await apiFetch('/metas', { method:'POST', body: JSON.stringify({ mes, meta_receita, meta_contratos, obs }) });
+  closeModal();
+  showToast('✅ Metas salvas!', 'success');
+  navigateTo('dashboard');
+}
+
+async function carregarColaboradores() {
+  const el = document.getElementById('colaboradores-lista');
+  if (!el) return;
+  const users = await apiFetch('/auth/usuarios');
+  if (!Array.isArray(users)) { el.innerHTML = '<div style="padding:16px;color:var(--text3);font-size:0.82rem">Sem permissão.</div>'; return; }
+  const roleLabel = { ceo:'Diretor', colaborador:'Colaborador' };
+  el.innerHTML = users.map(u => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--gold-dim);border:1px solid var(--gold-glow);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--gold)">${u.avatar||u.nome[0]}</div>
+      <div style="flex:1">
+        <div style="font-size:0.84rem;font-weight:600;${u.ativo?'':'opacity:0.5'}">${u.nome}</div>
+        <div style="font-size:0.72rem;color:var(--text3)">${u.cargo||roleLabel[u.role]||u.role} · ${u.email}</div>
+      </div>
+      <span class="badge ${u.ativo?'badge-green':'badge-gray'}">${u.ativo?'Ativo':'Inativo'}</span>
+      <button class="btn btn-ghost btn-sm" onclick="abrirModalEditarColaborador(${JSON.stringify(JSON.stringify(u))})">✏️</button>
+    </div>`).join('');
+}
+
+function abrirModalNovoColaborador() {
+  openModal(`
+    <div class="modal-header"><span style="font-weight:700">👤 Novo Colaborador</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div class="form-group"><label>Nome completo</label><input id="col-nome" class="form-input" placeholder="Nome..."></div>
+      <div class="form-group"><label>Email</label><input id="col-email" type="email" class="form-input" placeholder="email@..."></div>
+      <div class="form-group"><label>Senha</label><input id="col-senha" type="password" class="form-input" placeholder="Senha de acesso..."></div>
+      <div class="form-group"><label>Cargo</label><input id="col-cargo" class="form-input" placeholder="Ex: Assistente, Advogado..."></div>
+      <div class="form-group"><label>Nível de acesso</label>
+        <select id="col-role" class="form-input">
+          <option value="colaborador">Colaborador</option>
+          <option value="ceo">Diretor</option>
+        </select>
+      </div>
+      <div id="col-erro" style="color:var(--red);font-size:0.8rem;display:none"></div>
+      <button class="btn btn-primary" onclick="salvarNovoColaborador()">Cadastrar</button>
+    </div>`);
+}
+
+async function salvarNovoColaborador() {
+  const nome  = document.getElementById('col-nome').value.trim();
+  const email = document.getElementById('col-email').value.trim();
+  const senha = document.getElementById('col-senha').value;
+  const cargo = document.getElementById('col-cargo').value.trim();
+  const role  = document.getElementById('col-role').value;
+  const erro  = document.getElementById('col-erro');
+  if (!nome || !email || !senha) { erro.textContent='Preencha todos os campos obrigatórios'; erro.style.display='block'; return; }
+  const res = await apiFetch('/auth/usuarios', { method:'POST', body: JSON.stringify({ nome, email, senha, cargo, role }) });
+  if (res?.erro) { erro.textContent = res.erro; erro.style.display='block'; return; }
+  closeModal();
+  showToast('✅ Colaborador cadastrado!', 'success');
+  carregarColaboradores();
+}
+
+function abrirModalEditarColaborador(userJson) {
+  const u = JSON.parse(userJson);
+  openModal(`
+    <div class="modal-header"><span style="font-weight:700">✏️ Editar — ${u.nome}</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div class="form-group"><label>Cargo</label><input id="edit-cargo" class="form-input" value="${u.cargo||''}"></div>
+      <div class="form-group"><label>Nível de acesso</label>
+        <select id="edit-role" class="form-input">
+          <option value="colaborador" ${u.role==='colaborador'?'selected':''}>Colaborador</option>
+          <option value="ceo" ${u.role==='ceo'?'selected':''}>Diretor</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Nova Senha (deixe vazio para manter)</label><input id="edit-senha" type="password" class="form-input" placeholder="Nova senha..."></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" style="flex:1" onclick="salvarEdicaoColaborador(${u.id})">Salvar</button>
+        <button class="btn ${u.ativo?'btn-outline':'btn-ghost'}" onclick="toggleAtivoColaborador(${u.id},${u.ativo?0:1})">${u.ativo?'Desativar':'Ativar'}</button>
+      </div>
+    </div>`);
+}
+
+async function salvarEdicaoColaborador(id) {
+  const cargo     = document.getElementById('edit-cargo').value.trim();
+  const role      = document.getElementById('edit-role').value;
+  const nova_senha = document.getElementById('edit-senha').value;
+  const body = { cargo, role };
+  if (nova_senha) body.nova_senha = nova_senha;
+  await apiFetch(`/auth/usuarios/${id}`, { method:'PUT', body: JSON.stringify(body) });
+  closeModal();
+  showToast('✅ Colaborador atualizado!', 'success');
+  carregarColaboradores();
+}
+
+async function toggleAtivoColaborador(id, ativo) {
+  await apiFetch(`/auth/usuarios/${id}`, { method:'PUT', body: JSON.stringify({ ativo }) });
+  closeModal();
+  showToast(ativo ? '✅ Colaborador ativado!' : '⚠️ Colaborador desativado!', 'success');
+  carregarColaboradores();
+}
+
 function renderConfiguracoes() {
+  setTimeout(() => carregarColaboradores(), 50);
   return `
     <h2 style="margin-bottom:20px">Configurações</h2>
     <div style="max-width:600px;display:flex;flex-direction:column;gap:16px">
@@ -454,6 +629,16 @@ function renderConfiguracoes() {
             Conta conectada: <strong style="color:var(--text)">wbassessoria.contato@gmail.com</strong>
           </div>
           <a href="https://drive.google.com" target="_blank" class="btn btn-outline btn-sm">Abrir Google Drive ↗</a>
+        </div>
+      </div>
+
+      <div class="panel" id="colaboradores-panel">
+        <div class="panel-header">
+          <span class="panel-title">👥 Equipe</span>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalNovoColaborador()">+ Novo</button>
+        </div>
+        <div id="colaboradores-lista" style="padding:8px 0">
+          <div style="padding:16px;text-align:center;color:var(--text3);font-size:0.82rem">Carregando...</div>
         </div>
       </div>
     </div>`;
@@ -1820,17 +2005,15 @@ function renderDashboard() {
   const total   = (clientes||[]).length;
   const ativos  = (clientes||[]).filter(c => c.status === 'Em andamento').length;
   const conc    = (clientes||[]).filter(c => c.status === 'Concluído').length;
-  const receita = (clientes||[]).reduce((s, c) => s + (parseFloat(c.valor)||0), 0);
   const pago    = (parcelas||[]).filter(p => p.paga).reduce((s,p) => s + (parseFloat(p.valor)||0), 0);
   const pendente= (parcelas||[]).filter(p => !p.paga).reduce((s,p) => s + (parseFloat(p.valor)||0), 0);
   const hoje    = new Date().toISOString().split('T')[0];
   const agHoje  = (agendamentos||[]).filter(a => a.data === hoje);
   const venc3   = (parcelas||[]).filter(p => !p.paga && p.vencimento && new Date(p.vencimento) <= new Date(Date.now() + 3*864e5));
+  const mesAtual = new Date().toISOString().slice(0,7);
+  const contratosmes = (clientes||[]).filter(c => (c.data_cadastro||'').slice(6,10)+'-'+(c.data_cadastro||'').slice(3,5) === mesAtual || (c.created_at||'').slice(0,7) === mesAtual).length;
 
-  // Still loading?
-  if (total === 0 && clientes !== undefined && clientes.length === 0) {
-    // Check if we're actually loading
-  }
+  setTimeout(() => carregarMetasDashboard(pago, contratosmes), 50);
 
   return `
     ${venc3.length ? `
@@ -1862,6 +2045,8 @@ function renderDashboard() {
         <div class="stat-sub">${agHoje.length ? agHoje[0].hora + ' · ' + agHoje[0].tipo : 'Nenhum agendamento'}</div>
       </div>
     </div>
+
+    <div id="metas-dashboard-widget" style="margin-bottom:20px"></div>
 
     <div class="grid-2">
       <div class="panel">
