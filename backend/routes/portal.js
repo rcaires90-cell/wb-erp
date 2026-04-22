@@ -2,20 +2,10 @@ const router  = require('express').Router();
 const db      = require('../db');
 const auth    = require('../middleware/auth');
 const bcrypt  = require('bcryptjs');
-const nodemailer = require('nodemailer');
-
-function emailTransport() {
-  if (!process.env.EMAIL_USER) return null;
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com', port: 465, secure: true, family: 4,
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-  });
-}
+const { sendEmail } = require('../lib/email');
 
 async function enviarEmail(to, subject, html) {
-  const t = emailTransport();
-  if (!t) return;
-  try { await t.sendMail({ from: process.env.EMAIL_USER, to, subject, html }); } catch {}
+  try { await sendEmail(to, subject, html); } catch(e) { console.error('[email]', e.message); }
 }
 
 // ── GET /api/portal/mensagens/:clienteId ──────────────────────────────────────

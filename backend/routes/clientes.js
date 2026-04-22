@@ -2,33 +2,23 @@ const router       = require('express').Router();
 const db           = require('../db');
 const auth         = require('../middleware/auth');
 const bcrypt       = require('bcryptjs');
-const nodemailer   = require('nodemailer');
+const { sendEmail } = require('../lib/email');
 
 async function notificarEtapa(cliente, novaEtapa) {
-  console.log(`[email] tentando enviar para ${cliente.email}, EMAIL_USER=${process.env.EMAIL_USER ? 'set' : 'não set'}`);
-  if (!process.env.EMAIL_USER || !cliente.email) return;
+  if (!cliente.email) return;
   try {
-    const t = nodemailer.createTransport({
-      host: 'smtp.gmail.com', port: 587, secure: false,
-      tls: { rejectUnauthorized: false },
-      connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 10000,
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-    });
-    const timeout = new Promise((_,r) => setTimeout(() => r(new Error('timeout 15s')), 15000));
-    await Promise.race([t.sendMail({
-      from: `"WB Assessoria Migratória" <${process.env.EMAIL_USER}>`,
-      to: cliente.email,
-      subject: `✅ Atualização no seu processo — WB Assessoria`,
-      html: `<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
+    await sendEmail(
+      cliente.email,
+      '✅ Atualização no seu processo — WB Assessoria',
+      `<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
         <h2 style="color:#c9a84c">WB Assessoria Migratória</h2>
         <p>Olá, <b>${cliente.nome}</b>!</p>
         <p>Seu processo de <b>${cliente.servico}</b> foi atualizado para: <b>${novaEtapa}</b>.</p>
         <p>Acesse seu portal para acompanhar.</p>
         <a href="https://wb-erp-production.up.railway.app" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Acessar Portal</a>
       </div>`
-    }), timeout]);
-    console.log('[email] enviado com sucesso para', cliente.email);
-  } catch(e) { console.error('[email] ERRO:', e.message, e.code || ''); }
+    );
+  } catch(e) { console.error('[email] ERRO notificarEtapa:', e.message); }
 }
 
 router.use(auth);
