@@ -1354,6 +1354,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Show selector by default; showPortal() handles navigation
   var _portal = new URLSearchParams(location.search).get('portal') || 'seletor';
+  if (_portal === 'cliente') {
+    // Esconde o botão voltar quando acessado direto pela URL do cliente
+    var _back = document.querySelector('#login-box-cliente .back-link');
+    if (_back) _back.style.display = 'none';
+  }
   if (typeof showPortal === 'function') showPortal(_portal);
   else {
     var _boxes = ['login-box-seletor','login-box-staff','login-box-cliente'];
