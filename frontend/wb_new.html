@@ -738,11 +738,11 @@ function renderMeuFinanceiro() {
           <thead><tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th></tr></thead>
           <tbody>
             ${cParcelas.map(p => {
-              const diff = p.vencimento ? Math.ceil((new Date(p.vencimento)-new Date())/(864e5)) : null;
+              const diff = p.vencimento ? Math.ceil((parseDate(p.vencimento)-new Date())/(864e5)) : null;
               return `<tr>
                 <td>${p.descricao||'Parcela'}</td>
                 <td style="font-family:'Geist Mono',monospace">R$ ${(parseFloat(p.valor)||0).toLocaleString('pt-BR')}</td>
-                <td>${p.vencimento ? new Date(p.vencimento+'T12:00').toLocaleDateString('pt-BR') : '—'}</td>
+                <td>${p.vencimento ? fmtDate(p.vencimento) : '—'}</td>
                 <td>${p.paga ? '<span class="badge badge-green">✓ Pago</span>' : diff!==null&&diff<0 ? '<span class="badge badge-red">Atrasado</span>' : '<span class="badge badge-orange">Pendente</span>'}</td>
               </tr>`;
             }).join('')}
@@ -1060,6 +1060,19 @@ function getEtapas(servico) {
   if (servico.includes('CPLP') || servico.includes('Reagrupamento')) return ['Análise de Elegibilidade','Coleta de Documentos','Protocolo MigranteWeb','Agendamento na PF','Atendimento na PF','Emissão da Autorização de Residência','Processo Concluído'];
   if (servico.includes('Procura de Trabalho') || servico.includes('Portugal')) return ['Análise de Elegibilidade','Coleta de Documentos','Agendamento no Consulado','Atendimento Consular','Análise Consular','Emissão do Visto','Processo Concluído'];
   return ['Análise de Perfil','Coleta de Documentos','Protocolo','Análise','Aprovação','Conclusão'];
+}
+
+// Formata qualquer valor de data (YYYY-MM-DD ou ISO completo) como dd/mm/aaaa
+function fmtDate(v) {
+  if (!v) return '—';
+  const d = new Date(String(v).slice(0, 10) + 'T12:00');
+  return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR');
+}
+// Retorna objeto Date normalizado para comparações (sem problema de fuso)
+function parseDate(v) {
+  if (!v) return null;
+  const d = new Date(String(v).slice(0, 10) + 'T12:00');
+  return isNaN(d) ? null : d;
 }
 
 function statusBadge(s) {
@@ -1416,7 +1429,7 @@ async function carregarDespesas() {
             <table class="tbl"><thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Forma</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>
               ${itens.sort((a,b)=>b.data>a.data?1:-1).map(d=>`
                 <tr>
-                  <td>${d.data?new Date(d.data+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+                  <td>${fmtDate(d.data)}</td>
                   <td><span class="badge badge-gray">${d.categoria||'Outros'}</span></td>
                   <td>${d.descricao||'—'}</td>
                   <td style="font-size:0.75rem;color:var(--text3)">${d.forma_pgto||'—'}</td>
@@ -1566,7 +1579,7 @@ async function carregarProlabore() {
           <tbody>
             ${itens.sort((a,b)=>(b.data_pgto||'')>(a.data_pgto||'')?1:-1).map(r => `
               <tr>
-                <td style="font-family:'Geist Mono',monospace;color:var(--text2)">${r.data_pgto ? new Date(r.data_pgto+'T12:00').toLocaleDateString('pt-BR') : '—'}</td>
+                <td style="font-family:'Geist Mono',monospace;color:var(--text2)">${r.data_pgto ? fmtDate(r.data_pgto) : '—'}</td>
                 <td><span class="badge badge-gold">${r.nome||'—'}</span></td>
                 <td style="color:var(--text)">${r.obs||r.cargo||'Retirada'}</td>
                 <td style="font-family:'Geist Mono',monospace;font-weight:600;color:var(--gold)">${fmt(parseFloat(r.valor)||0)}</td>
@@ -2246,7 +2259,7 @@ function renderDashboard() {
         <div>
           ${parcelas.filter(p=>!p.paga&&p.vencimento).sort((a,b)=>a.vencimento>b.vencimento?1:-1).slice(0,5).map(p => {
             const c = clientes.find(x=>x.id===p.cliente_id);
-            const diff = Math.ceil((new Date(p.vencimento)-new Date())/(864e5));
+            const diff = Math.ceil((parseDate(p.vencimento)-new Date())/(864e5));
             const cor = diff < 0 ? 'var(--red)' : diff <= 3 ? 'var(--orange)' : 'var(--text2)';
             return `
               <div class="client-row" onclick="openCliente(${p.cliente_id})">
@@ -2602,13 +2615,13 @@ async function openCliente(id) {
         </tr></thead>
         <tbody>
           ${cp.map(p => {
-            const diff = p.vencimento ? Math.ceil((new Date(p.vencimento) - new Date())/864e5) : null;
+            const diff = p.vencimento ? Math.ceil((parseDate(p.vencimento) - new Date())/864e5) : null;
             const corV = diff!==null&&diff<0&&!p.paga?'var(--red)':diff!==null&&diff<=3&&!p.paga?'var(--orange)':'var(--text2)';
             return `<tr style="border-bottom:1px solid var(--border)">
               <td style="padding:10px">${p.descricao||'Parcela'}</td>
               <td style="padding:10px;font-family:'DM Mono',monospace;font-weight:700">R$ ${(parseFloat(p.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-              <td style="padding:10px;font-family:'DM Mono',monospace;color:${corV}">${p.vencimento?new Date(p.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
-              <td style="padding:10px;font-family:'DM Mono',monospace;color:${p.data_pgto?'var(--green)':'var(--text3)'}">${p.data_pgto?new Date(p.data_pgto+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+              <td style="padding:10px;font-family:'DM Mono',monospace;color:${corV}">${p.vencimento?fmtDate(p.vencimento):'—'}</td>
+              <td style="padding:10px;font-family:'DM Mono',monospace;color:${p.data_pgto?'var(--green)':'var(--text3)'}">${p.data_pgto?fmtDate(p.data_pgto):'—'}</td>
               <td style="padding:10px">${p.paga?'<span style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:2px 9px;font-size:0.68rem;font-weight:700">✓ Pago</span>':diff!==null&&diff<0?'<span style="background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:2px 9px;font-size:0.68rem;font-weight:700">Vencida</span>':'<span style="background:rgba(245,158,11,0.1);color:var(--orange);border:1px solid rgba(245,158,11,0.2);border-radius:12px;padding:2px 9px;font-size:0.68rem;font-weight:700">Pendente</span>'}</td>
               <td style="padding:10px;display:flex;gap:4px;flex-wrap:wrap">
                 ${!p.paga?`<button onclick="marcarPago(${p.id},${c.id})" style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);border-radius:5px;padding:4px 10px;cursor:pointer;font-family:inherit;font-size:0.7rem;font-weight:700">✓ Pago</button>`:''}
@@ -2967,7 +2980,7 @@ function renderParcelasTabela(lista) {
           <td style="padding:10px 14px;font-weight:600;font-size:0.8rem">${c?.nome?.split(' ').slice(0,2).join(' ')||'—'}</td>
           <td style="padding:10px 14px;font-size:0.78rem;color:var(--text2)">${p.descricao||'Parcela'}</td>
           <td style="padding:10px 14px;font-family:'DM Mono',monospace;font-weight:700;font-size:0.82rem">R$ ${(parseFloat(p.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
-          <td style="padding:10px 14px;font-family:'DM Mono',monospace;font-size:0.78rem;color:${corV}">${p.vencimento?new Date(p.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'}</td>
+          <td style="padding:10px 14px;font-family:'DM Mono',monospace;font-size:0.78rem;color:${corV}">${p.vencimento?fmtDate(p.vencimento):'—'}</td>
           <td style="padding:10px 14px">
             ${p.paga
               ? '<span style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:2px 9px;font-size:0.68rem;font-weight:700">✓ Pago</span>'
@@ -3059,7 +3072,7 @@ function renderAgendamentos() {
   var rows = fut.map(function(a){
     var c=(clientes||[]).find(function(x){return x.id===a.cliente_id});
     var isHoje=a.data===hoje;
-    return '<tr style="border-bottom:1px solid var(--border);'+(isHoje?'background:var(--gold-dim)':'')+'"><td style="padding:10px 14px;font-family:\'DM Mono\',monospace;font-size:0.8rem;'+(isHoje?'color:var(--gold);font-weight:700':'')+'">'+new Date(a.data+'T12:00').toLocaleDateString('pt-BR')+(isHoje?' hoje':'')+'</td><td style="padding:10px 14px;font-family:\'DM Mono\',monospace;font-size:0.8rem;color:var(--gold);font-weight:700">'+(a.hora||'—')+'</td><td style="padding:10px 14px;font-weight:600;font-size:0.8rem">'+(c?c.nome.split(' ').slice(0,2).join(' '):a.cliente_nome||'—')+'</td><td style="padding:10px 14px"><span style="background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:2px 9px;font-size:0.68rem;font-weight:700">'+(a.tipo||'Reuniao')+'</span></td><td style="padding:10px 14px"><button onclick="deletarAg('+a.id+')" style="background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:0.7rem">x</button></td></tr>';
+    return '<tr style="border-bottom:1px solid var(--border);'+(isHoje?'background:var(--gold-dim)':'')+'"><td style="padding:10px 14px;font-family:\'DM Mono\',monospace;font-size:0.8rem;'+(isHoje?'color:var(--gold);font-weight:700':'')+'">'+fmtDate(a.data)+(isHoje?' hoje':'')+'</td><td style="padding:10px 14px;font-family:\'DM Mono\',monospace;font-size:0.8rem;color:var(--gold);font-weight:700">'+(a.hora||'—')+'</td><td style="padding:10px 14px;font-weight:600;font-size:0.8rem">'+(c?c.nome.split(' ').slice(0,2).join(' '):a.cliente_nome||'—')+'</td><td style="padding:10px 14px"><span style="background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:2px 9px;font-size:0.68rem;font-weight:700">'+(a.tipo||'Reuniao')+'</span></td><td style="padding:10px 14px"><button onclick="deletarAg('+a.id+')" style="background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:0.7rem">x</button></td></tr>';
   }).join('');
   return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h2 style="font-size:0.9rem;font-weight:800">Agenda</h2><button class="btn btn-gold" onclick="abrirNovoAgendamento()">+ Agendar</button></div>'+
     '<div class="panel"><div class="panel-header"><span class="panel-title">Proximos ('+fut.length+')</span></div>'+
@@ -3617,7 +3630,7 @@ function renderWhatsapp() {
     var cid=c.id,pid=p.id;
     return "<div style=\"display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)\">"+
       "<div style=\"flex:1\"><div style=\"font-size:0.8rem;font-weight:700\">"+c.nome+"</div>"+
-      "<div style=\"font-size:0.68rem;color:var(--text3)\">R$ "+(parseFloat(p.valor)||0).toLocaleString("pt-BR")+(p.vencimento?" - "+new Date(p.vencimento+"T12:00").toLocaleDateString("pt-BR"):"")+"</div></div>"+
+      "<div style=\"font-size:0.68rem;color:var(--text3)\">R$ "+(parseFloat(p.valor)||0).toLocaleString("pt-BR")+(p.vencimento?" - "+fmtDate(p.vencimento):"")+"</div></div>"+
       "<button onclick=\"waEnviarRapido("+cid+","+pid+",'"+tipo+"')\" style=\"background:"+bg+";color:"+cor+";border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:0.72rem;font-weight:700\">"+
       (tipo==="cobranca"?"Cobrar":"Lembrar")+"</button></div>";
   }
@@ -4222,7 +4235,7 @@ async function carregarRelatorio() {
               <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
                 <div>
                   <div style="font-size:0.85rem;font-weight:600;color:var(--text)">${p.nome||'—'}</div>
-                  <div style="font-size:0.72rem;color:var(--text3)">${p.cargo||''} ${p.data_pgto?'· '+new Date(p.data_pgto+'T12:00').toLocaleDateString('pt-BR'):''}</div>
+                  <div style="font-size:0.72rem;color:var(--text3)">${p.cargo||''} ${p.data_pgto?'· '+fmtDate(p.data_pgto):''}</div>
                 </div>
                 <div style="font-family:'Geist Mono',monospace;font-weight:700;color:var(--gold)">${fmt(p.valor)}</div>
               </div>`).join('') + `
@@ -4324,7 +4337,7 @@ async function carregarInadimplencia() {
   if (!corpo) return;
 
   const hoje = new Date(); hoje.setHours(0,0,0,0);
-  const vencidas = (parcelas||[]).filter(p => !p.paga && p.vencimento && new Date(p.vencimento+'T00:00') < hoje);
+  const vencidas = (parcelas||[]).filter(p => !p.paga && p.vencimento && parseDate(p.vencimento) < hoje);
 
   if (!vencidas.length) {
     corpo.innerHTML = `<div class="empty"><div class="icon">🎉</div><h3>Sem inadimplência!</h3><p>Todos os pagamentos estão em dia.</p></div>`;
@@ -4365,7 +4378,7 @@ async function carregarInadimplencia() {
     if (!c) return;
     const total = dados.parcelas.reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
     const maiorAtraso = Math.max(...dados.parcelas.map(p => {
-      const d = new Date(p.vencimento+'T00:00');
+      const d = parseDate(p.vencimento);
       return Math.floor((hoje - d)/864e5);
     }));
     html += `
@@ -4393,9 +4406,9 @@ async function gerarCobrancaRapida(clienteId) {
   const c = (clientes||[]).find(x=>x.id===clienteId);
   if (!c || !c.tel) return;
   const hoje = new Date(); hoje.setHours(0,0,0,0);
-  const vencidas = (parcelas||[]).filter(p=>!p.paga&&p.vencimento&&new Date(p.vencimento+'T00:00')<hoje&&p.cliente_id===clienteId);
+  const vencidas = (parcelas||[]).filter(p=>!p.paga&&p.vencimento&&parseDate(p.vencimento)<hoje&&p.cliente_id===clienteId);
   const totalVenc = vencidas.reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
-  const maiorAtraso = Math.max(...vencidas.map(p=>Math.floor((hoje-new Date(p.vencimento+'T00:00'))/864e5)));
+  const maiorAtraso = Math.max(...vencidas.map(p=>Math.floor((hoje-parseDate(p.vencimento))/864e5)));
   showToast('⏳ Gerando mensagem com IA...','');
   const resp = await apiFetch('/robo', {
     method:'POST',
