@@ -1123,6 +1123,8 @@ function openModal(html, large) {
 
 function closeModal() {
   document.getElementById('modal').classList.remove('open');
+  _activeTab    = 'tab-processo';
+  _activeTabCid = null;
 }
 
 // ══════════════════════════════════
@@ -1678,6 +1680,11 @@ let currentRole = 'ceo';
 let currentPage = 'dashboard';
 let loginRole   = 'ceo';
 
+// Estado persistente de UI
+let _activeTab    = 'tab-processo'; // aba ativa no modal do cliente
+let _activeTabCid = null;           // id do cliente que estava aberto
+let _cliFilter    = { busca: '', status: '' }; // filtros da lista de clientes
+
 // Prevent double submit
 let _saving = false;
 
@@ -2084,6 +2091,14 @@ function renderPage(page) {
   };
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = `<div class="empty"><div class="icon">🔧</div><h3>Em breve</h3></div>`;
+  // Restaura filtros da lista de clientes
+  if (page === 'clientes' && (_cliFilter.busca || _cliFilter.status)) {
+    const b = document.getElementById('cli-busca');
+    const s = document.getElementById('cli-status');
+    if (b) b.value = _cliFilter.busca;
+    if (s) s.value = _cliFilter.status;
+    if (_cliFilter.busca || _cliFilter.status) filtrarClientes();
+  }
   // Pós-render: carrega dados assíncronos de cada página
   if (page === 'conciliacao')   carregarLancamentos();
   if (page === 'despesas')      carregarDespesas();
@@ -2344,6 +2359,7 @@ function tabelaClientes(lista) {
 function filtrarClientes(q) {
   const busca  = (typeof q === 'string' ? q : document.getElementById('cli-busca')?.value || '').toLowerCase();
   const status = document.getElementById('cli-status')?.value || '';
+  _cliFilter = { busca: document.getElementById('cli-busca')?.value || '', status };
   let lista = clientes.filter(c => {
     if (status && c.status !== status) return false;
     if (busca && !(
@@ -2383,6 +2399,8 @@ async function openCliente(id) {
     diasAnteced < 0 ? 'var(--red)' :
     diasAnteced <= 30 ? 'var(--orange)' : 'var(--green)';
 
+  const _tabToRestore = (_activeTabCid === id && _activeTab !== 'tab-processo') ? _activeTab : null;
+  _activeTabCid = id;
   window._modalClienteId = c.id;
   openModal(`
     <div class="modal-header" style="border-bottom:1px solid var(--border)">
@@ -2719,6 +2737,22 @@ async function openCliente(id) {
       </div>
     </div>
   `, true);
+
+  // Restaura a aba que estava ativa se for o mesmo cliente sendo recarregado
+  if (_tabToRestore) {
+    const pane = document.getElementById(_tabToRestore);
+    if (pane) {
+      document.querySelectorAll('#modal-body .modal-tab-pane').forEach(p => p.style.display = 'none');
+      document.querySelectorAll('#modal-body .modal-tab').forEach(b => {
+        b.classList.remove('active');
+        if (b.getAttribute('onclick')?.includes(`'${_tabToRestore}'`)) b.classList.add('active');
+      });
+      pane.style.display = 'block';
+      _activeTab = _tabToRestore;
+      if (_tabToRestore === 'tab-notas') carregarNotas(id);
+      else if (_tabToRestore === 'tab-msgs') carregarMsgsEquipe(id);
+    }
+  }
 }
 
 // Tab switching
@@ -2727,6 +2761,7 @@ function switchModalTab(btn, tabId) {
   btn.closest('.modal').querySelectorAll('.modal-tab-pane').forEach(t => t.style.display = 'none');
   btn.classList.add('active');
   document.getElementById(tabId).style.display = 'block';
+  _activeTab = tabId; // memoriza aba ativa
 }
 
 // ── NOTAS INTERNAS ────────────────────────────────────────────────────────────
