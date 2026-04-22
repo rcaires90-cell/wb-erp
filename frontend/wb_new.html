@@ -2930,6 +2930,8 @@ function abrirNovaParcela(cid) {
             <option>Cartão</option><option>Dinheiro</option>
           </select>
         </div>
+        <div class="form-group"><label>Data de Pagamento</label>
+          <input id="np-dtpago" type="date"></div>
       </div>
     </div>
     <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
@@ -2946,11 +2948,14 @@ async function salvarNovaParcela(cid) {
     vencimento: document.getElementById('np-venc')?.value || null,
     tipo: document.getElementById('np-tipo')?.value || 'mensalidade',
     forma_pgto: document.getElementById('np-forma')?.value || 'PIX',
-    paga: false,
+    data_pgto: document.getElementById('np-dtpago')?.value || null,
+    paga: document.getElementById('np-dtpago')?.value ? true : false,
   };
   await apiFetch('/parcelas', { method:'POST', body: JSON.stringify(data) });
   await loadData();
+  const savedTab = _activeTab;
   closeModal();
+  _activeTab = savedTab; _activeTabCid = cid;
   openCliente(cid);
   showToast('✅ Parcela adicionada!', 'success');
 }
@@ -4054,7 +4059,9 @@ async function salvarEdicaoParcela(pid, cid) {
   try {
     await apiFetch('/parcelas/' + pid, { method: 'PATCH', body: JSON.stringify(data) });
     await loadData();
+    const savedTab = _activeTab;
     closeModal();
+    _activeTab = savedTab; _activeTabCid = cid;
     openCliente(cid);
     showToast('✅ Parcela atualizada!', 'success');
   } catch (e) {

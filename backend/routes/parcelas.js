@@ -70,20 +70,22 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
-    const { cliente_id, descricao, valor, vencimento, forma_pgto, obs } = req.body;
+    const { cliente_id, descricao, valor, vencimento, forma_pgto, obs, paga, data_pgto } = req.body;
 
     if (!cliente_id) return res.status(400).json({ erro: 'cliente_id é obrigatório' });
     if (!valor || isNaN(parseFloat(valor))) return res.status(400).json({ erro: 'valor inválido' });
 
     const [r] = await db.query(
-      'INSERT INTO parcelas (cliente_id, descricao, valor, vencimento, forma_pgto, obs, paga) VALUES (?,?,?,?,?,?,0)',
+      'INSERT INTO parcelas (cliente_id, descricao, valor, vencimento, forma_pgto, obs, paga, data_pgto) VALUES (?,?,?,?,?,?,?,?)',
       [
         parseInt(cliente_id),
         descricao || null,
         parseFloat(valor),
         vencimento || null,
         forma_pgto || 'PIX',
-        obs || null
+        obs || null,
+        paga ? 1 : 0,
+        data_pgto || null,
       ]
     );
     const [novo] = await db.query(
