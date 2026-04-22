@@ -581,10 +581,12 @@ async function salvarEdicaoColaborador(id) {
 }
 
 async function toggleAtivoColaborador(id, ativo) {
-  await apiFetch(`/auth/usuarios/${id}`, { method:'PUT', body: JSON.stringify({ ativo }) });
-  closeModal();
-  showToast(ativo ? '✅ Colaborador ativado!' : '⚠️ Colaborador desativado!', 'success');
-  carregarColaboradores();
+  try {
+    await apiFetch(`/auth/usuarios/${id}`, { method:'PUT', body: JSON.stringify({ ativo }) });
+    closeModal();
+    showToast(ativo ? '✅ Colaborador ativado!' : '⚠️ Colaborador desativado!', 'success');
+    carregarColaboradores();
+  } catch(e) { showToast('Erro ao atualizar colaborador','error'); }
 }
 
 function renderConfiguracoes() {
@@ -810,14 +812,16 @@ async function enviarDocPortal(clienteId) {
   status.textContent = 'Enviando...'; status.style.color='var(--text3)';
   const reader = new FileReader();
   reader.onload = async (e) => {
-    const base64 = e.target.result;
-    const res = await apiFetch('/portal/documentos', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, nome, tipo: file.type, base64 }) });
-    if (res?.id) {
-      status.textContent = '✅ Documento enviado com sucesso!'; status.style.color='var(--green)';
-      document.getElementById('doc-nome').value = '';
-      document.getElementById('doc-file').value = '';
-      carregarDocsPortal(clienteId);
-    } else { status.textContent = 'Erro ao enviar.'; status.style.color='var(--red)'; }
+    try {
+      const base64 = e.target.result;
+      const res = await apiFetch('/portal/documentos', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, nome, tipo: file.type, base64 }) });
+      if (res?.id) {
+        status.textContent = '✅ Documento enviado com sucesso!'; status.style.color='var(--green)';
+        document.getElementById('doc-nome').value = '';
+        document.getElementById('doc-file').value = '';
+        carregarDocsPortal(clienteId);
+      } else { status.textContent = res?.erro || 'Erro ao enviar.'; status.style.color='var(--red)'; }
+    } catch(e) { status.textContent = 'Erro: ' + e.message; status.style.color='var(--red)'; }
   };
   reader.readAsDataURL(file);
 }
@@ -825,7 +829,9 @@ async function enviarDocPortal(clienteId) {
 async function carregarDocsPortal(clienteId) {
   const el = document.getElementById('docs-enviados-lista');
   if (!el) return;
-  const docs = await apiFetch(`/portal/documentos/${clienteId}`);
+  let docs;
+  try { docs = await apiFetch(`/portal/documentos/${clienteId}`); }
+  catch(e) { el.innerHTML = '<div style="color:var(--red);font-size:0.82rem;text-align:center;padding:20px">Erro ao carregar documentos.</div>'; return; }
   if (!Array.isArray(docs) || !docs.length) {
     el.innerHTML = '<div style="color:var(--text3);font-size:0.82rem;text-align:center;padding:20px">Nenhum documento enviado ainda.</div>';
     return;
@@ -866,7 +872,9 @@ function renderMensagens() {
 async function carregarMensagensPortal(clienteId) {
   const el = document.getElementById('chat-msgs');
   if (!el) return;
-  const msgs = await apiFetch(`/portal/mensagens/${clienteId}`);
+  let msgs;
+  try { msgs = await apiFetch(`/portal/mensagens/${clienteId}`); }
+  catch(e) { el.innerHTML = '<div style="color:var(--red);font-size:0.82rem;text-align:center;padding:20px">Erro ao carregar mensagens.</div>'; return; }
   if (!Array.isArray(msgs) || !msgs.length) {
     el.innerHTML = '<div style="color:var(--text3);font-size:0.82rem;text-align:center;padding:20px">Nenhuma mensagem ainda. Diga olá!</div>';
     return;
@@ -888,14 +896,18 @@ async function enviarMensagemPortal(clienteId) {
   const texto = input?.value?.trim();
   if (!texto) return;
   input.value = '';
-  const res = await apiFetch('/portal/mensagens', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, texto }) });
-  if (res?.id) carregarMensagensPortal(clienteId);
+  try {
+    const res = await apiFetch('/portal/mensagens', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, texto }) });
+    if (res?.id) carregarMensagensPortal(clienteId);
+  } catch(e) { showToast('Erro ao enviar mensagem', 'error'); input.value = texto; }
 }
 
 async function carregarMsgsEquipe(clienteId) {
   const el = document.getElementById('msgs-equipe-lista');
   if (!el) return;
-  const msgs = await apiFetch(`/portal/mensagens/${clienteId}`);
+  let msgs;
+  try { msgs = await apiFetch(`/portal/mensagens/${clienteId}`); }
+  catch(e) { el.innerHTML = '<div style="color:var(--red);font-size:0.82rem;text-align:center;padding:20px">Erro ao carregar mensagens.</div>'; return; }
   if (!Array.isArray(msgs) || !msgs.length) {
     el.innerHTML = '<div style="color:var(--text3);font-size:0.82rem;text-align:center;padding:20px">Nenhuma mensagem trocada ainda.</div>';
     return;
@@ -918,8 +930,10 @@ async function enviarMsgEquipe(clienteId) {
   const texto = input?.value?.trim();
   if (!texto || !clienteId) return;
   input.value = '';
-  const res = await apiFetch('/portal/mensagens', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, texto }) });
-  if (res?.id) carregarMsgsEquipe(clienteId);
+  try {
+    const res = await apiFetch('/portal/mensagens', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, texto }) });
+    if (res?.id) carregarMsgsEquipe(clienteId);
+  } catch(e) { showToast('Erro ao enviar mensagem', 'error'); input.value = texto; }
 }
 
 function renderMeusDados() {
@@ -1770,7 +1784,7 @@ async function apiFetch(path, opts = {}) {
     });
     clearTimeout(t);
     const text = await res.text();
-    if (res.status === 401) { doLogout ? doLogout() : finishLogout(); throw new Error('Sessão expirada'); }
+    if (res.status === 401) { doLogout(); throw new Error('Sessão expirada'); }
     if (!res.ok) { let m=text; try{m=JSON.parse(text).erro||m;}catch(e){} throw new Error(m); }
     if (!text||text==='null') return [];
     try { return JSON.parse(text); } catch(e) { return []; }
@@ -2813,8 +2827,10 @@ async function adicionarNota(clienteId) {
 }
 
 async function deletarNota(notaId, clienteId) {
-  await apiFetch(`/financeiro/notas/${notaId}`, { method: 'DELETE' });
-  await carregarNotas(clienteId);
+  try {
+    await apiFetch(`/financeiro/notas/${notaId}`, { method: 'DELETE' });
+    await carregarNotas(clienteId);
+  } catch(e) { showToast('Erro ao excluir nota','error'); }
 }
 
 // ── AGENTE IA NO MODAL ────────────────────────────────────────────────────────
@@ -2853,21 +2869,27 @@ function copiarIA() {
 
 // Update document checkbox
 async function updateDoc(clienteId, campo, valor) {
-  await apiFetch('/clientes/' + clienteId, { method:'PATCH', body: JSON.stringify({ [campo]: valor ? 1 : 0 }) });
-  const idx = clientes.findIndex(x => x.id === clienteId);
-  if (idx >= 0) clientes[idx][campo] = valor ? 1 : 0;
-  showToast(valor ? '✅ Documento marcado!' : 'Documento desmarcado', valor ? 'success' : '');
+  try {
+    await apiFetch('/clientes/' + clienteId, { method:'PATCH', body: JSON.stringify({ [campo]: valor ? 1 : 0 }) });
+    const idx = clientes.findIndex(x => x.id === clienteId);
+    if (idx >= 0) clientes[idx][campo] = valor ? 1 : 0;
+    showToast(valor ? '✅ Documento marcado!' : 'Documento desmarcado', valor ? 'success' : '');
+  } catch(e) { showToast('Erro ao salvar documento','error'); }
 }
 
 async function updateDocVal(clienteId, campo, valor) {
-  await apiFetch('/clientes/' + clienteId, { method:'PATCH', body: JSON.stringify({ [campo]: valor || null }) });
-  const idx = clientes.findIndex(x => x.id === clienteId);
-  if (idx >= 0) clientes[idx][campo] = valor;
+  try {
+    await apiFetch('/clientes/' + clienteId, { method:'PATCH', body: JSON.stringify({ [campo]: valor || null }) });
+    const idx = clientes.findIndex(x => x.id === clienteId);
+    if (idx >= 0) clientes[idx][campo] = valor;
+  } catch(e) { showToast('Erro ao salvar','error'); }
 }
 
 // Set processo fase
 async function setFase(clienteId, fase) {
-  await apiFetch('/clientes/' + clienteId, { method:'PATCH', body: JSON.stringify({ processo_fase: fase }) });
+  try {
+    await apiFetch('/clientes/' + clienteId, { method:'PATCH', body: JSON.stringify({ processo_fase: fase }) });
+  } catch(e) { showToast('Erro ao atualizar fase','error'); return; }
   await loadData();
   openCliente(clienteId);
   showToast('✅ Fase atualizada!', 'success');
@@ -3056,19 +3078,23 @@ function renderFinanceiro() {
 }
 
 async function marcarPago(pid, cid) {
-  await apiFetch('/parcelas/'+pid, {method:'PATCH', body:JSON.stringify({paga:true, data_pgto:new Date().toISOString().split('T')[0]})});
-  await loadData();
-  renderPage(currentPage);
-  if(cid) openCliente(cid);
-  showToast('Parcela marcada como paga!','success');
+  try {
+    await apiFetch('/parcelas/'+pid, {method:'PATCH', body:JSON.stringify({paga:true, data_pgto:new Date().toISOString().split('T')[0]})});
+    await loadData();
+    renderPage(currentPage);
+    if(cid) openCliente(cid);
+    showToast('Parcela marcada como paga!','success');
+  } catch(e) { showToast('Erro ao marcar parcela: '+e.message,'error'); }
 }
 
 async function deletarParcela(pid, cid) {
   try { await confirmar('A parcela será excluída permanentemente.', 'Excluir Parcela', '🗑️', 'var(--red)', 'Excluir'); } catch { return; }
-  await apiFetch('/parcelas/'+pid, {method:'DELETE'});
-  await loadData();
-  openCliente(cid);
-  showToast('Parcela excluída', '');
+  try {
+    await apiFetch('/parcelas/'+pid, {method:'DELETE'});
+    await loadData();
+    openCliente(cid);
+    showToast('Parcela excluída', '');
+  } catch(e) { showToast('Erro ao excluir parcela: '+e.message,'error'); }
 }
 
 function renderAgendamentos() {
@@ -4557,9 +4583,11 @@ async function salvarLead() {
 }
 
 async function atualizarStatusLead(id, status) {
-  await apiFetch(`/leads/${id}`, { method:'PATCH', body: JSON.stringify({ status }) });
-  showToast('✅ Status atualizado','success');
-  await carregarLeads();
+  try {
+    await apiFetch(`/leads/${id}`, { method:'PATCH', body: JSON.stringify({ status }) });
+    showToast('✅ Status atualizado','success');
+    await carregarLeads();
+  } catch(e) { showToast('Erro ao atualizar status','error'); }
 }
 
 async function converterLead(id, nome) {
