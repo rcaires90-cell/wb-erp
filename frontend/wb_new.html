@@ -3975,15 +3975,14 @@ function editarParcela(pid, cid) {
             ${['PIX','Transferência','Cartão','Dinheiro'].map(f=>`<option ${p.forma_pgto===f?'selected':''}>${f}</option>`).join('')}
           </select>
         </div>
+        <div class="form-group">
+          <label>Data de Pagamento</label>
+          <input id="ep-dtpago" type="date" value="${p.data_pgto||''}">
+        </div>
         <div class="form-group form-full">
           <label>Observações</label>
           <input id="ep-obs" value="${p.obs||''}" placeholder="Opcional">
         </div>
-        ${p.paga ? `
-        <div class="form-group">
-          <label>Data de Pagamento</label>
-          <input id="ep-dtpago" type="date" value="${p.data_pgto||''}">
-        </div>` : ''}
       </div>
     </div>
     <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
@@ -4002,7 +4001,7 @@ async function salvarEdicaoParcela(pid, cid) {
     obs:        document.getElementById('ep-obs')?.value?.trim() || null,
   };
   const dtPago = document.getElementById('ep-dtpago')?.value;
-  if (dtPago) data.data_pgto = dtPago;
+  data.data_pgto = dtPago || null;
 
   try {
     await apiFetch('/parcelas/' + pid, { method: 'PATCH', body: JSON.stringify(data) });
