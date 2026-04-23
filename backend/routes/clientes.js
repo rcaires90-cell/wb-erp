@@ -224,7 +224,10 @@ router.patch('/:id', async (req, res) => {
       'drive_folder_id', 'dados_json', 'foto', 'arquivado',
       'processo_fase', 'processo_protocolo', 'processo_data_inicio',
       'proficiencia_status', 'proficiencia_obs', 'gov_login', 'gov_senha',
-      'doc_rnm', 'doc_passaporte', 'doc_certidao', 'doc_comprovante',
+      'doc_rnm', 'doc_cpf', 'doc_comprovante_end', 'doc_passaporte',
+      'doc_comprovante_4anos', 'doc_antecedente', 'doc_antecedente_val',
+      'doc_lingua', 'doc_prova_presencial', 'doc_senha_gov',
+      'doc_cert_nascimento', 'doc_cert_casamento', 'doc_carteira_trabalho',
     ];
 
     const setClauses = [];

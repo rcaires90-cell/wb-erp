@@ -3,6 +3,36 @@ const express   = require('express');
 const cors      = require('cors');
 const rateLimit = require('express-rate-limit');
 const path      = require('path');
+const db        = require('./db');
+
+async function runMigrations() {
+  const alterCols = [
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS processo_fase        VARCHAR(100)  DEFAULT NULL",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS processo_protocolo   VARCHAR(200)  DEFAULT NULL",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS processo_data_inicio DATE          DEFAULT NULL",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS proficiencia_status  VARCHAR(50)   DEFAULT 'pendente'",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS proficiencia_obs     TEXT          DEFAULT NULL",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gov_login            VARCHAR(200)  DEFAULT NULL",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gov_senha            VARCHAR(200)  DEFAULT NULL",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_rnm              TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_cpf              TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_comprovante_end  TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_passaporte       TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_comprovante_4anos TINYINT(1)   DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_antecedente      TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_antecedente_val  DATE          DEFAULT NULL",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_lingua           TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_prova_presencial TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_senha_gov        TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_cert_nascimento  TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_cert_casamento   TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_carteira_trabalho TINYINT(1)   DEFAULT 0",
+  ];
+  for (const sql of alterCols) {
+    try { await db.query(sql); } catch(e) { console.warn('[migration] skipped:', e.message.slice(0,80)); }
+  }
+  console.log('✅ Migrations OK');
+}
 
 const app = express();
 
@@ -90,9 +120,10 @@ app.use((err, _req, res, _next) => {
 
 // ── INICIAR ───────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`\n🚀 WB ERP Backend v5.1 — http://localhost:${PORT}`);
   console.log(`📊 Ambiente : ${process.env.NODE_ENV || 'development'}`);
   console.log(`🗄️  Banco    : ${process.env.DB_NAME}@${process.env.DB_HOST}`);
   console.log(`🌐 CORS     : all origins\n`);
+  await runMigrations();
 });
