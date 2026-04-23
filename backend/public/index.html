@@ -639,27 +639,24 @@ function renderConfiguracoes() {
         <div class="panel-header"><span class="panel-title">🔔 Notificações e Lembretes</span></div>
         <div class="panel-body">
           <div style="display:flex;flex-direction:column;gap:14px">
-            <div style="font-size:0.82rem;color:var(--text2)">Dispare manualmente ou configure o cron diário no Railway para automatizar.</div>
+            <div style="font-size:0.82rem;color:var(--text2)">Dispare manualmente quando quiser enviar os lembretes por e-mail aos clientes.</div>
 
             <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px">
-              <div style="font-weight:700;font-size:0.82rem;margin-bottom:4px">📅 Agenda</div>
-              <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Envia lembrete ao cliente sobre atendimento amanhã + resumo do dia para a equipe.</div>
-              <button class="btn btn-outline btn-sm" onclick="dispararNotificacao('agendamentos')">▶ Disparar agora</button>
+              <div style="font-weight:700;font-size:0.82rem;margin-bottom:4px">📅 Lembretes de Agenda</div>
+              <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Envia e-mail de lembrete a cada cliente com atendimento <b>amanhã</b> + resumo do dia para a equipe.</div>
+              <button class="btn btn-outline btn-sm" onclick="dispararNotificacao('agendamentos')">▶ Enviar agora</button>
             </div>
 
             <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px">
               <div style="font-weight:700;font-size:0.82rem;margin-bottom:4px">💳 Parcelas Vencendo</div>
-              <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Avisa clientes com parcelas vencendo nos próximos 3 dias.</div>
-              <button class="btn btn-outline btn-sm" onclick="dispararNotificacao('parcelas')">▶ Disparar agora</button>
+              <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Avisa por e-mail clientes com parcelas vencendo nos próximos 3 dias.</div>
+              <button class="btn btn-outline btn-sm" onclick="dispararNotificacao('parcelas')">▶ Enviar agora</button>
             </div>
 
-            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px">
-              <div style="font-weight:700;font-size:0.82rem;margin-bottom:4px">🚀 Disparar Tudo de Uma Vez</div>
-              <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Agenda + Parcelas ao mesmo tempo. Use este endpoint como cron no Railway.</div>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <button class="btn btn-gold btn-sm" onclick="dispararNotificacao('tudo')">▶ Disparar tudo</button>
-                <span style="font-size:0.72rem;color:var(--text3);font-family:'DM Mono',monospace">POST /api/notificar/tudo</span>
-              </div>
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;border-color:rgba(201,168,76,0.3)">
+              <div style="font-weight:700;font-size:0.82rem;margin-bottom:4px">🚀 Enviar Tudo de Uma Vez</div>
+              <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Agenda + Parcelas juntos. Ideal para usar todo dia de manhã antes de começar o atendimento.</div>
+              <button class="btn btn-gold btn-sm" onclick="dispararNotificacao('tudo')">▶ Enviar tudo agora</button>
             </div>
 
             <div id="notif-resultado" style="display:none;padding:12px 14px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;font-size:0.8rem;color:var(--green)"></div>
@@ -796,26 +793,66 @@ function renderMeuFinanceiro() {
 function renderMeusDocs() {
   const c = clienteLogado();
   if (!c) return '<div class="empty"><p>Acesso não disponível</p></div>';
-  const dados = c.dados_json || {};
-  const docs  = dados.docsPendentes || [];
+
+  const docsObr  = getDocsObrigatorios(c.servico);
+  const docsComp = getDocsComplementares(c.servico);
+  const entregues = docsObr.filter(d => c[d.id]).length;
+  const pct = docsObr.length > 0 ? Math.round(entregues / docsObr.length * 100) : 0;
+
   setTimeout(() => carregarDocsPortal(c.id), 100);
+
   return `
     <h2 style="margin-bottom:20px">Documentos</h2>
-    ${docs.length ? `
-      <div class="panel" style="margin-bottom:16px;border-color:rgba(245,158,11,0.3)">
-        <div class="panel-header" style="background:rgba(245,158,11,0.05)">
-          <span class="panel-title" style="color:var(--orange)">⚠️ Documentos Pendentes (${docs.length})</span>
-        </div>
-        <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
-          ${docs.map(d => `
-            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px">
-              <span>📄</span>
-              <span style="flex:1;font-size:0.82rem">${d}</span>
-              <span class="badge badge-orange">Pendente</span>
-            </div>`).join('')}
-        </div>
-      </div>` : ''}
 
+    <!-- Checklist de progresso -->
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-header">
+        <span class="panel-title">📋 Checklist — ${c.servico || 'Processo'}</span>
+        <span style="font-size:0.75rem;font-weight:700;color:${pct>=100?'var(--green)':'var(--gold)'}">${pct}%</span>
+      </div>
+      <div style="padding:0 14px 4px">
+        <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:14px">
+          <div style="width:${pct}%;height:100%;background:${pct>=100?'var(--green)':'var(--gold)'};border-radius:2px;transition:width 0.4s"></div>
+        </div>
+      </div>
+      <div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px">
+        ${docsObr.map(d => `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border-radius:8px;border:1px solid ${c[d.id]?'rgba(34,197,94,0.25)':'var(--border)'}">
+          <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;
+            ${c[d.id]?'background:rgba(34,197,94,0.15);color:var(--green);border:1.5px solid rgba(34,197,94,0.4)':'background:var(--bg2);color:var(--text3);border:1.5px solid var(--border2)'}">
+            ${c[d.id]?'✓':'·'}
+          </div>
+          <span style="font-size:0.9rem">${d.icon}</span>
+          <span style="flex:1;font-size:0.82rem;color:${c[d.id]?'var(--text3)':'var(--text)'};${c[d.id]?'text-decoration:line-through;opacity:0.6':''}">${d.label}</span>
+          <span style="font-size:0.72rem;font-weight:600;color:${c[d.id]?'var(--green)':'var(--orange)'}">
+            ${c[d.id]?'Entregue':'Pendente'}
+          </span>
+        </div>`).join('')}
+        ${docsComp.length ? `
+        <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-top:8px;margin-bottom:2px">Complementares</div>
+        ${docsComp.map(d => `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border-radius:8px;border:1px solid ${c[d.id]?'rgba(34,197,94,0.25)':'var(--border)'}">
+          <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;
+            ${c[d.id]?'background:rgba(34,197,94,0.15);color:var(--green);border:1.5px solid rgba(34,197,94,0.4)':'background:var(--bg2);color:var(--text3);border:1.5px solid var(--border2)'}">
+            ${c[d.id]?'✓':'·'}
+          </div>
+          <span style="font-size:0.9rem">${d.icon}</span>
+          <span style="flex:1;font-size:0.82rem;color:${c[d.id]?'var(--text3)':'var(--text)'};${c[d.id]?'text-decoration:line-through;opacity:0.6':''}">${d.label}</span>
+          <span style="font-size:0.72rem;font-weight:600;color:${c[d.id]?'var(--green)':'var(--text3)'}">
+            ${c[d.id]?'Entregue':'—'}
+          </span>
+        </div>`).join('')}` : ''}
+        ${pct >= 100 ? `
+        <div style="text-align:center;padding:14px;color:var(--green);font-size:0.85rem;font-weight:700">
+          🎉 Todos os documentos obrigatórios foram entregues!
+        </div>` : `
+        <div style="text-align:center;padding:10px;color:var(--text3);font-size:0.78rem">
+          ${docsObr.length - entregues} documento(s) ainda pendente(s).<br>Qualquer dúvida, fale com nossa equipe pelo WhatsApp.
+        </div>`}
+      </div>
+    </div>
+
+    <!-- Upload -->
     <div class="panel" style="margin-bottom:16px">
       <div class="panel-header"><span class="panel-title">📤 Enviar Documento</span></div>
       <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
