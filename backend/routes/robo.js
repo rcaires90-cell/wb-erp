@@ -63,18 +63,9 @@ function tplCursoProficiencia(c) {
   return aleatorio(msgs) + ASSINATURA;
 }
 
-function tplStatusProcesso(c, etapaLabel = null) {
-  const nome  = primeiro(c.nome);
-  const fase  = etapaLabel || c.status || 'Em andamento';
-  const etapa = parseInt(c.etapa) || 0;
-  const total = parseInt(c.total_etapas) || 8;
-  const pct   = Math.round((etapa / total) * 100);
-
-  const msgs = [
-    `${aleatorio(SAUDACOES)}, *${nome}*! 😊\n\nPassando para atualizar sobre o andamento do seu processo!\n\n📋 *Status atual:* ${fase}\n📊 *Progresso:* ${etapa} de ${total} etapas (${pct}%)\n\nEstamos acompanhando tudo de perto e assim que houver novidades entramos em contato. Pode ficar tranquilo(a)! 🙏\n\n${aleatorio(DESPEDIDAS)}`,
-    `${aleatorio(SAUDACOES)}, *${nome}*! 👋\n\nUpdate rápido sobre o seu processo:\n\n✅ *Etapa atual:* ${fase}\n📈 *Andamento:* ${etapa}/${total} etapas concluídas\n\nTudo caminhando conforme o planejado! Qualquer novidade, aviso imediatamente. 💪\n\n${aleatorio(DESPEDIDAS)}`,
-  ];
-  return aleatorio(msgs) + ASSINATURA;
+function tplStatusProcesso(c) {
+  const nome = primeiro(c.nome);
+  return `Olá, *${nome}*!\n\nSeguimos firmes no acompanhamento do seu processo, e queremos reforçar que você está no caminho certo rumo à sua conquista.\n\nRealizamos a verificação da fase atual e, até o momento, ele permanece na mesma etapa, sem novas movimentações no sistema.\n\nSeguimos acompanhando de forma contínua e atenta. Assim que houver qualquer atualização, entraremos em contato imediatamente.\n\nVamos seguir confiantes — cada etapa nos aproxima ainda mais da sua conquista. 🤝🇧🇷\n\n⚠️ *Alerta importante:*\nCaso receba algum e-mail da Polícia Federal:\n\n1️⃣ Encaminhe imediatamente para:\nwbassessoria.contato@gmail.com\n\n2️⃣ Nos avise também pelo WhatsApp.\n\nDessa forma, conseguimos acompanhar com mais agilidade e orientar você corretamente.\n\n*Equipe WB Assessoria Migratória* 🇧🇷`;
 }
 
 function tplDocumentosPendentes(c, docs = []) {
