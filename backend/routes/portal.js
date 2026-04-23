@@ -151,30 +151,28 @@ router.post('/notificar-parcelas', auth, async (req, res) => {
         AND c.arquivado = 0
     `);
     if (!parcelas.length) return res.json({ ok: true, enviados: 0 });
-    const t = emailTransport();
-    if (!t) return res.json({ ok: false, erro: 'Email não configurado' });
     let enviados = 0;
     for (const p of parcelas) {
-      const diff = Math.ceil((new Date(p.vencimento) - new Date()) / 864e5);
-      const quando = diff === 0 ? 'HOJE' : `em ${diff} dia(s)`;
+      const diff = Math.ceil((new Date(String(p.vencimento).slice(0,10)+'T12:00') - new Date()) / 864e5);
+      const quando = diff <= 0 ? 'HOJE' : `em ${diff} dia(s)`;
+      const dtFmt = new Date(String(p.vencimento).slice(0,10)+'T12:00').toLocaleDateString('pt-BR');
       try {
-        await t.sendMail({
-          from: `"WB Assessoria" <${process.env.EMAIL_USER}>`,
-          to: p.email,
-          subject: `⚠️ Parcela vence ${quando} — WB Assessoria`,
-          html: `<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
+        await enviarEmail(
+          p.email,
+          `⚠️ Parcela vence ${quando} — WB Assessoria`,
+          `<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
             <h2 style="color:#c9a84c">WB Assessoria Migratória</h2>
             <p>Olá, <b>${p.nome}</b>!</p>
             <p>Você tem uma parcela com vencimento <b>${quando}</b>:</p>
             <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:14px;margin:14px 0">
               <div><b>${p.descricao||'Parcela'}</b></div>
               <div style="font-size:1.2rem;font-weight:700;color:#c9a84c;margin-top:4px">R$ ${(parseFloat(p.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
-              <div style="font-size:0.85rem;color:#666;margin-top:4px">Vencimento: ${new Date(p.vencimento+'T12:00').toLocaleDateString('pt-BR')}</div>
+              <div style="font-size:0.85rem;color:#666;margin-top:4px">Vencimento: ${dtFmt}</div>
             </div>
             <p><b>Chave PIX:</b> wbassessoria.contato@gmail.com</p>
             <a href="https://wb-erp-production.up.railway.app?portal=cliente" style="display:inline-block;margin-top:12px;padding:12px 24px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Acessar Portal</a>
           </div>`
-        });
+        );
         enviados++;
       } catch {}
     }
