@@ -607,12 +607,12 @@ function renderConfiguracoes() {
         </div>
       </div>
       <div class="panel">
-        <div class="panel-header"><span class="panel-title">🗄️ Banco de Dados — Supabase</span></div>
+        <div class="panel-header"><span class="panel-title">🗄️ Banco de Dados — Railway MySQL</span></div>
         <div class="panel-body">
           <div style="display:flex;flex-direction:column;gap:12px">
             <div style="display:flex;align-items:center;gap:10px">
               <div class="sync-dot ok"></div>
-              <span style="font-size:0.82rem;color:var(--text2)">Conectado ao Supabase</span>
+              <span style="font-size:0.82rem;color:var(--text2)">Conectado ao servidor Railway</span>
             </div>
             <div style="font-size:0.78rem;color:var(--text3);font-family:'Geist Mono',monospace">
               ${API_BASE}
@@ -1414,7 +1414,7 @@ function cmdKey(e) {
 // EXPORT / IMPORT
 // ══════════════════════════════════
 function exportarJSON() {
-  const data = { clientes, parcelas, agendamentos, exportadoEm: new Date().toLocaleString('pt-BR'), versao: 'wb_v4_supabase' };
+  const data = { clientes, parcelas, agendamentos, exportadoEm: new Date().toLocaleString('pt-BR'), versao: 'wb_v5_railway' };
   const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -1461,7 +1461,7 @@ async function dispararNotificacao(tipo) {
 }
 
 function importarCSV() {
-  showToast('Use o botão + Novo Cliente ou importe via SQL no Supabase.','warn');
+  showToast('Use o botão + Novo Cliente para cadastrar.','warn');
 }
 
 
@@ -1802,7 +1802,7 @@ let _cliFilter    = { busca: '', status: '', servico: '' }; // filtros da lista 
 // Prevent double submit
 let _saving = false;
 
-// Local cache (loaded from Supabase)
+// Local cache (loaded from Railway API)
 let clientes     = [];
 let agendamentos = [];
 let parcelas     = [];
@@ -1877,7 +1877,7 @@ async function apiFetch(path, opts = {}) {
     try { return JSON.parse(text); } catch(e) { return []; }
   } catch(e) {
     clearTimeout(t);
-    if (e.name==='AbortError') throw new Error('Timeout — rode: npm run dev na pasta backend');
+    if (e.name==='AbortError') throw new Error('Servidor demorou para responder. Aguarde alguns segundos e tente novamente.');
     throw e;
   }
 }
@@ -1901,7 +1901,6 @@ async function sbQuery(table, filters = {}, select = '*') {
 
 // Realtime via polling
 let _realtimeInterval = null;
-// Supabase Realtime via WebSocket
 let _ws = null;
 let _lastChange = 0;
 
@@ -1922,7 +1921,6 @@ function startRealtime() {
     } catch(e) { /* ignore realtime errors */ }
   }, 5000); // 5 segundos — próximo do tempo real
 
-  // Também conecta via WebSocket do Supabase Realtime
   try { _conectarWS(); } catch(e) {}
 }
 
@@ -2065,7 +2063,7 @@ async function loadData() {
   const showErr = (msg) => {
     setSyncStatus('error');
     // Show toast error instead of replacing full page
-    showToast('⚠️ Supabase: ' + msg.slice(0,80), 'error');
+    showToast('⚠️ ' + msg.slice(0,100), 'error');
     console.error('loadData:', msg);
   };
 
