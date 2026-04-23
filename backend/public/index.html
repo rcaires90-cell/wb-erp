@@ -2190,7 +2190,7 @@ function renderPage(page) {
 // ══════════════════════════════════════════════════
 // ETAPAS REAIS DO PROCESSO DE NATURALIZAÇÃO
 // ══════════════════════════════════════════════════
-const FASES_PROCESSO = [
+const FASES_NATURALIZACAO = [
   { id:'pre_protocolo',  label:'Pré-Protocolo',          icon:'📋', desc:'Coleta e validação de documentos obrigatórios' },
   { id:'pf_anexo',       label:'PF — Anexo de Docs',     icon:'📎', desc:'Envio dos documentos para a Polícia Federal via Gov.br' },
   { id:'pf_analise',     label:'PF — Análise',           icon:'🔍', desc:'Polícia Federal analisando o processo (até 180 dias)' },
@@ -2200,7 +2200,29 @@ const FASES_PROCESSO = [
   { id:'concluido',      label:'Naturalização Concluída', icon:'🇧🇷', desc:'Processo finalizado com sucesso!' },
 ];
 
-const DOCS_OBRIGATORIOS = [
+const FASES_RESIDENCIA = [
+  { id:'requerimento',   label:'Requerimento',    icon:'📋', desc:'Preparação e envio do requerimento de residência' },
+  { id:'agendamento_pf', label:'Agendamento',     icon:'📅', desc:'Agendamento na Polícia Federal' },
+  { id:'rnm_emissao',    label:'RNM',             icon:'🪪', desc:'Emissão do RNM / Autorização de Residência' },
+];
+
+const FASES_VISTO_EUA = [
+  { id:'elegibilidade',        label:'Análise de Elegibilidade', icon:'🔍', desc:'Verificação dos requisitos para o visto americano' },
+  { id:'ds160',                label:'Formulário DS-160',         icon:'📝', desc:'Preenchimento do formulário consular americano' },
+  { id:'pagamento_taxas_eua',  label:'Pagamento das Taxas',       icon:'💳', desc:'Pagamento das taxas MRV/SEVIS' },
+  { id:'agendamento_consulado',label:'Agendamento no Consulado',  icon:'📅', desc:'Agendamento da entrevista no Consulado americano' },
+  { id:'entrevista_consulado', label:'Entrevista no Consulado',   icon:'🏛️', desc:'Comparecimento à entrevista consular' },
+  { id:'visto_emitido',        label:'Visto Emitido',             icon:'✈️', desc:'Aprovação e emissão do visto americano' },
+];
+
+function getFases(servico) {
+  const s = servico || '';
+  if (s.includes('CPLP') || s.includes('Reagrupamento')) return FASES_RESIDENCIA;
+  if (s.includes('E.U.A') || s.includes('EUA') || s.includes('Turismo')) return FASES_VISTO_EUA;
+  return FASES_NATURALIZACAO;
+}
+
+const DOCS_NATURALIZACAO_OBR = [
   { id:'doc_rnm',              label:'RNM / RNE',                            icon:'🪪' },
   { id:'doc_cpf',              label:'CPF',                                  icon:'📄' },
   { id:'doc_comprovante_end',  label:'Comprovante de Endereço (atualizado)', icon:'🏠' },
@@ -2211,11 +2233,49 @@ const DOCS_OBRIGATORIOS = [
   { id:'doc_prova_presencial', label:'Certidão de Prova Presencial',         icon:'✅' },
   { id:'doc_senha_gov',        label:'Senha do Gov.br',                      icon:'🔑' },
 ];
-
-const DOCS_COMPLEMENTARES = [
+const DOCS_NATURALIZACAO_COMP = [
   { id:'doc_cert_nascimento',   label:'Certidão de Nascimento / RG do filho brasileiro', icon:'👶' },
   { id:'doc_cert_casamento',    label:'Certidão de Casamento / União Estável',            icon:'💍' },
   { id:'doc_carteira_trabalho', label:'Carteira de Trabalho / CNPJ',                     icon:'💼' },
+];
+
+const DOCS_RESIDENCIA_OBR = [
+  { id:'doc_requerimento',  label:'Requerimento',                        icon:'📋' },
+  { id:'doc_agendamento_pf',label:'Agendamento na PF',                   icon:'📅' },
+  { id:'doc_taxas_gov',     label:'Pagamentos das Taxas Governamentais', icon:'💳' },
+  { id:'doc_biometria',     label:'Coleta de Biometria',                 icon:'👆' },
+  { id:'doc_rnm_req',       label:'Requerimento de RNM',                 icon:'🪪' },
+];
+
+const DOCS_EUA_OBR = [
+  { id:'doc_passaporte',       label:'Passaporte válido (+6 meses)',           icon:'✈️' },
+  { id:'doc_ds160',            label:'Formulário DS-160',                      icon:'📝' },
+  { id:'doc_foto_americana',   label:'Foto padrão americana',                  icon:'📸' },
+  { id:'doc_taxa_mrv',         label:'Taxa MRV/SEVIS paga',                    icon:'💳' },
+  { id:'doc_comprovante_renda',label:'Comprovante de renda / IRPF',            icon:'💼' },
+  { id:'doc_extrato_bancario', label:'Extrato bancário (3 meses)',              icon:'🏦' },
+  { id:'doc_vinculo_brasil',   label:'Comprovante de vínculo com o Brasil',    icon:'🇧🇷' },
+];
+
+function getDocsObrigatorios(servico) {
+  const s = servico || '';
+  if (s.includes('CPLP') || s.includes('Reagrupamento')) return DOCS_RESIDENCIA_OBR;
+  if (s.includes('E.U.A') || s.includes('EUA') || s.includes('Turismo')) return DOCS_EUA_OBR;
+  return DOCS_NATURALIZACAO_OBR;
+}
+function getDocsComplementares(servico) {
+  const s = servico || '';
+  if (s.includes('CPLP') || s.includes('Reagrupamento')) return [];
+  if (s.includes('E.U.A') || s.includes('EUA') || s.includes('Turismo')) return [];
+  return DOCS_NATURALIZACAO_COMP;
+}
+
+const SERVICOS = [
+  'Naturalização Brasileira',
+  'Naturalização Provisória',
+  'Autorização de Residência (CPLP)',
+  'Autorização de Residência (Reagrupamento Familiar)',
+  'Visto de Turismo (E.U.A)',
 ];
 
 const PROFICIENCIA_OPTS = [
@@ -2227,14 +2287,14 @@ const PROFICIENCIA_OPTS = [
 ];
 
 function calcPctDocs(c) {
-  const todos = [...DOCS_OBRIGATORIOS, ...DOCS_COMPLEMENTARES];
-  const total = DOCS_OBRIGATORIOS.length;
-  const feitos = DOCS_OBRIGATORIOS.filter(d => c[d.id]).length;
-  return Math.round(feitos / total * 100);
+  const obr = getDocsObrigatorios(c.servico);
+  const total = obr.length;
+  const feitos = obr.filter(d => c[d.id]).length;
+  return total > 0 ? Math.round(feitos / total * 100) : 0;
 }
 
-function getFaseIdx(fase) {
-  return FASES_PROCESSO.findIndex(f => f.id === fase);
+function getFaseIdx(fase, servico) {
+  return getFases(servico).findIndex(f => f.id === fase);
 }
 
 function diasRestantesAntecedente(c) {
@@ -2386,8 +2446,8 @@ function tabelaClientes(lista) {
           const cor    = pct>=100 ? 'var(--green)' : pct>=50 ? 'var(--gold)' : 'var(--orange)';
           const dados  = c.dados_json || {};
           const proximo= dados.proximoPasso || '';
-          const faseIdx2 = getFaseIdx(c.processo_fase||'pre_protocolo');
-            const faseInfo = FASES_PROCESSO[faseIdx2];
+          const faseIdx2 = getFaseIdx(c.processo_fase||'pre_protocolo', c.servico);
+            const faseInfo = getFases(c.servico)[faseIdx2];
             const pctDocs2 = calcPctDocs(c);
             const diasAnt = diasRestantesAntecedente(c);
             const antCor = diasAnt===null?'var(--text3)':diasAnt<0?'var(--red)':diasAnt<=30?'var(--orange)':'var(--green)';
@@ -2411,7 +2471,7 @@ function tabelaClientes(lista) {
                 <div class="progress-bar" style="flex:1;height:4px"><div class="progress-fill" style="width:${pctDocs2}%;background:${pctDocs2>=100?'var(--green)':'var(--gold)'}"></div></div>
                 <span style="font-size:0.68rem;font-family:'DM Mono',monospace;color:${pctDocs2>=100?'var(--green)':'var(--orange)'};font-weight:700;flex-shrink:0">${pctDocs2}%</span>
               </div>
-              <div style="font-size:0.65rem;color:var(--text3)">${DOCS_OBRIGATORIOS.filter(d=>c[d.id]).length}/${DOCS_OBRIGATORIOS.length} obrigatórios</div>
+              <div style="font-size:0.65rem;color:var(--text3)">${getDocsObrigatorios(c.servico).filter(d=>c[d.id]).length}/${getDocsObrigatorios(c.servico).length} obrigatórios</div>
             </td>
             <td style="min-width:120px">
               <div style="display:flex;align-items:center;gap:8px">
@@ -2463,7 +2523,8 @@ async function openCliente(id) {
   const cp    = (parcelas||[]).filter(p => p.cliente_id === id);
   const pago  = cp.filter(p=>p.paga).reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
   const pend  = cp.filter(p=>!p.paga).reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
-  const faseIdx = getFaseIdx(c.processo_fase || 'pre_protocolo');
+  const faseIdx = getFaseIdx(c.processo_fase || 'pre_protocolo', c.servico);
+  const fasesProcesso = getFases(c.servico);
   const pctDocs = calcPctDocs(c);
   const diasAnteced = diasRestantesAntecedente(c);
   const diasProc = diasRestantesProcesso(c);
@@ -2485,7 +2546,7 @@ async function openCliente(id) {
           <div style="font-size:0.95rem;font-weight:800">${c.nome}</div>
           <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
             <span style="font-size:0.68rem;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:2px 7px;color:var(--text2)">${c.pais||'—'}</span>
-            <span style="font-size:0.68rem;background:var(--gold-dim);border:1px solid var(--gold-glow);border-radius:4px;padding:2px 7px;color:var(--gold)">${FASES_PROCESSO[faseIdx]?.icon} ${FASES_PROCESSO[faseIdx]?.label||'—'}</span>
+            <span style="font-size:0.68rem;background:var(--gold-dim);border:1px solid var(--gold-glow);border-radius:4px;padding:2px 7px;color:var(--gold)">${fasesProcesso[faseIdx]?.icon} ${fasesProcesso[faseIdx]?.label||'—'}</span>
             <span style="font-size:0.68rem;background:${pctDocs>=100?'rgba(34,197,94,0.1)':'rgba(245,158,11,0.1)'};border:1px solid ${pctDocs>=100?'rgba(34,197,94,0.2)':'rgba(245,158,11,0.2)'};border-radius:4px;padding:2px 7px;color:${pctDocs>=100?'var(--green)':'var(--orange)'}">📋 Docs ${pctDocs}%</span>
           </div>
         </div>
@@ -2510,8 +2571,8 @@ async function openCliente(id) {
       <div style="margin-bottom:18px">
         <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:12px">Fase Atual do Processo</div>
         <div style="display:flex;flex-direction:column;gap:0">
-          ${FASES_PROCESSO.map((f,i) => `
-          <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;${i<FASES_PROCESSO.length-1?'border-bottom:1px solid var(--border)':''}">
+          ${fasesProcesso.map((f,i) => `
+          <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;${i<fasesProcesso.length-1?'border-bottom:1px solid var(--border)':''}">
             <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0;
               ${i<faseIdx?'background:rgba(34,197,94,0.15);border:2px solid rgba(34,197,94,0.3)':
                 i===faseIdx?'background:var(--gold-dim);border:2px solid var(--gold)':
@@ -2612,7 +2673,7 @@ async function openCliente(id) {
 
       <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Documentos Obrigatórios</div>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
-        ${DOCS_OBRIGATORIOS.map(d => `
+        ${getDocsObrigatorios(c.servico).map(d => `
         <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;border:1px solid ${c[d.id]?'rgba(34,197,94,0.2)':'var(--border)'}">
           <input type="checkbox" id="chk-${d.id}" ${c[d.id]?'checked':''} onchange="updateDoc(${c.id},'${d.id}',this.checked)"
             style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;flex-shrink:0">
@@ -2633,7 +2694,7 @@ async function openCliente(id) {
 
       <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Documentos Complementares</div>
       <div style="display:flex;flex-direction:column;gap:6px">
-        ${DOCS_COMPLEMENTARES.map(d => `
+        ${getDocsComplementares(c.servico).map(d => `
         <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;border:1px solid ${c[d.id]?'rgba(34,197,94,0.2)':'var(--border)'}">
           <input type="checkbox" id="chk-${d.id}" ${c[d.id]?'checked':''} onchange="updateDoc(${c.id},'${d.id}',this.checked)"
             style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;flex-shrink:0">
@@ -2708,16 +2769,7 @@ async function openCliente(id) {
         <div class="form-group form-full"><label>Endereço Completo</label><input id="ed-end" value="${c.endereco||''}"></div>
         <div class="form-group"><label>Serviço</label>
           <select id="ed-servico">
-            ${[
-              'Naturalização Brasileira',
-              'Solicitação da Naturalização Brasileira',
-              'Naturalização Brasileira (Provisória)',
-              'Autorização de Residência — CPLP',
-              'Autorização de Residência — Reagrupamento Familiar',
-              'Visto de Procura de Trabalho — Portugal',
-              'Regularização Migratória',
-              'Outro',
-            ].map(s=>`<option ${(c.servico||'Naturalização Brasileira')===s?'selected':''}>${s}</option>`).join('')}
+            ${SERVICOS.map(s=>`<option ${(c.servico||'Naturalização Brasileira')===s?'selected':''}>${s}</option>`).join('')}
           </select>
         </div>
         <div class="form-group"><label>Status</label>
@@ -3847,14 +3899,7 @@ function openNovoCliente() {
         <div class="form-group form-full"><label>Endereço</label><input id="nc-end" placeholder="Rua, número, cidade - UF"></div>
         <div class="form-group"><label>Serviço</label>
           <select id="nc-servico">
-            <option>Naturalização Brasileira</option>
-            <option>Solicitação da Naturalização Brasileira</option>
-            <option>Naturalização Brasileira (Provisória)</option>
-            <option>Autorização de Residência — CPLP</option>
-            <option>Autorização de Residência — Reagrupamento Familiar</option>
-            <option>Visto de Procura de Trabalho — Portugal</option>
-            <option>Regularização Migratória</option>
-            <option>Outro</option>
+            ${SERVICOS.map(s=>`<option>${s}</option>`).join('')}
           </select>
         </div>
         <div class="form-group"><label>Status</label>
@@ -4605,7 +4650,7 @@ function novoLead() {
         <div class="form-group"><label>País de Origem</label><input id="ld-pais"></div>
         <div class="form-group"><label>Serviço de Interesse</label>
           <select id="ld-servico">
-            ${['Naturalização Brasileira','Autorização de Residência — CPLP','Autorização de Residência — Reagrupamento Familiar','Visto de Procura de Trabalho — Portugal','Regularização Migratória','Outro'].map(s=>`<option>${s}</option>`).join('')}
+            ${[...SERVICOS,'Outro'].map(s=>`<option>${s}</option>`).join('')}
           </select>
         </div>
         <div class="form-group"><label>Origem</label>

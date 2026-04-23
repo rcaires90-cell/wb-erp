@@ -228,6 +228,11 @@ router.patch('/:id', async (req, res) => {
       'doc_comprovante_4anos', 'doc_antecedente', 'doc_antecedente_val',
       'doc_lingua', 'doc_prova_presencial', 'doc_senha_gov',
       'doc_cert_nascimento', 'doc_cert_casamento', 'doc_carteira_trabalho',
+      // Autorização de Residência (CPLP / Reagrupamento)
+      'doc_requerimento', 'doc_agendamento_pf', 'doc_taxas_gov', 'doc_biometria', 'doc_rnm_req',
+      // Visto de Turismo (E.U.A)
+      'doc_ds160', 'doc_foto_americana', 'doc_taxa_mrv',
+      'doc_comprovante_renda', 'doc_extrato_bancario', 'doc_vinculo_brasil',
     ];
 
     const setClauses = [];

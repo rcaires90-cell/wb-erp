@@ -27,6 +27,19 @@ async function runMigrations() {
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_cert_nascimento  TINYINT(1)    DEFAULT 0",
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_cert_casamento   TINYINT(1)    DEFAULT 0",
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_carteira_trabalho TINYINT(1)   DEFAULT 0",
+    // Autorização de Residência (CPLP / Reagrupamento)
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_requerimento     TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_agendamento_pf   TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_taxas_gov        TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_biometria        TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_rnm_req          TINYINT(1)    DEFAULT 0",
+    // Visto de Turismo (E.U.A)
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_ds160            TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_foto_americana   TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_taxa_mrv         TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_comprovante_renda TINYINT(1)   DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_extrato_bancario TINYINT(1)    DEFAULT 0",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_vinculo_brasil   TINYINT(1)    DEFAULT 0",
   ];
   for (const sql of alterCols) {
     try { await db.query(sql); } catch(e) { console.warn('[migration] skipped:', e.message.slice(0,80)); }
