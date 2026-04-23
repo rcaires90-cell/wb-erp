@@ -1679,13 +1679,11 @@ function confirmar(msg, titulo, icon, corBtn, labelOk) {
     document.getElementById('confirm-icon').textContent  = icon;
     document.getElementById('confirm-title').textContent = titulo;
     document.getElementById('confirm-msg').textContent   = msg;
-    const okBtn = document.getElementById('confirm-ok');
-    okBtn.style.background = corBtn;
-    okBtn.style.border = 'none';
-    okBtn.textContent = labelOk;
+    const okBtn = document.getElementById('confirm-ok-btn');
+    if (okBtn) { okBtn.style.color = corBtn; okBtn.textContent = labelOk; }
     overlay.style.display = 'flex';
-    window._confirmResolve = function() { overlay.style.display='none'; resolve(true); };
-    window._confirmReject  = function() { overlay.style.display='none'; reject(false); };
+    window._cResolve = function() { overlay.style.display='none'; resolve(true); };
+    window._cReject  = function() { overlay.style.display='none'; reject(false); };
   });
 }
 
