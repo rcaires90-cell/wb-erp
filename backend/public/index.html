@@ -1102,9 +1102,8 @@ function calcParcelasAuto() {
 // ══════════════════════════════════
 function getEtapas(servico) {
   if (!servico || servico.includes('Naturaliz')) return ['Análise de Elegibilidade','Coleta de Documentos','Tradução Juramentada','Protocolo no MJSP','Análise Federal','Publicação DOU','Naturalização Concluída'];
-  if (servico.includes('RNM')) return ['Análise Migratória','Coleta de Documentos','Protocolo MigranteWeb','Agendamento PF','Atendimento na PF','Emissão CRNM'];
-  if (servico.includes('CPLP') || servico.includes('Reagrupamento')) return ['Análise de Elegibilidade','Coleta de Documentos','Protocolo MigranteWeb','Agendamento na PF','Atendimento na PF','Emissão da Autorização de Residência','Processo Concluído'];
-  if (servico.includes('Procura de Trabalho') || servico.includes('Portugal')) return ['Análise de Elegibilidade','Coleta de Documentos','Agendamento no Consulado','Atendimento Consular','Análise Consular','Emissão do Visto','Processo Concluído'];
+  if (servico.includes('CPLP') || servico.includes('Reagrupamento')) return ['Requerimento','Agendamento na PF','Atendimento na PF','Emissão da Autorização de Residência','Processo Concluído'];
+  if (servico.includes('E.U.A') || servico.includes('EUA') || servico.includes('Turismo')) return ['Análise de Elegibilidade','Formulário DS-160','Pagamento das Taxas','Agendamento no Consulado','Entrevista Consular','Visto Emitido'];
   return ['Análise de Perfil','Coleta de Documentos','Protocolo','Análise','Aprovação','Conclusão'];
 }
 
@@ -2446,7 +2445,8 @@ function tabelaClientes(lista) {
           const cor    = pct>=100 ? 'var(--green)' : pct>=50 ? 'var(--gold)' : 'var(--orange)';
           const dados  = c.dados_json || {};
           const proximo= dados.proximoPasso || '';
-          const faseIdx2 = getFaseIdx(c.processo_fase||'pre_protocolo', c.servico);
+          const _faseDef2 = getFases(c.servico)[0]?.id || 'pre_protocolo';
+          const faseIdx2 = Math.max(0, getFaseIdx(c.processo_fase || _faseDef2, c.servico));
             const faseInfo = getFases(c.servico)[faseIdx2];
             const pctDocs2 = calcPctDocs(c);
             const diasAnt = diasRestantesAntecedente(c);
@@ -2523,7 +2523,8 @@ async function openCliente(id) {
   const cp    = (parcelas||[]).filter(p => p.cliente_id === id);
   const pago  = cp.filter(p=>p.paga).reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
   const pend  = cp.filter(p=>!p.paga).reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
-  const faseIdx = getFaseIdx(c.processo_fase || 'pre_protocolo', c.servico);
+  const _faseDef = getFases(c.servico)[0]?.id || 'pre_protocolo';
+  const faseIdx = Math.max(0, getFaseIdx(c.processo_fase || _faseDef, c.servico));
   const fasesProcesso = getFases(c.servico);
   const pctDocs = calcPctDocs(c);
   const diasAnteced = diasRestantesAntecedente(c);
@@ -2599,7 +2600,7 @@ async function openCliente(id) {
       <!-- Protocolo e datas -->
       <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:14px">
         <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Protocolo & Prazo</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div style="display:grid;grid-template-columns:${(c.servico||'').includes('Naturaliz')||c.processo_data_inicio?'1fr 1fr 1fr':'1fr 1fr'};gap:10px">
           <div>
             <div style="font-size:0.62rem;color:var(--text3);margin-bottom:3px">Número do Protocolo</div>
             <input id="proc-protocolo" value="${c.processo_protocolo||''}" placeholder="Nº do protocolo"
@@ -2610,30 +2611,39 @@ async function openCliente(id) {
             <input id="proc-inicio" type="date" value="${c.processo_data_inicio||''}"
               style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
           </div>
+          ${(c.servico||'').includes('Naturaliz') ? `
           <div>
             <div style="font-size:0.62rem;color:var(--text3);margin-bottom:3px">Prazo 180 dias</div>
             <div style="font-size:0.82rem;font-weight:700;color:${diasProc===null?'var(--text3)':diasProc<0?'var(--red)':diasProc<=30?'var(--orange)':'var(--green)'}">
               ${diasProc===null?'—':diasProc<0?`${Math.abs(diasProc)}d EXPIRADO`:diasProc===0?'HOJE':diasProc+'d restantes'}
             </div>
-          </div>
+          </div>` : c.processo_data_inicio ? `
+          <div>
+            <div style="font-size:0.62rem;color:var(--text3);margin-bottom:3px">Dias em andamento</div>
+            <div style="font-size:0.82rem;font-weight:700;color:var(--text2)">
+              ${Math.floor((new Date()-new Date(c.processo_data_inicio+'T12:00'))/864e5)}d
+            </div>
+          </div>` : ''}
         </div>
       </div>
 
-      <!-- Curso de Proficiência -->
+      <!-- Curso de Proficiência — somente Naturalização -->
+      ${(c.servico||'').includes('Naturaliz') ? `
       <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:14px">
         <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Curso de Língua Portuguesa</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
           ${PROFICIENCIA_OPTS.map(o => `
-          <button onclick="setProficiencia(${c.id},'${o.id}',this)" 
+          <button onclick="setProficiencia(${c.id},'${o.id}',this)"
             style="font-size:0.72rem;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:inherit;transition:all 0.15s;
               ${(c.proficiencia_status||'pendente')===o.id?`background:${o.cor};color:#fff;border:1px solid ${o.cor}`:'background:var(--bg2);color:var(--text2);border:1px solid var(--border2)'}"
             data-prof="${o.id}">${o.label}</button>`).join('')}
         </div>
         <input id="proc-prof-obs" value="${c.proficiencia_obs||''}" placeholder="Observações sobre o curso..."
           style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
-      </div>
+      </div>` : ''}
 
-      <!-- Gov.br -->
+      <!-- Gov.br — somente Naturalização e Residência (não EUA) -->
+      ${!(c.servico||'').includes('E.U.A') ? `
       <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:14px">
         <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">🔑 Acesso Gov.br</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -2648,7 +2658,7 @@ async function openCliente(id) {
               style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
           </div>
         </div>
-      </div>
+      </div>` : ''}
 
       <div style="display:flex;gap:8px">
         <button class="btn btn-gold" onclick="salvarProcesso(${c.id})">💾 Salvar Processo</button>
@@ -2692,7 +2702,8 @@ async function openCliente(id) {
         </div>`).join('')}
       </div>
 
-      <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Documentos Complementares</div>
+      ${getDocsComplementares(c.servico).length ? `
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;margin-top:16px">Documentos Complementares</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${getDocsComplementares(c.servico).map(d => `
         <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;border:1px solid ${c[d.id]?'rgba(34,197,94,0.2)':'var(--border)'}">
@@ -2704,7 +2715,7 @@ async function openCliente(id) {
             ${c[d.id]?'✓ Entregue':'—'}
           </span>
         </div>`).join('')}
-      </div>
+      </div>` : ''}
     </div>
 
     <!-- ABA: FINANCEIRO -->
@@ -3009,17 +3020,18 @@ async function setProficiencia(clienteId, status, btn) {
 
 // Salvar processo
 async function salvarProcesso(clienteId) {
-  const obs = document.getElementById('proc-prof-obs')?.value || '';
-  await apiFetch('/clientes/' + clienteId, {
-    method: 'PATCH',
-    body: JSON.stringify({
-      processo_protocolo: document.getElementById('proc-protocolo')?.value || null,
-      processo_data_inicio: document.getElementById('proc-inicio')?.value || null,
-      proficiencia_obs: obs,
-      gov_login: document.getElementById('proc-gov-login')?.value || null,
-      gov_senha: document.getElementById('proc-gov-senha')?.value || null,
-    })
-  });
+  const payload = {
+    processo_protocolo:   document.getElementById('proc-protocolo')?.value || null,
+    processo_data_inicio: document.getElementById('proc-inicio')?.value    || null,
+  };
+  const obs      = document.getElementById('proc-prof-obs')?.value;
+  const govLogin = document.getElementById('proc-gov-login')?.value;
+  const govSenha = document.getElementById('proc-gov-senha')?.value;
+  if (obs      !== undefined) payload.proficiencia_obs = obs;
+  if (govLogin !== undefined) payload.gov_login        = govLogin || null;
+  if (govSenha !== undefined) payload.gov_senha        = govSenha || null;
+
+  await apiFetch('/clientes/' + clienteId, { method: 'PATCH', body: JSON.stringify(payload) });
   await loadData();
   openCliente(clienteId);
   showToast('✅ Processo salvo!', 'success');
