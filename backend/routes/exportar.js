@@ -20,11 +20,23 @@ function toCSV(cols, rows) {
 router.get('/clientes.csv', async (req, res) => {
   const [rows] = await db.query(
     `SELECT nome,email,tel,cpf,rnm,pais,endereco,servico,status,responsavel,
-            valor,pago,data_cadastro,protocolo,prioridade,arquivado
+            valor,pago,data_cadastro,protocolo,prioridade,processo_fase,processo_protocolo,processo_data_inicio,
+            doc_rnm,doc_cpf,doc_comprovante_end,doc_passaporte,doc_comprovante_4anos,
+            doc_antecedente,doc_antecedente_val,doc_lingua,doc_prova_presencial,doc_senha_gov,
+            doc_cert_nascimento,doc_cert_casamento,doc_carteira_trabalho,
+            doc_requerimento,doc_agendamento_pf,doc_taxas_gov,doc_biometria,doc_rnm_req,
+            doc_ds160,doc_foto_americana,doc_taxa_mrv,doc_comprovante_renda,doc_extrato_bancario,doc_vinculo_brasil
      FROM clientes WHERE arquivado=0 ORDER BY nome ASC`
   );
-  const cols = ['nome','email','tel','cpf','rnm','pais','endereco','servico',
-                'status','responsavel','valor','pago','data_cadastro','protocolo','prioridade'];
+  const cols = [
+    'nome','email','tel','cpf','rnm','pais','endereco','servico','status','responsavel',
+    'valor','pago','data_cadastro','protocolo','prioridade','processo_fase','processo_protocolo','processo_data_inicio',
+    'doc_rnm','doc_cpf','doc_comprovante_end','doc_passaporte','doc_comprovante_4anos',
+    'doc_antecedente','doc_antecedente_val','doc_lingua','doc_prova_presencial','doc_senha_gov',
+    'doc_cert_nascimento','doc_cert_casamento','doc_carteira_trabalho',
+    'doc_requerimento','doc_agendamento_pf','doc_taxas_gov','doc_biometria','doc_rnm_req',
+    'doc_ds160','doc_foto_americana','doc_taxa_mrv','doc_comprovante_renda','doc_extrato_bancario','doc_vinculo_brasil',
+  ];
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="clientes.csv"');
   res.send(toCSV(cols, rows));

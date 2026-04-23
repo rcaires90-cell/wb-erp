@@ -688,8 +688,11 @@ function renderMeuProcesso() {
   const c = clienteLogado();
   if (!c) return `<div class="empty"><div class="icon">👋</div><h3>Bem-vindo!</h3><p>Seu processo está sendo configurado.</p><br><a href="${WB_WA}" target="_blank" class="btn btn-primary">💬 Falar com WB</a></div>`;
 
-  const etapas = getEtapas(c.servico);
-  const pct = Math.round((c.etapa||0) / etapas.length * 100);
+  const fases = getFases(c.servico);
+  const faseDef = fases[0]?.id;
+  const faseAtualId = c.processo_fase || faseDef;
+  const faseIdx = Math.max(0, fases.findIndex(f => f.id === faseAtualId));
+  const pct = fases.length > 0 ? Math.round((faseIdx) / (fases.length - 1) * 100) : 0;
   const cPrints = prints.filter(p => p.cliente_id === c.id);
 
   return `
@@ -698,21 +701,21 @@ function renderMeuProcesso() {
       <div style="font-size:1.3rem;font-weight:700;color:var(--text);margin-bottom:4px">${c.servico}</div>
       <div style="display:flex;gap:8px;margin-bottom:16px">${statusBadge(c.status)}${c.protocolo ? `<span class="badge badge-gray" style="font-family:'Geist Mono',monospace">${c.protocolo}</span>` : ''}</div>
       <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text3);margin-bottom:8px">
-        <span>Etapa ${c.etapa||0} de ${etapas.length}</span>
-        <span style="color:var(--gold);font-weight:600">${pct}%</span>
+        <span>${fases[faseIdx]?.icon || ''} ${fases[faseIdx]?.label || '—'}</span>
+        <span style="color:var(--gold);font-weight:600">${pct}% concluído</span>
       </div>
       <div class="progress-bar" style="height:8px"><div class="progress-fill" style="width:${pct}%"></div></div>
     </div>
 
     <div class="panel" style="margin-bottom:16px">
-      <div class="panel-header"><span class="panel-title">📋 Etapas do Processo</span></div>
+      <div class="panel-header"><span class="panel-title">📋 Fases do Processo</span></div>
       <div style="padding:4px 0">
-        ${etapas.map((e,i) => `
+        ${fases.map((f,i) => `
           <div class="portal-step">
-            <div class="step-num ${i < (c.etapa||0) ? 'step-done' : i === (c.etapa||0) ? 'step-current' : 'step-pending'}">${i < (c.etapa||0) ? '✓' : i+1}</div>
+            <div class="step-num ${i < faseIdx ? 'step-done' : i === faseIdx ? 'step-current' : 'step-pending'}">${i < faseIdx ? '✓' : f.icon}</div>
             <div>
-              <div style="font-size:0.84rem;font-weight:${i === (c.etapa||0) ? '600' : '400'};color:${i < (c.etapa||0) ? 'var(--text2)' : i === (c.etapa||0) ? 'var(--text)' : 'var(--text3)'}">${e}</div>
-              <div style="font-size:0.72rem;color:var(--text3);margin-top:2px">${i < (c.etapa||0) ? '✓ Concluído' : i === (c.etapa||0) ? '→ Em andamento' : 'Pendente'}</div>
+              <div style="font-size:0.84rem;font-weight:${i === faseIdx ? '600' : '400'};color:${i < faseIdx ? 'var(--text2)' : i === faseIdx ? 'var(--text)' : 'var(--text3)'}">${f.label}</div>
+              <div style="font-size:0.72rem;color:var(--text3);margin-top:2px">${i < faseIdx ? '✓ Concluído' : i === faseIdx ? '→ Em andamento' : f.desc}</div>
             </div>
           </div>`).join('')}
       </div>
@@ -720,7 +723,7 @@ function renderMeuProcesso() {
 
     ${cPrints.length ? `
       <div class="panel" style="margin-bottom:16px;border-color:rgba(59,130,246,0.3)">
-        <div class="panel-header" style="background:rgba(59,130,246,0.05)"><span class="panel-title" style="color:var(--blue)">🖥️ Atualizações do Gov.br (${cPrints.length})</span></div>
+        <div class="panel-header" style="background:rgba(59,130,246,0.05)"><span class="panel-title" style="color:var(--blue)">🖥️ Atualizações do Processo (${cPrints.length})</span></div>
         <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
           ${cPrints.map(p => `
             <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
@@ -1164,12 +1167,12 @@ function statusBadge(s) {
 
 function servicoBadge(s) {
   if (!s) return '<span class="badge badge-gray">—</span>';
+  if (s.includes('Provisória') || s.includes('Provisoria')) return '<span class="badge badge-gold" style="opacity:0.8">🇧🇷 Nat. Provisória</span>';
   if (s.includes('Naturaliz')) return '<span class="badge badge-gold">🇧🇷 Naturalização</span>';
   if (s.includes('CPLP'))        return '<span class="badge badge-green">🇧🇷 Res. CPLP</span>';
   if (s.includes('Reagrupamento')) return '<span class="badge badge-green">🇧🇷 Reagrupamento</span>';
-  if (s.includes('Procura de Trabalho')) return '<span class="badge badge-blue">🇵🇹 Visto PT Trabalho</span>';
-  if (s.includes('RNM') || s.includes('Resid')) return '<span class="badge badge-blue">🪪 Residência</span>';
-  return '<span class="badge badge-gray">✈️ Visto</span>';
+  if (s.includes('E.U.A') || s.includes('EUA') || s.includes('Turismo')) return '<span class="badge badge-blue">🇺🇸 Visto EUA</span>';
+  return `<span class="badge badge-gray">${s}</span>`;
 }
 
 function hashSenha(senha) {
@@ -1794,7 +1797,7 @@ let loginRole   = 'ceo';
 // Estado persistente de UI
 let _activeTab    = 'tab-processo'; // aba ativa no modal do cliente
 let _activeTabCid = null;           // id do cliente que estava aberto
-let _cliFilter    = { busca: '', status: '' }; // filtros da lista de clientes
+let _cliFilter    = { busca: '', status: '', servico: '' }; // filtros da lista de clientes
 
 // Prevent double submit
 let _saving = false;
@@ -2203,12 +2206,14 @@ function renderPage(page) {
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = `<div class="empty"><div class="icon">🔧</div><h3>Em breve</h3></div>`;
   // Restaura filtros da lista de clientes
-  if (page === 'clientes' && (_cliFilter.busca || _cliFilter.status)) {
+  if (page === 'clientes' && (_cliFilter.busca || _cliFilter.status || _cliFilter.servico)) {
     const b = document.getElementById('cli-busca');
     const s = document.getElementById('cli-status');
-    if (b) b.value = _cliFilter.busca;
-    if (s) s.value = _cliFilter.status;
-    if (_cliFilter.busca || _cliFilter.status) filtrarClientes();
+    const sv = document.getElementById('cli-servico');
+    if (b)  b.value  = _cliFilter.busca;
+    if (s)  s.value  = _cliFilter.status;
+    if (sv) sv.value = _cliFilter.servico;
+    filtrarClientes();
   }
   // Pós-render: carrega dados assíncronos de cada página
   if (page === 'conciliacao')   carregarLancamentos();
@@ -2395,6 +2400,26 @@ function renderDashboard() {
 
     <div id="metas-dashboard-widget" style="margin-bottom:20px"></div>
 
+    <!-- Breakdown por serviço -->
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-header"><span class="panel-title">📊 Clientes por Serviço</span></div>
+      <div style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px">
+        ${SERVICOS.map(s => {
+          const n = (clientes||[]).filter(c => c.servico === s).length;
+          if (!n) return '';
+          const pct2 = total ? Math.round(n/total*100) : 0;
+          return `
+          <div onclick="document.getElementById('cli-servico')&&(document.getElementById('cli-servico').value='${s}',navigateTo('clientes'))"
+            style="cursor:pointer;flex:1;min-width:150px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;transition:border-color 0.2s"
+            onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="font-size:0.72rem;color:var(--text3);margin-bottom:4px">${servicoBadge(s)}</div>
+            <div style="font-size:1.4rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--text)">${n}</div>
+            <div style="font-size:0.68rem;color:var(--text3)">${pct2}% do total</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
     <div class="grid-2">
       <div class="panel">
         <div class="panel-header"><span class="panel-title">Clientes Recentes</span><button class="btn btn-ghost btn-sm" onclick="navigateTo('clientes')">Ver todos →</button></div>
@@ -2451,6 +2476,10 @@ function renderClientes() {
         <option value="Pendente Documentação">Pendente Docs</option>
         <option value="Concluído">Concluído</option>
         <option value="Cancelado">Cancelado</option>
+      </select>
+      <select id="cli-servico" onchange="filtrarClientes()" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:0.82rem;outline:none;font-family:'Syne',sans-serif">
+        <option value="">Todos os serviços</option>
+        ${SERVICOS.map(s => `<option value="${s}">${s}</option>`).join('')}
       </select>
       <button class="btn btn-primary" onclick="openNovoCliente()">+ Novo Cliente</button>
       <button class="btn btn-outline btn-sm" onclick="exportarCSV('clientes')">📥 Exportar CSV</button>
@@ -2529,11 +2558,13 @@ function tabelaClientes(lista) {
 }
 
 function filtrarClientes(q) {
-  const busca  = (typeof q === 'string' ? q : document.getElementById('cli-busca')?.value || '').toLowerCase();
-  const status = document.getElementById('cli-status')?.value || '';
-  _cliFilter = { busca: document.getElementById('cli-busca')?.value || '', status };
+  const busca   = (typeof q === 'string' ? q : document.getElementById('cli-busca')?.value || '').toLowerCase();
+  const status  = document.getElementById('cli-status')?.value  || '';
+  const servico = document.getElementById('cli-servico')?.value || '';
+  _cliFilter = { busca: document.getElementById('cli-busca')?.value || '', status, servico };
   let lista = clientes.filter(c => {
-    if (status && c.status !== status) return false;
+    if (status  && c.status  !== status)  return false;
+    if (servico && c.servico !== servico) return false;
     if (busca && !(
       c.nome.toLowerCase().includes(busca) ||
       (c.email||'').toLowerCase().includes(busca) ||
@@ -3346,7 +3377,9 @@ function gerarDocumento() {
 const CURSO_URL = 'https://www.virtualead.com.br/sistema/login/rocha';
 
 function renderCursoProficiencia() {
-  const opts = (clientes||[]).map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+  const opts = (clientes||[])
+    .filter(c => (c.servico||'').includes('Naturaliz'))
+    .map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
   return `
     <div style="max-width:760px;margin:0 auto">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
