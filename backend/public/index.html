@@ -1986,7 +1986,7 @@ async function loadData() {
     if (currentRole === 'cliente' && currentUser?.clienteId) {
       const [cliArr, parc, ags, prs] = await Promise.all([
         apiFetch('/clientes'),
-        apiFetch('/parcelas'),
+        apiFetch('/parcelas?limit=500'),
         apiFetch('/agendamentos'),
         apiFetch('/prints'),
       ]);
@@ -1996,10 +1996,10 @@ async function loadData() {
       prints       = Array.isArray(prs)    ? prs    : (prs?.dados    || []);
     } else {
       const [clis, parc, ags, prs] = await Promise.all([
-        apiFetch('/clientes'),
-        apiFetch('/parcelas'),
-        apiFetch('/agendamentos'),
-        apiFetch('/prints'),
+        apiFetch('/clientes?limit=500'),
+        apiFetch('/parcelas?limit=500'),
+        apiFetch('/agendamentos?limit=500'),
+        apiFetch('/prints?limit=500'),
       ]);
       clientes     = Array.isArray(clis) ? clis : (clis?.dados || []);
       parcelas     = Array.isArray(parc) ? parc : (parc?.dados || []);
