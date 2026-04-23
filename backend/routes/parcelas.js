@@ -9,7 +9,7 @@ router.use(auth);
 router.get('/', async (req, res) => {
   try {
     const page  = Math.max(1, parseInt(req.query.page)  || 1);
-    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit) || 100));
+    const limit = Math.min(5000, Math.max(1, parseInt(req.query.limit) || 100));
     const offset = (page - 1) * limit;
 
     let sql = `

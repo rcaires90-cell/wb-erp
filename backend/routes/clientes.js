@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
     }
 
     const page       = Math.max(1, parseInt(req.query.page)  || 1);
-    const limit      = Math.min(500, Math.max(1, parseInt(req.query.limit) || 50));
+    const limit      = Math.min(5000, Math.max(1, parseInt(req.query.limit) || 50));
     const offset     = (page - 1) * limit;
     const arquivados = req.query.arquivados === '1' ? 1 : 0;
 
