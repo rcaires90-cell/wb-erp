@@ -3083,7 +3083,9 @@ function renderFinanceiro() {
 
 async function marcarPago(pid, cid) {
   try {
-    await apiFetch('/parcelas/'+pid, {method:'PATCH', body:JSON.stringify({paga:true, data_pgto:new Date().toISOString().split('T')[0]})});
+    const p = (parcelas||[]).find(x => x.id === pid);
+    const dtPago = p?.data_pgto ? String(p.data_pgto).slice(0,10) : new Date().toISOString().split('T')[0];
+    await apiFetch('/parcelas/'+pid, {method:'PATCH', body:JSON.stringify({paga:true, data_pgto:dtPago})});
     await loadData();
     renderPage(currentPage);
     if(cid) openCliente(cid);
