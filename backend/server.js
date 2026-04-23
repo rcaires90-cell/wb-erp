@@ -85,6 +85,7 @@ app.use('/api/leads',       require('./routes/leads'));
 app.use('/api/exportar',    require('./routes/exportar'));
 app.use('/api/metas',       require('./routes/metas'));
 app.use('/api/portal',      require('./routes/portal'));
+app.use('/api/notificar',   require('./routes/notificar'));
 
 // ── HEALTH CHECK ──────────────────────────────────
 app.get('/api/health', (_req, res) => {

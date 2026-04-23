@@ -635,6 +635,38 @@ function renderConfiguracoes() {
         </div>
       </div>
 
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">🔔 Notificações e Lembretes</span></div>
+        <div class="panel-body">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="font-size:0.82rem;color:var(--text2)">Dispare manualmente ou configure o cron diário no Railway para automatizar.</div>
+
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px">
+              <div style="font-weight:700;font-size:0.82rem;margin-bottom:4px">📅 Agenda</div>
+              <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Envia lembrete ao cliente sobre atendimento amanhã + resumo do dia para a equipe.</div>
+              <button class="btn btn-outline btn-sm" onclick="dispararNotificacao('agendamentos')">▶ Disparar agora</button>
+            </div>
+
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px">
+              <div style="font-weight:700;font-size:0.82rem;margin-bottom:4px">💳 Parcelas Vencendo</div>
+              <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Avisa clientes com parcelas vencendo nos próximos 3 dias.</div>
+              <button class="btn btn-outline btn-sm" onclick="dispararNotificacao('parcelas')">▶ Disparar agora</button>
+            </div>
+
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px">
+              <div style="font-weight:700;font-size:0.82rem;margin-bottom:4px">🚀 Disparar Tudo de Uma Vez</div>
+              <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Agenda + Parcelas ao mesmo tempo. Use este endpoint como cron no Railway.</div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <button class="btn btn-gold btn-sm" onclick="dispararNotificacao('tudo')">▶ Disparar tudo</button>
+                <span style="font-size:0.72rem;color:var(--text3);font-family:'DM Mono',monospace">POST /api/notificar/tudo</span>
+              </div>
+            </div>
+
+            <div id="notif-resultado" style="display:none;padding:12px 14px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;font-size:0.8rem;color:var(--green)"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="panel" id="colaboradores-panel">
         <div class="panel-header">
           <span class="panel-title">👥 Equipe</span>
@@ -1369,6 +1401,24 @@ async function baixarBackupCompleto() {
     URL.revokeObjectURL(url);
     showToast('✅ Backup completo baixado!', 'success');
   } catch(e) { showToast('Erro ao gerar backup', 'error'); }
+}
+
+async function dispararNotificacao(tipo) {
+  showToast('⏳ Disparando notificações...', '');
+  try {
+    const r = await apiFetch('/notificar/' + tipo, { method: 'POST' });
+    const el = document.getElementById('notif-resultado');
+    let msg = '';
+    if (tipo === 'agendamentos') {
+      msg = `✅ Agenda: ${r.enviados_clientes} lembrete(s) enviado(s) aos clientes · ${r.agendamentos_hoje} agendamento(s) de hoje notificados para equipe`;
+    } else if (tipo === 'parcelas') {
+      msg = `✅ Parcelas: ${r.enviados} de ${r.total} email(s) enviado(s)`;
+    } else {
+      msg = `✅ Tudo disparado — Agenda: OK · Parcelas: OK`;
+    }
+    if (el) { el.textContent = msg; el.style.display = 'block'; }
+    showToast(msg, 'success');
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 function importarCSV() {
