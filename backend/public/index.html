@@ -2951,7 +2951,13 @@ function abrirNovaParcela(cid) {
           </select>
         </div>
         <div class="form-group"><label>Data de Pagamento</label>
-          <input id="np-dtpago" type="date"></div>
+          <input id="np-dtpago" type="date" onchange="if(this.value)document.getElementById('np-paga').checked=true"></div>
+        <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:22px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;font-weight:600;color:var(--text)">
+            <input type="checkbox" id="np-paga" onchange="if(this.checked&&!document.getElementById('np-dtpago').value)document.getElementById('np-dtpago').value=new Date().toISOString().split('T')[0]" style="width:16px;height:16px;accent-color:var(--green);cursor:pointer">
+            <span style="color:var(--green)">✓ Marcar como Pago</span>
+          </label>
+        </div>
       </div>
     </div>
     <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
@@ -2969,7 +2975,7 @@ async function salvarNovaParcela(cid) {
     tipo: document.getElementById('np-tipo')?.value || 'mensalidade',
     forma_pgto: document.getElementById('np-forma')?.value || 'PIX',
     data_pgto: document.getElementById('np-dtpago')?.value || null,
-    paga: document.getElementById('np-dtpago')?.value ? true : false,
+    paga: document.getElementById('np-paga')?.checked || !!document.getElementById('np-dtpago')?.value,
   };
   await apiFetch('/parcelas', { method:'POST', body: JSON.stringify(data) });
   await loadData();
@@ -4046,7 +4052,7 @@ function editarParcela(pid, cid) {
         </div>
         <div class="form-group">
           <label>Vencimento</label>
-          <input id="ep-venc" type="date" value="${p.vencimento||''}">
+          <input id="ep-venc" type="date" value="${p.vencimento?String(p.vencimento).slice(0,10):''}">
         </div>
         <div class="form-group">
           <label>Forma de Pagamento</label>
@@ -4056,7 +4062,13 @@ function editarParcela(pid, cid) {
         </div>
         <div class="form-group">
           <label>Data de Pagamento</label>
-          <input id="ep-dtpago" type="date" value="${p.data_pgto||''}">
+          <input id="ep-dtpago" type="date" value="${p.data_pgto?String(p.data_pgto).slice(0,10):''}" onchange="if(this.value)document.getElementById('ep-paga').checked=true">
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:22px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;font-weight:600">
+            <input type="checkbox" id="ep-paga" ${p.paga?'checked':''} onchange="if(this.checked&&!document.getElementById('ep-dtpago').value)document.getElementById('ep-dtpago').value=new Date().toISOString().split('T')[0]" style="width:16px;height:16px;accent-color:var(--green);cursor:pointer">
+            <span style="color:var(--green)">✓ Marcar como Pago</span>
+          </label>
         </div>
         <div class="form-group form-full">
           <label>Observações</label>
@@ -4081,6 +4093,7 @@ async function salvarEdicaoParcela(pid, cid) {
   };
   const dtPago = document.getElementById('ep-dtpago')?.value;
   data.data_pgto = dtPago || null;
+  data.paga = document.getElementById('ep-paga')?.checked || !!dtPago;
 
   try {
     await apiFetch('/parcelas/' + pid, { method: 'PATCH', body: JSON.stringify(data) });
