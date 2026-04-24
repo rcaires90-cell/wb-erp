@@ -4773,38 +4773,58 @@ async function cobrarTodos() {
     if (!porCliente[p.cliente_id]) porCliente[p.cliente_id] = [];
     porCliente[p.cliente_id].push(p);
   });
-  const comTel = Object.entries(porCliente).filter(([cid]) => {
-    const c = (clientes||[]).find(x => x.id === parseInt(cid));
-    return c?.tel;
-  });
+  const comTel = Object.entries(porCliente)
+    .map(([cid, parts]) => ({ cid: parseInt(cid), parts, c: (clientes||[]).find(x => x.id === parseInt(cid)) }))
+    .filter(x => x.c?.tel)
+    .sort((a, b) => {
+      const aMax = Math.max(...a.parts.map(p=>Math.floor((hoje-parseDate(p.vencimento))/864e5)));
+      const bMax = Math.max(...b.parts.map(p=>Math.floor((hoje-parseDate(p.vencimento))/864e5)));
+      return bMax - aMax;
+    });
+
   if (!comTel.length) { showToast('Nenhum inadimplente com telefone cadastrado', 'warn'); return; }
 
-  const confirmado = confirm(`Abrir WhatsApp para ${comTel.length} cliente(s) inadimplente(s) com telefone?\n\nIsso vai abrir ${comTel.length} aba(s) no navegador.`);
-  if (!confirmado) return;
+  const fmt = v => `R$ ${(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
 
-  showToast(`⏳ Gerando ${comTel.length} mensagem(ns)...`, '');
-  let abertas = 0;
-  for (const [cidStr, parts] of comTel) {
-    const cid = parseInt(cidStr);
-    const c = (clientes||[]).find(x => x.id === cid);
-    if (!c?.tel) continue;
+  showToast('⏳ Gerando mensagens...', '');
+  const itens = [];
+  for (const { cid, parts, c } of comTel) {
     const totalVenc = parts.reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
     const maiorAtraso = Math.max(...parts.map(p=>Math.floor((hoje-parseDate(p.vencimento))/864e5)));
+    let url = null;
     try {
       const resp = await apiFetch('/robo', {
         method:'POST',
-        body: JSON.stringify({
-          modo:'cobranca', cliente_id: cid,
-          parcela:{ valor: totalVenc.toFixed(2), vencimento: parts[0]?.vencimento, dias_atraso: maiorAtraso }
-        })
+        body: JSON.stringify({ modo:'cobranca', cliente_id: cid, parcela:{ valor: totalVenc.toFixed(2), vencimento: parts[0]?.vencimento, dias_atraso: maiorAtraso } })
       });
-      if (resp?.texto) {
-        window.open(`https://wa.me/${c.tel.replace(/\D/g,'')}?text=${encodeURIComponent(resp.texto)}`, '_blank');
-        abertas++;
-      }
-    } catch(e) { console.warn('cobrar', cid, e.message); }
+      if (resp?.texto) url = `https://wa.me/${c.tel.replace(/\D/g,'')}?text=${encodeURIComponent(resp.texto)}`;
+    } catch(e) {}
+    itens.push({ c, totalVenc, maiorAtraso, url });
   }
-  showToast(`✅ ${abertas} mensagem(ns) aberta(s) no WhatsApp`, 'success');
+
+  const linhas = itens.map((item, i) => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.85rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.c.nome}</div>
+        <div style="font-size:0.72rem;color:var(--red)">${fmt(item.totalVenc)} · ${item.maiorAtraso}d de atraso</div>
+      </div>
+      ${item.url
+        ? `<a href="${item.url}" target="_blank" onclick="this.closest('[data-item]').style.opacity='0.4'"
+            style="flex-shrink:0;padding:7px 14px;background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.25);border-radius:7px;text-decoration:none;font-size:0.78rem;font-weight:700;white-space:nowrap"
+            data-item="${i}">💬 Abrir WhatsApp</a>`
+        : `<span style="flex-shrink:0;font-size:0.72rem;color:var(--text3)">Sem número</span>`}
+    </div>`).join('');
+
+  openModal(`
+    <div class="modal-header">
+      <span style="font-weight:700">💬 Cobrar Inadimplentes (${itens.length})</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div style="padding:4px 22px 18px;max-height:65vh;overflow-y:auto">
+      <p style="font-size:0.78rem;color:var(--text3);margin-bottom:12px">Clique em cada botão para abrir o WhatsApp. A linha fica apagada após o clique.</p>
+      ${linhas}
+    </div>
+  `, true);
 }
 
 async function emailTodosInadimplentes() {
