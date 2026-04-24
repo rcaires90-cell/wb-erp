@@ -159,6 +159,44 @@ router.post('/parcelas', auth, async (req, res) => {
   }
 });
 
+// ── POST /api/notificar/cobranca ──────────────────────────────────────────────
+// Envia e-mail de cobrança para um cliente inadimplente específico
+router.post('/cobranca', auth, async (req, res) => {
+  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
+  try {
+    const { cliente_id, total, dias_atraso, qtd_parcelas } = req.body;
+    const [[c]] = await db.query('SELECT nome, email FROM clientes WHERE id = ?', [cliente_id]);
+    if (!c) return res.status(404).json({ erro: 'Cliente não encontrado' });
+    if (!c.email) return res.status(400).json({ erro: 'Cliente sem e-mail' });
+
+    const fmtVal = v => `R$ ${(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+    await sendEmail(
+      c.email,
+      `⚠️ Parcela(s) em atraso — WB Assessoria`,
+      `<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
+        <h2 style="color:#c9a84c">WB Assessoria Migratória</h2>
+        <p>Olá, <b>${c.nome}</b>!</p>
+        <p>Identificamos que você possui ${qtd_parcelas || 'uma ou mais'} parcela(s) em atraso há <b>${dias_atraso} dia(s)</b>.</p>
+        <div style="background:#fff;border:1px solid #e53e3e;border-radius:6px;padding:14px;margin:14px 0">
+          <div style="font-size:1.2rem;font-weight:700;color:#e53e3e">${fmtVal(total)}</div>
+          <div style="font-size:0.85rem;color:#666;margin-top:4px">Total em atraso</div>
+        </div>
+        <p>Para regularizar sua situação, realize o pagamento via PIX:</p>
+        <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:12px;margin-bottom:14px;font-weight:700;font-size:1rem;color:#c9a84c">
+          wbassessoria.contato@gmail.com
+        </div>
+        <p>Após o pagamento, entre em contato para confirmar a baixa ou acesse seu portal:</p>
+        <a href="${PORTAL_URL}?portal=cliente" style="display:inline-block;margin-top:4px;padding:12px 24px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Acessar Portal</a>
+        <p style="margin-top:20px;color:#999;font-size:0.8rem">Equipe WB Assessoria Migratória 🇧🇷</p>
+      </div>`
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[notificar/cobranca]', e);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
 // ── POST /api/notificar/tudo ──────────────────────────────────────────────────
 // Dispara todas as notificações de uma vez (usado pelo cron do Railway)
 router.post('/tudo', auth, async (req, res) => {

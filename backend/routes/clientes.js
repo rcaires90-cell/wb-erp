@@ -233,6 +233,7 @@ router.patch('/:id', async (req, res) => {
       // Visto de Turismo (E.U.A)
       'doc_ds160', 'doc_foto_americana', 'doc_taxa_mrv',
       'doc_comprovante_renda', 'doc_extrato_bancario', 'doc_vinculo_brasil',
+      'data_nascimento',
     ];
 
     const setClauses = [];
@@ -289,6 +290,38 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('[clientes DELETE]', err);
     res.status(500).json({ erro: err.message });
+  }
+});
+
+// ── POST /api/clientes/:id/historico-fase ─────────
+router.post('/:id/historico-fase', async (req, res) => {
+  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
+  try {
+    const id = parseInt(req.params.id);
+    const { fase_id, fase_label } = req.body;
+    if (!fase_id) return res.status(400).json({ erro: 'fase_id obrigatório' });
+    const usuario_nome = req.user.nome || req.user.email || 'Sistema';
+    await db.query(
+      'INSERT INTO historico_fases (cliente_id, fase_id, fase_label, usuario_nome) VALUES (?,?,?,?)',
+      [id, fase_id, fase_label || fase_id, usuario_nome]
+    );
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ── GET /api/clientes/:id/historico-fase ──────────
+router.get('/:id/historico-fase', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [rows] = await db.query(
+      'SELECT * FROM historico_fases WHERE cliente_id = ? ORDER BY created_at DESC LIMIT 50',
+      [id]
+    );
+    res.json(rows);
+  } catch(e) {
+    res.status(500).json({ erro: e.message });
   }
 });
 

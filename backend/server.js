@@ -40,10 +40,24 @@ async function runMigrations() {
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_comprovante_renda TINYINT(1)   DEFAULT 0",
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_extrato_bancario TINYINT(1)    DEFAULT 0",
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_vinculo_brasil   TINYINT(1)    DEFAULT 0",
+    // Aniversariantes
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS data_nascimento      DATE          DEFAULT NULL",
   ];
   for (const sql of alterCols) {
     try { await db.query(sql); } catch(e) { console.warn('[migration] skipped:', e.message.slice(0,80)); }
   }
+  // Histórico de fases do processo
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS historico_fases (
+      id           INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_id   INT          NOT NULL,
+      fase_id      VARCHAR(50)  NOT NULL,
+      fase_label   VARCHAR(100) NOT NULL,
+      usuario_nome VARCHAR(100) DEFAULT NULL,
+      created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_cliente (cliente_id)
+    )
+  `);
   console.log('✅ Migrations OK');
 }
 
