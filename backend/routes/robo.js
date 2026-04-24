@@ -21,14 +21,14 @@ const DESPEDIDAS = [
   'Estamos aqui para ajudar no que precisar! 😊',
   'A WB segue firme ao seu lado! 🤝',
 ];
-const ASSINATURA = '\n\n— *WB Assessoria Jurídica*\n📞 Renato Caires';
+const ASSINATURA = '\n\n— *WB Assessoria Migratória*\n📞 Renato Caires';
 
 // ── TEMPLATES ─────────────────────────────────────────────────────────────────
 
 function tplBoasVindas(c) {
   const nome = primeiro(c.nome);
   const msgs = [
-    `${aleatorio(SAUDACOES)}, *${nome}*! 👋\n\nSeja bem-vindo(a) à *WB Assessoria Jurídica*! É uma honra tê-lo(a) conosco.\n\nEstamos aqui para cuidar de todo o processo de *${c.servico || 'regularização migratória'}* com dedicação e transparência.\n\nEm breve entraremos em contato para orientá-lo(a) sobre os próximos passos. Qualquer dúvida, pode chamar aqui! 😊`,
+    `${aleatorio(SAUDACOES)}, *${nome}*! 👋\n\nSeja bem-vindo(a) à *WB Assessoria Migratória*! É uma honra tê-lo(a) conosco.\n\nEstamos aqui para cuidar de todo o processo de *${c.servico || 'regularização migratória'}* com dedicação e transparência.\n\nEm breve entraremos em contato para orientá-lo(a) sobre os próximos passos. Qualquer dúvida, pode chamar aqui! 😊`,
     `${aleatorio(SAUDACOES)}, *${nome}*! 🎉\n\nBem-vindo(a) à família WB! Estamos muito felizes em poder acompanhar o seu processo.\n\nNosso compromisso é com a *sua tranquilidade* em cada etapa. Fique à vontade para tirar qualquer dúvida conosco.\n\nVamos juntos! 🤝`,
   ];
   return aleatorio(msgs) + ASSINATURA;
@@ -93,16 +93,16 @@ function tplParabelns(c) {
 
 function tplConclusao(c) {
   const nome = primeiro(c.nome);
-  return `🎊 *Parabéns, ${nome}!*\n\nTemos uma ótima notícia: *o seu processo foi concluído com sucesso!* 🇧🇷\n\nFoi uma honra acompanhar cada etapa desta jornada com você. Este é um momento histórico na sua vida e estamos muito felizes em ter feito parte dele!\n\nSe precisar de qualquer assessoria futura, pode contar conosco. 🤝\n\nMuito obrigado pela confiança!\n\n*Equipe WB Assessoria Jurídica*` + ASSINATURA;
+  return `🎊 *Parabéns, ${nome}!*\n\nTemos uma ótima notícia: *o seu processo foi concluído com sucesso!* 🇧🇷\n\nFoi uma honra acompanhar cada etapa desta jornada com você. Este é um momento histórico na sua vida e estamos muito felizes em ter feito parte dele!\n\nSe precisar de qualquer assessoria futura, pode contar conosco. 🤝\n\nMuito obrigado pela confiança!\n\n*Equipe WB Assessoria Migratória*` + ASSINATURA;
 }
 
 function tplCrioulo(c, instrucao = '') {
   const nome = primeiro(c.nome);
   // Templates em Crioulo Haitiano para as situações mais comuns
   const msgs = {
-    cobranca: `Bonjou, *${nome}*! 👋\n\nNou vle raple ou ke gen yon peman ki annatant nan dosye ou a.\n\nKi lè ou kapab regle sa? Kontakte nou pou nou ka jwenn yon solisyon ansanm! 🙏\n\n— *WB Assessoria Jurídica*`,
-    status:   `Bonjou, *${nome}*! 😊\n\nNou vle ba ou nouvèl sou dosye ou a.\n\n📋 *Estati aktyèl:* ${c.status || 'Anpwogre'}\n\nNou ap travay di pou dosye ou a. Mèsi pou konfyans ou! 💛\n\n— *WB Assessoria Jurídica*`,
-    geral:    `Bonjou, *${nome}*! 👋\n\nNou vle pran kontak avèk ou konsènan dosye ou a nan *WB Assessoria Jurídica*.\n\n${instrucao || 'Tanpri kontakte nou pou plis enfòmasyon.'}\n\nMèsi anpil! 🙏\n\n— *WB Assessoria Jurídica*`,
+    cobranca: `Bonjou, *${nome}*! 👋\n\nNou vle raple ou ke gen yon peman ki annatant nan dosye ou a.\n\nKi lè ou kapab regle sa? Kontakte nou pou nou ka jwenn yon solisyon ansanm! 🙏\n\n— *WB Assessoria Migratória*`,
+    status:   `Bonjou, *${nome}*! 😊\n\nNou vle ba ou nouvèl sou dosye ou a.\n\n📋 *Estati aktyèl:* ${c.status || 'Anpwogre'}\n\nNou ap travay di pou dosye ou a. Mèsi pou konfyans ou! 💛\n\n— *WB Assessoria Migratória*`,
+    geral:    `Bonjou, *${nome}*! 👋\n\nNou vle pran kontak avèk ou konsènan dosye ou a nan *WB Assessoria Migratória*.\n\n${instrucao || 'Tanpri kontakte nou pou plis enfòmasyon.'}\n\nMèsi anpil! 🙏\n\n— *WB Assessoria Migratória*`,
   };
   const tipo = instrucao.toLowerCase().includes('cobr') || instrucao.toLowerCase().includes('peman') ? 'cobranca'
     : instrucao.toLowerCase().includes('status') || instrucao.toLowerCase().includes('dosye') ? 'status'
