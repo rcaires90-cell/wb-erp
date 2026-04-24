@@ -54,9 +54,9 @@ router.get('/verificar', auth, async (req, res) => {
   try {
     const data = req.query.data || new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
 
-    // Busca clientes de Naturalização com nome cadastrado
+    // Busca clientes de Naturalização
     const [clientes] = await db.query(
-      `SELECT id, nome, email, servico FROM clientes
+      `SELECT id, nome, email, servico, processo_protocolo FROM clientes
        WHERE arquivado = 0 AND servico LIKE '%Naturaliza%'
        ORDER BY nome ASC`
     );
@@ -66,11 +66,16 @@ router.get('/verificar', auth, async (req, res) => {
     const encontrados = [];
 
     for (const c of clientes) {
-      // Usa primeiro e último nome para reduzir falsos positivos
-      const partes = c.nome.trim().split(/\s+/);
-      const termo  = partes.length >= 2
-        ? `"${partes[0]} ${partes[partes.length - 1]}"`
-        : `"${c.nome}"`;
+      // Prioridade: número do processo (preciso) → nome completo (fallback)
+      let termo;
+      if (c.processo_protocolo && c.processo_protocolo.trim()) {
+        termo = `"${c.processo_protocolo.trim()}"`;
+      } else {
+        const partes = c.nome.trim().split(/\s+/);
+        termo = partes.length >= 2
+          ? `"${partes[0]} ${partes[partes.length - 1]}"`
+          : `"${c.nome}"`;
+      }
 
       let hits = [];
       try { hits = await buscarDOU(termo, data); } catch(e) { continue; }
