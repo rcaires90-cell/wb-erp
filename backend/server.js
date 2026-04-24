@@ -251,6 +251,9 @@ async function verificarAntecedenteCron() {
         AND doc_antecedente_val IS NOT NULL
         AND doc_antecedente_val != ''
         AND doc_antecedente_val <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+        AND (processo_fase IS NULL OR processo_fase NOT IN (
+          'pf_analise', 'pf_biometria', 'mjsp_analise', 'dou_publicado', 'concluido'
+        ))
       ORDER BY doc_antecedente_val ASC
     `);
 

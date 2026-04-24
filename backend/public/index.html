@@ -2366,14 +2366,43 @@ function renderDashboard() {
   const mesAtual = new Date().toISOString().slice(0,7);
   const contratosmes = (clientes||[]).filter(c => (c.data_cadastro||'').slice(6,10)+'-'+(c.data_cadastro||'').slice(3,5) === mesAtual || (c.created_at||'').slice(0,7) === mesAtual).length;
 
+  // Antecedentes vencendo em até 30 dias ou já vencidos
+  // Ignora clientes que já passaram da fase de Análise da PF (documento não é mais exigido)
+  const FASES_SEM_ALERTA_ANT = ['pf_analise','pf_biometria','mjsp_analise','dou_publicado','concluido'];
+  const antecedentesAlerta = (clientes||[]).filter(c => {
+    if (!c.doc_antecedente_val || c.arquivado) return false;
+    if (FASES_SEM_ALERTA_ANT.includes(c.processo_fase)) return false;
+    const val = new Date(String(c.doc_antecedente_val).slice(0,10) + 'T12:00');
+    const dias = Math.ceil((val - new Date()) / 864e5);
+    return dias <= 30;
+  }).map(c => {
+    const val = new Date(String(c.doc_antecedente_val).slice(0,10) + 'T12:00');
+    const dias = Math.ceil((val - new Date()) / 864e5);
+    return { ...c, diasAnt: dias };
+  }).sort((a,b) => a.diasAnt - b.diasAnt);
+
   setTimeout(() => carregarMetasDashboard(pago, contratosmes), 50);
 
   return `
     ${venc3.length ? `
-      <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+      <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
         <span style="font-size:1.2rem">⚠️</span>
         <div style="flex:1;font-size:0.82rem;color:var(--orange)">${venc3.length} parcela(s) vencem em até 3 dias</div>
         <button class="btn btn-outline btn-sm" onclick="navigateTo('financeiro')">Ver →</button>
+      </div>` : ''}
+    ${antecedentesAlerta.length ? `
+      <div style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:1.2rem">🔴</span>
+          <div style="font-size:0.82rem;font-weight:700;color:var(--red)">${antecedentesAlerta.length} antecedente(s) criminal(is) vencendo ou vencido(s)</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${antecedentesAlerta.map(c => `
+            <div onclick="openCliente(${c.id})" style="cursor:pointer;padding:6px 12px;background:var(--bg3);border:1px solid ${c.diasAnt < 0 ? 'rgba(239,68,68,0.4)' : 'rgba(245,158,11,0.3)'};border-radius:7px;font-size:0.78rem">
+              <span style="font-weight:600;color:var(--text)">${c.nome.split(' ')[0]}</span>
+              <span style="color:${c.diasAnt < 0 ? 'var(--red)' : 'var(--orange)'}"> · ${c.diasAnt < 0 ? Math.abs(c.diasAnt)+'d vencido' : c.diasAnt+'d restantes'}</span>
+            </div>`).join('')}
+        </div>
       </div>` : ''}
 
     <div class="stat-grid">
