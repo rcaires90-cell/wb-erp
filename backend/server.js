@@ -3,6 +3,7 @@ const express   = require('express');
 const cors      = require('cors');
 const rateLimit = require('express-rate-limit');
 const path      = require('path');
+const cron      = require('node-cron');
 const db        = require('./db');
 
 async function runMigrations() {
@@ -236,6 +237,180 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ erro: err.message || 'Erro interno do servidor' });
 });
 
+// ── CRON: Verificação diária às 8h horário de Brasília (11h UTC) ──────────────
+async function verificarAntecedenteCron() {
+  console.log('[cron/antecedente] Verificando antecedentes a vencer...');
+  try {
+    const { sendEmail } = require('./lib/email');
+    const EQUIPE_EMAIL = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
+
+    const [clientes] = await db.query(`
+      SELECT id, nome, doc_antecedente_val
+      FROM clientes
+      WHERE arquivado = 0
+        AND doc_antecedente_val IS NOT NULL
+        AND doc_antecedente_val != ''
+        AND doc_antecedente_val <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+      ORDER BY doc_antecedente_val ASC
+    `);
+
+    if (!clientes.length) {
+      console.log('[cron/antecedente] Nenhum antecedente a vencer nos próximos 30 dias.');
+      return;
+    }
+
+    const hoje = new Date();
+    const linhas = clientes.map(c => {
+      const val  = new Date(String(c.doc_antecedente_val).slice(0, 10) + 'T12:00');
+      const dias = Math.ceil((val - hoje) / 864e5);
+      const cor  = dias <= 0 ? '#e53e3e' : dias <= 7 ? '#e53e3e' : '#d97706';
+      const txt  = dias <= 0 ? `VENCIDO há ${Math.abs(dias)} dia(s)` : `vence em ${dias} dia(s)`;
+      const dtFmt = val.toLocaleDateString('pt-BR');
+      return `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:700">${c.nome}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee">${dtFmt}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:700;color:${cor}">${txt}</td>
+      </tr>`;
+    }).join('');
+
+    await sendEmail(
+      EQUIPE_EMAIL,
+      `⚠️ Antecedentes criminais a vencer — ${clientes.length} cliente(s)`,
+      `<div style="font-family:Arial,sans-serif;max-width:650px;padding:24px;background:#f9f9f9;border-radius:8px">
+        <h2 style="color:#c9a84c">WB Assessoria Migratória</h2>
+        <p>Os seguintes clientes possuem antecedente criminal <b>vencido ou a vencer nos próximos 30 dias</b>:</p>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #ddd;border-radius:6px;overflow:hidden">
+          <thead><tr style="background:#c9a84c;color:#fff">
+            <th style="padding:10px 12px;text-align:left">Cliente</th>
+            <th style="padding:10px 12px;text-align:left">Validade</th>
+            <th style="padding:10px 12px;text-align:left">Situação</th>
+          </tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+        <p style="margin-top:16px;color:#666;font-size:0.9rem">Acesse o sistema para atualizar os documentos.</p>
+      </div>`
+    );
+    console.log(`[cron/antecedente] E-mail enviado para ${EQUIPE_EMAIL} com ${clientes.length} cliente(s).`);
+  } catch (e) {
+    console.error('[cron/antecedente] Erro:', e.message);
+  }
+}
+
+async function cronDiario() {
+  await verificarAntecedenteCron();
+
+  // Verificação do DOU: chama o endpoint interno
+  try {
+    const hoje = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    const https = require('https');
+    const BASE  = process.env.RAILWAY_STATIC_URL
+      ? `https://${process.env.RAILWAY_STATIC_URL}`
+      : `http://localhost:${process.env.PORT || 3001}`;
+
+    // Busca clientes de Naturalização
+    const [clientes] = await db.query(
+      `SELECT id, nome, email, servico, processo_protocolo FROM clientes
+       WHERE arquivado = 0 AND servico LIKE '%Naturaliza%'
+       ORDER BY nome ASC`
+    );
+    if (!clientes.length) return;
+
+    const { sendEmail } = require('./lib/email');
+    const EQUIPE_EMAIL  = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
+    const PORTAL_URL    = 'https://wb-erp-production.up.railway.app';
+
+    function buscarDOUInterno(termo, data) {
+      const query = encodeURIComponent(termo);
+      const url   = `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&s=do1&exactDate=${data}&delta=20&start=0`;
+      return new Promise((resolve) => {
+        const req = https.get(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120',
+            'Accept': 'text/html,application/xhtml+xml',
+          },
+          timeout: 15000,
+        }, (res) => {
+          let body = '';
+          res.on('data', chunk => { body += chunk; });
+          res.on('end', () => {
+            try {
+              const match = body.match(/"jsonArray":(\[[\s\S]*?\])(?=\s*[,}])/);
+              resolve(match ? JSON.parse(match[1]) : []);
+            } catch { resolve([]); }
+          });
+        });
+        req.on('error', () => resolve([]));
+        req.on('timeout', () => { req.destroy(); resolve([]); });
+      });
+    }
+
+    const encontrados = [];
+    for (const c of clientes) {
+      let termo;
+      if (c.processo_protocolo && c.processo_protocolo.trim()) {
+        termo = `"${c.processo_protocolo.trim()}"`;
+      } else {
+        const partes = c.nome.trim().split(/\s+/);
+        termo = partes.length >= 2
+          ? `"${partes[0]} ${partes[partes.length - 1]}"`
+          : `"${c.nome}"`;
+      }
+
+      let hits = [];
+      try { hits = await buscarDOUInterno(termo, hoje); } catch { continue; }
+
+      for (const hit of hits) {
+        if (!hit.title && !hit.content) continue;
+        const [ja] = await db.query(
+          'SELECT id FROM alertas_dou WHERE cliente_id=? AND classPK=?',
+          [c.id, hit.classPK || hit.urlTitle || hit.title]
+        );
+        if (ja.length) continue;
+
+        const link = hit.urlTitle ? `https://www.in.gov.br/web/dou/-/${hit.urlTitle}` : null;
+        await db.query(
+          `INSERT INTO alertas_dou (cliente_id, data_pub, titulo, conteudo, link, classPK) VALUES (?,?,?,?,?,?)`,
+          [c.id, hoje, hit.title || '', (hit.content||'').replace(/<[^>]+>/g,'').slice(0,500), link, hit.classPK || hit.urlTitle || hit.title]
+        );
+        encontrados.push({ cliente_nome: c.nome, titulo: hit.title, link, trecho: (hit.content||'').replace(/<[^>]+>/g,'').slice(0,300) });
+      }
+    }
+
+    if (encontrados.length > 0) {
+      const linhas = encontrados.map(e => `
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:700;color:#c9a84c">${e.cliente_nome}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee">${e.titulo}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:0.85em;color:#555">${e.trecho}...</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee">${e.link ? `<a href="${e.link}" style="color:#c9a84c">Ver</a>` : '—'}</td>
+        </tr>`).join('');
+      await sendEmail(
+        EQUIPE_EMAIL,
+        `🗞️ Diário Oficial — ${encontrados.length} publicação(ões) encontrada(s) — ${hoje}`,
+        `<div style="font-family:Arial,sans-serif;max-width:700px;padding:24px;background:#f9f9f9;border-radius:8px">
+          <h2 style="color:#c9a84c">WB Assessoria Migratória</h2>
+          <p>Foram encontradas <b>${encontrados.length}</b> publicação(ões) no Diário Oficial de <b>${hoje}</b>:</p>
+          <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #ddd;border-radius:6px;overflow:hidden">
+            <thead><tr style="background:#c9a84c;color:#fff">
+              <th style="padding:10px 12px;text-align:left">Cliente</th>
+              <th style="padding:10px 12px;text-align:left">Título</th>
+              <th style="padding:10px 12px;text-align:left">Trecho</th>
+              <th style="padding:10px 12px;text-align:left">Link</th>
+            </tr></thead>
+            <tbody>${linhas}</tbody>
+          </table>
+          <a href="${PORTAL_URL}" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Abrir Sistema</a>
+        </div>`
+      );
+      console.log(`[cron/dou] ${encontrados.length} publicação(ões) encontrada(s) e e-mail enviado.`);
+    } else {
+      console.log('[cron/dou] Nenhuma publicação nova encontrada hoje.');
+    }
+  } catch (e) {
+    console.error('[cron/dou] Erro:', e.message);
+  }
+}
+
 // ── INICIAR ───────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
@@ -244,4 +419,11 @@ app.listen(PORT, async () => {
   console.log(`🗄️  Banco    : ${process.env.DB_NAME}@${process.env.DB_HOST}`);
   console.log(`🌐 CORS     : all origins\n`);
   await runMigrations();
+
+  // Cron: todo dia às 8h de Brasília (11h UTC)
+  cron.schedule('0 11 * * *', () => {
+    console.log('\n⏰ [cron] Rodando rotina diária — DOU + Antecedentes...');
+    cronDiario().catch(e => console.error('[cron] Erro geral:', e.message));
+  }, { timezone: 'America/Sao_Paulo' });
+  console.log('⏰ Cron diário agendado — 08:00 Brasília (11:00 UTC)');
 });
