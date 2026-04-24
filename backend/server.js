@@ -46,9 +46,8 @@ async function runMigrations() {
   for (const sql of alterCols) {
     try { await db.query(sql); } catch(e) { console.warn('[migration] skipped:', e.message.slice(0,80)); }
   }
-  // Histórico de fases do processo
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS historico_fases (
+  const createTables = [
+    `CREATE TABLE IF NOT EXISTS historico_fases (
       id           INT AUTO_INCREMENT PRIMARY KEY,
       cliente_id   INT          NOT NULL,
       fase_id      VARCHAR(50)  NOT NULL,
@@ -56,8 +55,86 @@ async function runMigrations() {
       usuario_nome VARCHAR(100) DEFAULT NULL,
       created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_cliente (cliente_id)
-    )
-  `);
+    )`,
+    `CREATE TABLE IF NOT EXISTS notas_clientes (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_id INT NOT NULL,
+      texto      TEXT NOT NULL,
+      autor      VARCHAR(200),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_cliente (cliente_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS mensagens_portal (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_id INT NOT NULL,
+      remetente  VARCHAR(20) NOT NULL,
+      texto      TEXT NOT NULL,
+      lida       TINYINT(1) DEFAULT 0,
+      criado_em  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_cliente (cliente_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS documentos_portal (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_id INT NOT NULL,
+      nome       VARCHAR(300),
+      tipo       VARCHAR(100),
+      url        TEXT,
+      status     VARCHAR(50) DEFAULT 'enviado',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_cliente (cliente_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS leads (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      nome       VARCHAR(200) NOT NULL,
+      email      VARCHAR(200),
+      tel        VARCHAR(50),
+      servico    VARCHAR(200),
+      status     VARCHAR(50) DEFAULT 'novo',
+      obs        TEXT,
+      origem     VARCHAR(100),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS despesas (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      data       DATE,
+      categoria  VARCHAR(100),
+      descricao  VARCHAR(300),
+      valor      DECIMAL(10,2) DEFAULT 0.00,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS prolabore (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      mes        VARCHAR(7) NOT NULL,
+      nome       VARCHAR(200),
+      cargo      VARCHAR(200),
+      valor      DECIMAL(10,2) DEFAULT 0.00,
+      data_pgto  DATE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS lancamentos_bancarios (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      data       DATE,
+      tipo       VARCHAR(20),
+      descricao  VARCHAR(300),
+      valor      DECIMAL(10,2) DEFAULT 0.00,
+      categoria  VARCHAR(100),
+      conciliado TINYINT(1) DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS metas_mensais (
+      id              INT AUTO_INCREMENT PRIMARY KEY,
+      mes             VARCHAR(7) UNIQUE NOT NULL,
+      meta_receita    DECIMAL(10,2) DEFAULT 0.00,
+      meta_contratos  INT DEFAULT 0,
+      obs             TEXT,
+      criado_por      VARCHAR(200),
+      created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
+  ];
+  for (const sql of createTables) {
+    try { await db.query(sql); } catch(e) { console.warn('[migration] table:', e.message.slice(0,80)); }
+  }
   console.log('✅ Migrations OK');
 }
 

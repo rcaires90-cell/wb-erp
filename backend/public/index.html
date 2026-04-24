@@ -4710,10 +4710,15 @@ async function carregarInadimplencia() {
         </tr></thead>
         <tbody>`;
 
-  Object.entries(porCliente).forEach(([cidStr, dados]) => {
+  const entradasOrdenadas = Object.entries(porCliente).map(([cidStr, dados]) => {
     const cid = parseInt(cidStr);
     const c   = (clientes||[]).find(x => x.id === cid);
-    if (!c) return;
+    const atraso = Math.max(...dados.parcelas.map(p => Math.floor((hoje - parseDate(p.vencimento))/864e5)));
+    return { cidStr, dados, c, atraso };
+  }).filter(x => x.c).sort((a, b) => b.atraso - a.atraso);
+
+  entradasOrdenadas.forEach(({ cidStr, dados, c }) => {
+    const cid = parseInt(cidStr);
     const total = dados.parcelas.reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
     const maiorAtraso = Math.max(...dados.parcelas.map(p => {
       const d = parseDate(p.vencimento);
