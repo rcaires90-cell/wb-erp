@@ -8,10 +8,16 @@ const PORTAL_URL  = 'https://wb-erp-production.up.railway.app';
 const EQUIPE_EMAIL = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
 
 // Busca resultados do DOU para um nome/termo
+// data = 'DD-MM-YYYY' para dia específico | null = histórico completo (2020 até hoje)
 async function buscarDOU(termo, data) {
-  const dataFmt = data || new Date().toLocaleDateString('pt-BR').replace(/\//g, '-'); // DD-MM-YYYY
-  const query   = encodeURIComponent(termo);
-  const url     = `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&s=do1&exactDate=${dataFmt}&delta=20&start=0`;
+  const query = encodeURIComponent(termo);
+  let url;
+  if (data) {
+    url = `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&s=do1&exactDate=${data}&delta=20&start=0`;
+  } else {
+    const hoje = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    url = `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&s=do1&exactDate=personalizado&publishFrom=2020-01-01&publishTo=${hoje}&delta=20&start=0`;
+  }
 
   return new Promise((resolve, reject) => {
     const req = https.get(url, {
@@ -47,12 +53,13 @@ function linkDOU(hit) {
   return `https://www.in.gov.br/web/dou/-/${hit.urlTitle}`;
 }
 
-// ── GET /api/dou/verificar?data=DD-MM-YYYY ────────────────────────────────────
-// Verifica DOU para todos os clientes de Naturalização. Retorna hits novos.
+// ── GET /api/dou/verificar?data=DD-MM-YYYY&historico=1 ───────────────────────
+// data ausente ou historico=1 → busca todo o histórico desde 2020
 router.get('/verificar', auth, async (req, res) => {
   if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
-    const data = req.query.data || new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    const historico = req.query.historico === '1';
+    const data      = historico ? null : (req.query.data || new Date().toLocaleDateString('pt-BR').replace(/\//g, '-'));
 
     // Busca clientes de Naturalização
     const [clientes] = await db.query(

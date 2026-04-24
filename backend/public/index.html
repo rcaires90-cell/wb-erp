@@ -1861,9 +1861,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // SUPABASE API
 // ══════════════════════════════════
 // ══ API LOCAL (Node.js + MySQL) ══════════════
-async function apiFetch(path, opts = {}) {
+async function apiFetch(path, opts = {}, timeoutMs = 12000) {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 12000);
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(API_BASE + path, {
       signal: ctrl.signal, ...opts,
@@ -4881,7 +4881,8 @@ function renderDOU() {
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <input id="dou-data" type="date" value="${new Date().toISOString().slice(0,10)}"
           style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:0.82rem">
-        <button class="btn btn-gold" onclick="verificarDOU()">🔍 Verificar DOU</button>
+        <button class="btn btn-gold" onclick="verificarDOU()">🔍 Verificar Data</button>
+        <button class="btn btn-outline" onclick="verificarDOUHistorico()" style="border-color:var(--gold);color:var(--gold)">📚 Buscar Histórico Completo</button>
       </div>
     </div>
     <div id="dou-corpo"><div class="empty"><div class="icon">⏳</div><h3>Carregando histórico...</h3></div></div>
@@ -4899,8 +4900,7 @@ async function verificarDOU() {
 
   try {
     const r = await apiFetch(`/dou/verificar?data=${dataFmt}`);
-    if (btn) { btn.disabled = false; btn.textContent = '🔍 Verificar DOU'; }
-
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Verificar Data'; }
     if (r.encontrados?.length) {
       showToast(`✅ ${r.encontrados.length} publicação(ões) encontrada(s)!`, 'success');
     } else {
@@ -4908,8 +4908,28 @@ async function verificarDOU() {
     }
     await carregarDOU();
   } catch(e) {
-    if (btn) { btn.disabled = false; btn.textContent = '🔍 Verificar DOU'; }
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Verificar Data'; }
     showToast('Erro ao verificar DOU: ' + e.message, 'error');
+  }
+}
+
+async function verificarDOUHistorico() {
+  const btn = document.querySelector('[onclick="verificarDOUHistorico()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando histórico...'; }
+  showToast('⏳ Buscando no histórico do DOU desde 2020. Pode demorar alguns segundos...', '');
+
+  try {
+    const r = await apiFetch('/dou/verificar?historico=1', {}, 120000);
+    if (btn) { btn.disabled = false; btn.textContent = '📚 Buscar Histórico Completo'; }
+    if (r.encontrados?.length) {
+      showToast(`✅ ${r.encontrados.length} publicação(ões) encontrada(s) no histórico!`, 'success');
+    } else {
+      showToast(`Nenhuma publicação encontrada no histórico para ${r.verificados} cliente(s)`, '');
+    }
+    await carregarDOU();
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '📚 Buscar Histórico Completo'; }
+    showToast('Erro ao buscar histórico: ' + e.message, 'error');
   }
 }
 
