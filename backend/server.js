@@ -131,6 +131,18 @@ async function runMigrations() {
       created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS alertas_dou (
+      id          INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_id  INT NOT NULL,
+      data_pub    VARCHAR(20),
+      titulo      VARCHAR(500),
+      conteudo    TEXT,
+      link        TEXT,
+      classPK     VARCHAR(200),
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_cliente (cliente_id),
+      UNIQUE KEY uq_cliente_pk (cliente_id, classPK(100))
+    )`,
   ];
   for (const sql of createTables) {
     try { await db.query(sql); } catch(e) { console.warn('[migration] table:', e.message.slice(0,80)); }
@@ -190,6 +202,7 @@ app.use('/api/exportar',    require('./routes/exportar'));
 app.use('/api/metas',       require('./routes/metas'));
 app.use('/api/portal',      require('./routes/portal'));
 app.use('/api/notificar',   require('./routes/notificar'));
+app.use('/api/dou',        require('./routes/dou'));
 
 // ── HEALTH CHECK ──────────────────────────────────
 app.get('/api/health', (_req, res) => {

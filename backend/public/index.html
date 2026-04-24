@@ -2164,6 +2164,7 @@ function buildNav() {
       ${ni('prolabore','💰','Pró-labore')}
       ${ni('relatorio','📊','Relatório')}
       <div class="nav-section">Sistema</div>
+      ${ni('dou','🗞️','Diário Oficial')}
       ${ni('configuracoes','⚙','Configurações')}`;
   }
 }
@@ -2200,6 +2201,7 @@ function renderPage(page) {
     'curso-proficiencia': renderCursoProficiencia,
     'inadimplencia': renderInadimplencia,
     'leads':        renderLeads,
+    'dou':          renderDOU,
   };
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = `<div class="empty"><div class="icon">🔧</div><h3>Em breve</h3></div>`;
@@ -2214,6 +2216,7 @@ function renderPage(page) {
     filtrarClientes();
   }
   // Pós-render: carrega dados assíncronos de cada página
+  if (page === 'dou')           carregarDOU();
   if (page === 'conciliacao')   carregarLancamentos();
   if (page === 'despesas')      carregarDespesas();
   if (page === 'prolabore')     carregarProlabore();
@@ -4862,6 +4865,111 @@ async function emailTodosInadimplentes() {
     } catch(e) { console.warn('email inadim', cid, e.message); }
   }
   showToast(`✅ ${enviados} e-mail(s) de cobrança enviado(s)!`, 'success');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DIÁRIO OFICIAL DA UNIÃO
+// ══════════════════════════════════════════════════════════════════════════════
+function renderDOU() {
+  const hoje = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div>
+        <h2 style="margin:0">🗞️ Diário Oficial da União</h2>
+        <p style="margin:4px 0 0;font-size:0.78rem;color:var(--text3)">Monitoramento automático de publicações para clientes de Naturalização</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="dou-data" type="date" value="${new Date().toISOString().slice(0,10)}"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:0.82rem">
+        <button class="btn btn-gold" onclick="verificarDOU()">🔍 Verificar DOU</button>
+      </div>
+    </div>
+    <div id="dou-corpo"><div class="empty"><div class="icon">⏳</div><h3>Carregando histórico...</h3></div></div>
+  `;
+}
+
+async function verificarDOU() {
+  const dataISO = document.getElementById('dou-data')?.value;
+  if (!dataISO) return;
+  const [a, m, d] = dataISO.split('-');
+  const dataFmt = `${d}-${m}-${a}`;
+
+  const btn = document.querySelector('[onclick="verificarDOU()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Verificando...'; }
+
+  try {
+    const r = await apiFetch(`/dou/verificar?data=${dataFmt}`);
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Verificar DOU'; }
+
+    if (r.encontrados?.length) {
+      showToast(`✅ ${r.encontrados.length} publicação(ões) encontrada(s)!`, 'success');
+    } else {
+      showToast(`Nenhuma publicação encontrada para ${r.verificados} cliente(s) em ${dataFmt}`, '');
+    }
+    await carregarDOU();
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Verificar DOU'; }
+    showToast('Erro ao verificar DOU: ' + e.message, 'error');
+  }
+}
+
+async function carregarDOU() {
+  const corpo = document.getElementById('dou-corpo');
+  if (!corpo) return;
+  try {
+    const lista = await apiFetch('/dou/historico');
+    if (!Array.isArray(lista) || !lista.length) {
+      corpo.innerHTML = `
+        <div class="panel" style="margin-bottom:16px;border-color:rgba(201,168,76,0.2)">
+          <div class="panel-body" style="padding:20px">
+            <div style="font-size:0.82rem;color:var(--text2);margin-bottom:8px">
+              ℹ️ Nenhuma publicação registrada ainda. Selecione uma data e clique em <b>"Verificar DOU"</b> para buscar publicações de clientes de Naturalização.
+            </div>
+            <div style="font-size:0.75rem;color:var(--text3)">
+              São verificados automaticamente todos os clientes com serviço <b>Naturalização Brasileira</b> e <b>Naturalização Provisória</b>.
+            </div>
+          </div>
+        </div>`;
+      return;
+    }
+
+    const fmt = v => v ? new Date(v).toLocaleDateString('pt-BR') : '—';
+    const rows = lista.map(a => `
+      <tr>
+        <td style="cursor:pointer;color:var(--gold);font-weight:600" onclick="openCliente(${a.cliente_id})">${a.cliente_nome || '—'}</td>
+        <td style="font-size:0.78rem;color:var(--text2)">${a.data_pub || '—'}</td>
+        <td style="font-size:0.82rem;font-weight:600;color:var(--text);max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.titulo || '—'}</td>
+        <td style="font-size:0.72rem;color:var(--text2);max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(a.conteudo||'').slice(0,120)}...</td>
+        <td>
+          <div style="display:flex;gap:6px">
+            ${a.link ? `<a href="${a.link}" target="_blank" class="btn btn-gold btn-sm">Ver no DOU</a>` : '—'}
+            <button onclick="deletarAlertaDOU(${a.id})" class="btn btn-outline btn-sm" style="color:var(--red);border-color:rgba(239,68,68,0.3)">✕</button>
+          </div>
+        </td>
+      </tr>`).join('');
+
+    corpo.innerHTML = `
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">📋 Publicações Encontradas (${lista.length})</span>
+        </div>
+        <table class="tbl">
+          <thead><tr>
+            <th>Cliente</th><th>Data DOU</th><th>Título</th><th>Trecho</th><th></th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch(e) {
+    if (corpo) corpo.innerHTML = `<div class="empty"><div class="icon">⚠️</div><h3>Erro ao carregar: ${e.message}</h3></div>`;
+  }
+}
+
+async function deletarAlertaDOU(id) {
+  try {
+    await apiFetch(`/dou/historico/${id}`, { method: 'DELETE' });
+    await carregarDOU();
+  } catch(e) { showToast('Erro ao remover', 'error'); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
