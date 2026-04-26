@@ -216,6 +216,16 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+// ── PORTAL SUBDOMÍNIO ────────────────────────────────────────────────────────
+// Acesso via portal.wbassessoriamigratoria.com.br → força tela do cliente
+app.use((req, res, next) => {
+  const host = req.hostname || '';
+  if (host.startsWith('portal.') && req.path === '/' && !req.query.portal) {
+    return res.redirect('/?portal=cliente');
+  }
+  next();
+});
+
 // ── SERVIR FRONTEND ──
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (_req, res) => {
