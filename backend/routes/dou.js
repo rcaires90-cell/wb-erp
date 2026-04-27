@@ -53,24 +53,33 @@ function extrairJsonArray(body) {
 }
 
 // Gera variações do número do processo para buscar no DOU
-// O DOU usa pontos como separador de milhar: 2358810546341/2024 → 2.358.810.546.341/2024
+// Formato MJSP: 235881.0546341/2024 (ponto na posição 6)
+// Usuário pode cadastrar com ou sem o ponto → geramos ambas as formas
 function variacoesProcesso(protocolo) {
   const raw = protocolo.trim();
   const variantes = new Set();
-  variantes.add(`"${raw}"`);
+  variantes.add(`"${raw}"`); // exatamente como está cadastrado
 
-  // Separa parte numérica do sufixo /ANO
-  const m = raw.match(/^(\d+)(\/\d+)?(.*)$/);
+  // Extrai dígitos e ano separadamente
+  const m = raw.match(/^([\d.]+)(\/\d+)?$/);
   if (m) {
-    const num    = m[1];
-    const sufixo = (m[2] || '') + (m[3] || '');
-    // Com pontos de milhar
-    const comPontos = num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    if (comPontos !== num) variantes.add(`"${comPontos}${sufixo}"`);
-    // Sem o sufixo /ANO
-    if (sufixo) {
-      variantes.add(`"${comPontos}"`);
-      variantes.add(`"${num}"`);
+    const parteNum = m[1];
+    const ano      = m[2] || '';
+    const soDigitos = parteNum.replace(/\D/g, '');
+
+    // Formato com ponto MJSP: NNNNNN.NNNNNNN/ANO (ponto após 6 dígitos)
+    if (soDigitos.length > 6) {
+      const comPonto = soDigitos.slice(0, 6) + '.' + soDigitos.slice(6);
+      if (comPonto !== parteNum) variantes.add(`"${comPonto}${ano}"`);
+    }
+    // Sem ponto (só dígitos)
+    if (soDigitos !== parteNum) variantes.add(`"${soDigitos}${ano}"`);
+    // Sem o /ANO
+    if (ano) {
+      const comPonto2 = soDigitos.length > 6
+        ? soDigitos.slice(0, 6) + '.' + soDigitos.slice(6)
+        : soDigitos;
+      variantes.add(`"${comPonto2}"`);
     }
   }
   return [...variantes];

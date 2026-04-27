@@ -2734,8 +2734,9 @@ async function openCliente(id) {
         <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Protocolo & Prazo</div>
         <div style="display:grid;grid-template-columns:${(c.servico||'').includes('Naturaliz')||c.processo_data_inicio?'1fr 1fr 1fr':'1fr 1fr'};gap:10px">
           <div>
-            <div style="font-size:0.62rem;color:var(--text3);margin-bottom:3px">Número do Protocolo</div>
-            <input id="proc-protocolo" value="${c.processo_protocolo||''}" placeholder="Nº do protocolo"
+            <div style="font-size:0.62rem;color:var(--text3);margin-bottom:3px">Número do Processo (MJSP)</div>
+            <input id="proc-protocolo" value="${c.processo_protocolo||''}" placeholder="235881.0546341/2024"
+              oninput="mascaraProcessoMJSP(this)"
               style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
           </div>
           <div>
@@ -4065,6 +4066,18 @@ async function salvarCliente(id) {
   } catch (e) {
     showToast('Erro ao salvar: ' + e.message, 'error');
   }
+}
+
+// Máscara para número de processo MJSP: 235881.0546341/2024
+function mascaraProcessoMJSP(el) {
+  let v = el.value.replace(/[^\d\/]/g, ''); // mantém dígitos e barra
+  const partes = v.split('/');
+  let num = partes[0].replace(/\D/g, '');
+  let ano = partes[1] ? partes[1].replace(/\D/g, '').slice(0, 4) : '';
+  // Insere ponto após 6 dígitos: 235881 → 235881. → 235881.0546341
+  if (num.length > 6) num = num.slice(0, 6) + '.' + num.slice(6, 13);
+  else num = num.slice(0, 6);
+  el.value = ano ? `${num}/${ano}` : num;
 }
 
 function openNovoCliente() {
