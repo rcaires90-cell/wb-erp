@@ -4778,12 +4778,29 @@ function renderInadimplencia() {
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-sm" style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2)" onclick="cobrarTodos()">💬 Cobrar todos (WhatsApp)</button>
         <button class="btn btn-sm" style="background:rgba(96,165,250,0.1);color:#60a5fa;border:1px solid rgba(96,165,250,0.2)" onclick="emailTodosInadimplentes()">📧 Email para todos</button>
-        <a href="${API_BASE.replace('/api','')}/api/exportar/parcelas.csv?token=${localStorage.getItem('wb_token')||''}"
-          class="btn btn-outline btn-sm">📥 Exportar CSV</a>
+        <button class="btn btn-outline btn-sm" onclick="exportarInadimplentesCSV()">📥 Exportar CSV</button>
       </div>
     </div>
     <div id="inadim-corpo"><div class="empty"><div class="icon">⏳</div><h3>Carregando...</h3></div></div>
   `;
+}
+
+async function exportarInadimplentesCSV() {
+  try {
+    showToast('⏳ Gerando CSV...', 'info');
+    const res = await fetch(`${API_BASE}/exportar/parcelas.csv`, {
+      headers: { Authorization: `Bearer ${AUTH_TOKEN}` }
+    });
+    if (!res.ok) throw new Error('Erro ao gerar CSV');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inadimplentes.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('✅ CSV baixado!', 'success');
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 async function carregarInadimplencia() {
