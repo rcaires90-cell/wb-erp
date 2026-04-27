@@ -33,28 +33,73 @@ function fetchURL(url, timeoutMs = 30000) {
   });
 }
 
+function extrairJsonArray(body) {
+  const marker = '"jsonArray":';
+  const idx    = body.indexOf(marker);
+  if (idx === -1) return [];
+  let start = body.indexOf('[', idx + marker.length);
+  if (start === -1) return [];
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < body.length; i++) {
+    const ch = body[i];
+    if (esc) { esc = false; continue; }
+    if (ch === '\\' && inStr) { esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === '[') depth++;
+    else if (ch === ']') { depth--; if (depth === 0) { try { return JSON.parse(body.slice(start, i + 1)); } catch { return []; } } }
+  }
+  return [];
+}
+
+// Gera variações do número do processo para buscar no DOU
+// O DOU usa pontos como separador de milhar: 2358810546341/2024 → 2.358.810.546.341/2024
+function variacoesProcesso(protocolo) {
+  const raw = protocolo.trim();
+  const variantes = new Set();
+  variantes.add(`"${raw}"`);
+
+  // Separa parte numérica do sufixo /ANO
+  const m = raw.match(/^(\d+)(\/\d+)?(.*)$/);
+  if (m) {
+    const num    = m[1];
+    const sufixo = (m[2] || '') + (m[3] || '');
+    // Com pontos de milhar
+    const comPontos = num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    if (comPontos !== num) variantes.add(`"${comPontos}${sufixo}"`);
+    // Sem o sufixo /ANO
+    if (sufixo) {
+      variantes.add(`"${comPontos}"`);
+      variantes.add(`"${num}"`);
+    }
+  }
+  return [...variantes];
+}
+
 async function buscarDOU(termo, data) {
-  const query = encodeURIComponent(termo);
-  const hojeISO = new Date().toISOString().slice(0, 10);
+  const base     = termo.replace(/^"|"$/g, '');
+  const termos   = variacoesProcesso(base);
+  const hojeISO  = new Date().toISOString().slice(0, 10);
+  const timeoutMs = data ? 20000 : 45000;
 
-  // Sem s= para buscar em TODAS as seções do DOU; delta=100 para mais resultados
-  let url;
-  if (data) {
-    url = `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&exactDate=${data}&delta=100&start=0`;
-  } else {
-    url = `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&exactDate=personalizado&publishFrom=2020-01-01&publishTo=${hojeISO}&delta=100&start=0`;
-  }
+  for (const t of termos) {
+    const query = encodeURIComponent(t);
+    const url   = data
+      ? `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&exactDate=${data}&delta=100&start=0`
+      : `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&exactDate=personalizado&publishFrom=2020-01-01&publishTo=${hojeISO}&delta=100&start=0`;
 
-  try {
-    const timeoutMs = data ? 20000 : 45000;
-    const body  = await fetchURL(url, timeoutMs);
-    const match = body.match(/"jsonArray":(\[[\s\S]*?\])(?=\s*[,}])/);
-    if (!match) return [];
-    return JSON.parse(match[1]);
-  } catch (e) {
-    console.warn('[dou buscarDOU]', termo, e.message);
-    return [];
+    try {
+      const body = await fetchURL(url, timeoutMs);
+      const hits = extrairJsonArray(body);
+      if (hits.length > 0) {
+        console.log(`[dou] Encontrado com termo ${t}: ${hits.length} resultado(s)`);
+        return hits;
+      }
+    } catch (e) {
+      console.warn('[dou buscarDOU]', t, e.message);
+    }
   }
+  return [];
 }
 
 function linkDOU(hit) {
