@@ -9,41 +9,52 @@ const EQUIPE_EMAIL = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com
 
 // Busca resultados do DOU para um nome/termo
 // data = 'DD-MM-YYYY' para dia específico | null = histórico completo (2020 até hoje)
-async function buscarDOU(termo, data) {
-  const query = encodeURIComponent(termo);
-  let url;
-  if (data) {
-    url = `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&s=do1&exactDate=${data}&delta=20&start=0`;
-  } else {
-    const hoje = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    url = `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&s=do1&exactDate=personalizado&publishFrom=2020-01-01&publishTo=${hoje}&delta=20&start=0`;
-  }
-
+function fetchURL(url, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, {
+    const mod = url.startsWith('https') ? https : require('http');
+    const req = mod.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120',
-        'Accept': 'text/html,application/xhtml+xml',
+        'Accept': 'text/html,application/xhtml+xml,*/*',
       },
-      timeout: 15000,
+      timeout: timeoutMs,
     }, (res) => {
+      // Segue redirecionamentos
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        req.destroy();
+        return fetchURL(res.headers.location, timeoutMs).then(resolve).catch(reject);
+      }
       let body = '';
       res.on('data', chunk => { body += chunk; });
-      res.on('end', () => {
-        try {
-          // O DOU embute os resultados como JSON na página
-          const match = body.match(/"jsonArray":(\[[\s\S]*?\])(?=\s*[,}])/);
-          if (!match) { resolve([]); return; }
-          const hits = JSON.parse(match[1]);
-          resolve(hits);
-        } catch (e) {
-          resolve([]);
-        }
-      });
+      res.on('end', () => resolve(body));
     });
     req.on('error', reject);
     req.on('timeout', () => { req.destroy(); reject(new Error('Timeout DOU')); });
   });
+}
+
+async function buscarDOU(termo, data) {
+  const query = encodeURIComponent(termo);
+  const hojeISO = new Date().toISOString().slice(0, 10);
+
+  // Sem s= para buscar em TODAS as seções do DOU; delta=100 para mais resultados
+  let url;
+  if (data) {
+    url = `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&exactDate=${data}&delta=100&start=0`;
+  } else {
+    url = `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&exactDate=personalizado&publishFrom=2020-01-01&publishTo=${hojeISO}&delta=100&start=0`;
+  }
+
+  try {
+    const timeoutMs = data ? 20000 : 45000;
+    const body  = await fetchURL(url, timeoutMs);
+    const match = body.match(/"jsonArray":(\[[\s\S]*?\])(?=\s*[,}])/);
+    if (!match) return [];
+    return JSON.parse(match[1]);
+  } catch (e) {
+    console.warn('[dou buscarDOU]', termo, e.message);
+    return [];
+  }
 }
 
 function linkDOU(hit) {
