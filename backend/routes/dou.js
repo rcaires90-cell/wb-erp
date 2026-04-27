@@ -95,7 +95,7 @@ async function buscarDOU(termo, data) {
     const query = encodeURIComponent(t);
     const url   = data
       ? `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&exactDate=${data}&delta=100&start=0`
-      : `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&exactDate=personalizado&publishFrom=2020-01-01&publishTo=${hojeISO}&delta=100&start=0`;
+      : `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&exactDate=all&delta=100&start=0`;
 
     try {
       const body = await fetchURL(url, timeoutMs);
