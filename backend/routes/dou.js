@@ -97,12 +97,13 @@ router.get('/verificar', auth, async (req, res) => {
         );
         if (ja.length) continue;
 
-        // Salva o alerta
-        const link = linkDOU(hit);
+        // Salva o alerta (usa data real da publicação quando disponível)
+        const link    = linkDOU(hit);
+        const dataPub = hit.pubDate || data || null;
         await db.query(
           `INSERT INTO alertas_dou (cliente_id, data_pub, titulo, conteudo, link, classPK)
            VALUES (?,?,?,?,?,?)`,
-          [c.id, data, hit.title || '', (hit.content||'').replace(/<[^>]+>/g,'').slice(0,500), link, hit.classPK || hit.urlTitle || hit.title]
+          [c.id, dataPub, hit.title || '', (hit.content||'').replace(/<[^>]+>/g,'').slice(0,500), link, hit.classPK || hit.urlTitle || hit.title]
         );
 
         encontrados.push({
@@ -126,13 +127,14 @@ router.get('/verificar', auth, async (req, res) => {
           <td style="padding:8px 12px;border-bottom:1px solid #eee">${e.link ? `<a href="${e.link}" style="color:#c9a84c">Ver publicação</a>` : '—'}</td>
         </tr>`).join('');
 
+      const periodoLabel = data || 'histórico completo (desde 2020)';
       try {
         await sendEmail(
           EQUIPE_EMAIL,
-          `🗞️ Diário Oficial — ${encontrados.length} publicação(ões) encontrada(s) — ${data}`,
+          `🗞️ Diário Oficial — ${encontrados.length} publicação(ões) encontrada(s) — ${periodoLabel}`,
           `<div style="font-family:Arial,sans-serif;max-width:700px;padding:24px;background:#f9f9f9;border-radius:8px">
             <h2 style="color:#c9a84c">WB Assessoria Migratória</h2>
-            <p>Foram encontradas <b>${encontrados.length}</b> publicação(ões) no Diário Oficial de <b>${data}</b>:</p>
+            <p>Foram encontradas <b>${encontrados.length}</b> publicação(ões) no Diário Oficial — <b>${periodoLabel}</b>:</p>
             <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #ddd;border-radius:6px;overflow:hidden">
               <thead><tr style="background:#c9a84c;color:#fff">
                 <th style="padding:10px 12px;text-align:left">Cliente</th>
