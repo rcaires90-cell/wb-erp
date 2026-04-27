@@ -73,16 +73,9 @@ router.get('/verificar', auth, async (req, res) => {
     const encontrados = [];
 
     for (const c of clientes) {
-      // Prioridade: número do processo (preciso) → nome completo (fallback)
-      let termo;
-      if (c.processo_protocolo && c.processo_protocolo.trim()) {
-        termo = `"${c.processo_protocolo.trim()}"`;
-      } else {
-        const partes = c.nome.trim().split(/\s+/);
-        termo = partes.length >= 2
-          ? `"${partes[0]} ${partes[partes.length - 1]}"`
-          : `"${c.nome}"`;
-      }
+      // Busca somente pelo número do processo — sem fallback por nome
+      if (!c.processo_protocolo || !c.processo_protocolo.trim()) continue;
+      const termo = `"${c.processo_protocolo.trim()}"`;
 
       let hits = [];
       try { hits = await buscarDOU(termo, data); } catch(e) { continue; }
