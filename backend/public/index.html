@@ -1055,10 +1055,14 @@ async function salvarDadosPortal(comSenha = false) {
     if (s1 !== s2) { if(status){status.textContent='Senhas não coincidem';status.style.color='var(--red)';} return; }
     body.nova_senha = s1;
   }
-  const res = await apiFetch('/portal/dados', { method:'PUT', body: JSON.stringify(body) });
-  if (status) {
-    if (res?.ok) { status.textContent = '✅ Salvo com sucesso!'; status.style.color='var(--green)'; }
-    else { status.textContent = 'Erro ao salvar.'; status.style.color='var(--red)'; }
+  try {
+    const res = await apiFetch('/portal/dados', { method:'PUT', body: JSON.stringify(body) });
+    if (status) {
+      if (res?.ok !== false) { status.textContent = '✅ Salvo com sucesso!'; status.style.color='var(--green)'; }
+      else { status.textContent = 'Erro ao salvar.'; status.style.color='var(--red)'; }
+    }
+  } catch(e) {
+    if (status) { status.textContent = 'Erro: ' + e.message; status.style.color='var(--red)'; }
   }
 }
 
@@ -1903,6 +1907,11 @@ async function sbQuery(table, filters = {}, select = '*') {
 let _realtimeInterval = null;
 let _ws = null;
 let _lastChange = 0;
+
+function notificacoesLogin() {
+  const vencidas = (parcelas||[]).filter(p => !p.paga && p.vencimento && new Date(p.vencimento) < new Date()).length;
+  if (vencidas > 0) showToast(`⚠️ ${vencidas} parcela(s) vencida(s)`, 'warning');
+}
 
 function startRealtime() {
   // Polling a cada 5s para garantir sync entre as duas contas
@@ -4500,7 +4509,13 @@ async function carregarRelatorio() {
   if (!corpo) return;
   corpo.innerHTML = `<div class="empty"><div class="icon">⏳</div><h3>Carregando...</h3></div>`;
 
-  const d = await apiFetch(`/financeiro/relatorio-mensal?mes=${mes}`);
+  let d;
+  try {
+    d = await apiFetch(`/financeiro/relatorio-mensal?mes=${mes}`);
+  } catch(e) {
+    corpo.innerHTML = `<div class="empty"><div class="icon">⚠️</div><h3>${e.message||'Erro ao carregar'}</h3></div>`;
+    return;
+  }
   if (!d || d.erro) {
     corpo.innerHTML = `<div class="empty"><div class="icon">⚠️</div><h3>${d?.erro||'Erro ao carregar'}</h3></div>`;
     return;
