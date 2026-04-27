@@ -334,14 +334,18 @@ async function cronDiario() {
 
     function buscarDOUInterno(termo, data) {
       const query = encodeURIComponent(termo);
-      const url   = `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&s=do1&exactDate=${data}&delta=20&start=0`;
+      // data=null → histórico completo desde 2020
+      const hojeISO = new Date().toISOString().slice(0, 10);
+      const url = data
+        ? `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&s=do1&exactDate=${data}&delta=20&start=0`
+        : `https://www.in.gov.br/consulta/-/buscar/dou?q=${query}&s=do1&exactDate=personalizado&publishFrom=2020-01-01&publishTo=${hojeISO}&delta=20&start=0`;
       return new Promise((resolve) => {
         const req = https.get(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120',
             'Accept': 'text/html,application/xhtml+xml',
           },
-          timeout: 15000,
+          timeout: 30000,
         }, (res) => {
           let body = '';
           res.on('data', chunk => { body += chunk; });
@@ -363,8 +367,15 @@ async function cronDiario() {
       if (!c.processo_protocolo || !c.processo_protocolo.trim()) continue;
       const termo = `"${c.processo_protocolo.trim()}"`;
 
+      // Clientes sem nenhum alerta → busca histórico completo desde 2020
+      // Clientes que já têm alertas → busca só o DOU de hoje
+      const [[{ total }]] = await db.query(
+        'SELECT COUNT(*) AS total FROM alertas_dou WHERE cliente_id=?', [c.id]
+      );
+      const dataConsulta = total > 0 ? hoje : null;
+
       let hits = [];
-      try { hits = await buscarDOUInterno(termo, hoje); } catch { continue; }
+      try { hits = await buscarDOUInterno(termo, dataConsulta); } catch { continue; }
 
       for (const hit of hits) {
         if (!hit.title && !hit.content) continue;
@@ -374,10 +385,11 @@ async function cronDiario() {
         );
         if (ja.length) continue;
 
-        const link = hit.urlTitle ? `https://www.in.gov.br/web/dou/-/${hit.urlTitle}` : null;
+        const link    = hit.urlTitle ? `https://www.in.gov.br/web/dou/-/${hit.urlTitle}` : null;
+        const dataPub = hit.pubDate || hoje;
         await db.query(
           `INSERT INTO alertas_dou (cliente_id, data_pub, titulo, conteudo, link, classPK) VALUES (?,?,?,?,?,?)`,
-          [c.id, hoje, hit.title || '', (hit.content||'').replace(/<[^>]+>/g,'').slice(0,500), link, hit.classPK || hit.urlTitle || hit.title]
+          [c.id, dataPub, hit.title || '', (hit.content||'').replace(/<[^>]+>/g,'').slice(0,500), link, hit.classPK || hit.urlTitle || hit.title]
         );
         encontrados.push({ cliente_nome: c.nome, titulo: hit.title, link, trecho: (hit.content||'').replace(/<[^>]+>/g,'').slice(0,300) });
       }
