@@ -232,10 +232,14 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// ── PORTAL SUBDOMÍNIO ────────────────────────────────────────────────────────
-// Acesso via portal.wbassessoriamigratoria.com.br → força tela do cliente
+// ── SUBDOMÍNIOS ────────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   const host = req.hostname || '';
+  // atendimento.wbassessoriamigratoria.com.br → landing page de leads
+  if (host.startsWith('atendimento.')) {
+    return res.sendFile(path.join(__dirname, 'public/leads.html'));
+  }
+  // portal.wbassessoriamigratoria.com.br → força tela do cliente
   if (host.startsWith('portal.') && req.path === '/' && !req.query.portal) {
     return res.redirect('/?portal=cliente');
   }
