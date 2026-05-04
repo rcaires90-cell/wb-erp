@@ -7,11 +7,31 @@ router.post('/publico', async (req, res) => {
   try {
     const { nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado } = req.body;
     if (!nome?.trim()) return res.status(400).json({ erro: 'Nome obrigatório' });
-    await db.query(
-      `INSERT INTO leads (nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, origem, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Landing Page', 'novo')`,
-      [nome.trim(), tel||null, email||null, pais||null, servico||null, rnm_tipo||null, tempo_no_pais||null, cidade||null, estado||null]
-    );
+
+    const obs = [
+      pais          ? `País: ${pais}`                     : null,
+      rnm_tipo      ? `RNM: ${rnm_tipo}`                  : null,
+      tempo_no_pais ? `Tempo no Brasil: ${tempo_no_pais}` : null,
+      cidade && estado ? `Localização: ${cidade}/${estado}` : (cidade || estado || null),
+    ].filter(Boolean).join(' | ');
+
+    try {
+      // Tenta inserir com todas as colunas novas
+      await db.query(
+        `INSERT INTO leads (nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, origem, status, obs)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Landing Page', 'novo', ?)`,
+        [nome.trim(), tel||null, email||null, pais||null, servico||null,
+         rnm_tipo||null, tempo_no_pais||null, cidade||null, estado||null, obs||null]
+      );
+    } catch {
+      // Fallback: colunas antigas apenas
+      await db.query(
+        `INSERT INTO leads (nome, tel, email, servico, origem, status, obs)
+         VALUES (?, ?, ?, ?, 'Landing Page', 'novo', ?)`,
+        [nome.trim(), tel||null, email||null, servico||null, obs||null]
+      );
+    }
+
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ erro: e.message }); }
 });
