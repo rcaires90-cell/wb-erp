@@ -2,11 +2,21 @@ const router = require('express').Router();
 const db     = require('../db');
 const auth   = require('../middleware/auth');
 
+const VALORES_SERVICO = {
+  'Naturalização Brasileira':                                   2790,
+  'Naturalização Provisória (crianças/adolescentes)':           1790,
+  'Autorização de Residência (CPLP / Reunião Familiar / Mercosul)': 1250,
+  'Renovação de Autorização de Residência':                      650,
+  'Agendamento de Autorização de Residência':                    200,
+  'Visto Americano de Turismo':                                 1600,
+};
+
 // POST /api/leads/publico — sem autenticação (formulário público da landing page)
 router.post('/publico', async (req, res) => {
   try {
     const { nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado } = req.body;
     if (!nome?.trim()) return res.status(400).json({ erro: 'Nome obrigatório' });
+    const valor_estimado = VALORES_SERVICO[servico] || 0;
 
     const obs = [
       pais          ? `País: ${pais}`                     : null,
@@ -18,17 +28,17 @@ router.post('/publico', async (req, res) => {
     try {
       // Tenta inserir com todas as colunas novas
       await db.query(
-        `INSERT INTO leads (nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, origem, status, obs)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Landing Page', 'novo', ?)`,
+        `INSERT INTO leads (nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, origem, status, obs, valor_estimado)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Landing Page', 'novo', ?, ?)`,
         [nome.trim(), tel||null, email||null, pais||null, servico||null,
-         rnm_tipo||null, tempo_no_pais||null, cidade||null, estado||null, obs||null]
+         rnm_tipo||null, tempo_no_pais||null, cidade||null, estado||null, obs||null, valor_estimado]
       );
     } catch {
       // Fallback: colunas antigas apenas
       await db.query(
-        `INSERT INTO leads (nome, tel, email, servico, origem, status, obs)
-         VALUES (?, ?, ?, ?, 'Landing Page', 'novo', ?)`,
-        [nome.trim(), tel||null, email||null, servico||null, obs||null]
+        `INSERT INTO leads (nome, tel, email, servico, origem, status, obs, valor_estimado)
+         VALUES (?, ?, ?, ?, 'Landing Page', 'novo', ?, ?)`,
+        [nome.trim(), tel||null, email||null, servico||null, obs||null, valor_estimado]
       );
     }
 
