@@ -43,6 +43,14 @@ async function runMigrations() {
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_vinculo_brasil   TINYINT(1)    DEFAULT 0",
     // Aniversariantes
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS data_nascimento      DATE          DEFAULT NULL",
+    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS pais          VARCHAR(100) DEFAULT NULL",
+    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS rnm_tipo      VARCHAR(50)  DEFAULT NULL",
+    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS tempo_no_pais VARCHAR(50)  DEFAULT NULL",
+    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS cidade        VARCHAR(100) DEFAULT NULL",
+    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS estado        VARCHAR(10)  DEFAULT NULL",
+    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS responsavel   VARCHAR(200) DEFAULT NULL",
+    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS valor_estimado DECIMAL(10,2) DEFAULT 0",
+    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS criado_por    VARCHAR(200) DEFAULT NULL",
   ];
   for (const sql of alterCols) {
     try { await db.query(sql); } catch(e) { console.warn('[migration] skipped:', e.message.slice(0,80)); }
@@ -85,15 +93,23 @@ async function runMigrations() {
       INDEX idx_cliente (cliente_id)
     )`,
     `CREATE TABLE IF NOT EXISTS leads (
-      id         INT AUTO_INCREMENT PRIMARY KEY,
-      nome       VARCHAR(200) NOT NULL,
-      email      VARCHAR(200),
-      tel        VARCHAR(50),
-      servico    VARCHAR(200),
-      status     VARCHAR(50) DEFAULT 'novo',
-      obs        TEXT,
-      origem     VARCHAR(100),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      id           INT AUTO_INCREMENT PRIMARY KEY,
+      nome         VARCHAR(200) NOT NULL,
+      email        VARCHAR(200),
+      tel          VARCHAR(50),
+      pais         VARCHAR(100),
+      servico      VARCHAR(200),
+      rnm_tipo     VARCHAR(50),
+      tempo_no_pais VARCHAR(50),
+      cidade       VARCHAR(100),
+      estado       VARCHAR(10),
+      status       VARCHAR(50) DEFAULT 'novo',
+      obs          TEXT,
+      origem       VARCHAR(100),
+      responsavel  VARCHAR(200),
+      valor_estimado DECIMAL(10,2) DEFAULT 0,
+      criado_por   VARCHAR(200),
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS despesas (
       id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -228,6 +244,9 @@ app.use((req, res, next) => {
 
 // ── SERVIR FRONTEND ──
 app.use(express.static(path.join(__dirname, 'public')));
+app.get('/leads', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public/leads.html'));
+});
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public/index.html'));
 });

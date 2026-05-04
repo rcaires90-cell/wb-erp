@@ -2,6 +2,20 @@ const router = require('express').Router();
 const db     = require('../db');
 const auth   = require('../middleware/auth');
 
+// POST /api/leads/publico — sem autenticação (formulário público da landing page)
+router.post('/publico', async (req, res) => {
+  try {
+    const { nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado } = req.body;
+    if (!nome?.trim()) return res.status(400).json({ erro: 'Nome obrigatório' });
+    await db.query(
+      `INSERT INTO leads (nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, origem, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Landing Page', 'novo')`,
+      [nome.trim(), tel||null, email||null, pais||null, servico||null, rnm_tipo||null, tempo_no_pais||null, cidade||null, estado||null]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ erro: e.message }); }
+});
+
 router.use(auth);
 
 const STATUS_LABELS = {
