@@ -82,7 +82,10 @@ router.post('/publico', limiterPublico, async (req, res) => {
     }
 
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ erro: e.message }); }
+  } catch(e) {
+    console.error('[leads/publico]', e.message);
+    res.status(500).json({ erro: 'Não foi possível enviar. Tente novamente.' });
+  }
 });
 
 router.use(auth);
