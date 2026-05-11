@@ -219,6 +219,11 @@ select option{background:#1f2937}
         </div>
       </div>
 
+      <!-- Honeypot: invisível para humanos, bots preenchem automaticamente -->
+      <div style="position:absolute;left:-9999px;opacity:0;pointer-events:none" aria-hidden="true">
+        <input type="text" id="_hp" name="_hp" tabindex="-1" autocomplete="off"/>
+      </div>
+
       <div id="alertErr" class="alert-err" style="display:none"></div>
 
       <button type="submit" class="btn-submit" id="btnSubmit">
@@ -318,6 +323,7 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
         nome, pais, servico, tel, email, cidade, estado,
         rnm_tipo: state.rnm || null,
         tempo_no_pais: state.tempo,
+        _hp: document.getElementById('_hp').value,
       })
     });
     const data = await res.json();

@@ -1,44 +1,83 @@
-const router = require('express').Router();
-const db     = require('../db');
-const auth   = require('../middleware/auth');
+const router   = require('express').Router();
+const db       = require('../db');
+const auth     = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
 
 const VALORES_SERVICO = {
-  'Naturalização Brasileira':                                   2790,
-  'Naturalização Provisória (crianças/adolescentes)':           1790,
+  'Naturalização Brasileira':                                       2790,
+  'Naturalização Provisória (crianças/adolescentes)':               1790,
   'Autorização de Residência (CPLP / Reunião Familiar / Mercosul)': 1250,
-  'Renovação de Autorização de Residência':                      650,
-  'Agendamento de Autorização de Residência':                    200,
-  'Visto Americano de Turismo':                                 1600,
+  'Renovação de Autorização de Residência':                          650,
+  'Agendamento de Autorização de Residência':                        200,
+  'Visto Americano de Turismo':                                     1600,
 };
 
-// POST /api/leads/publico — sem autenticação (formulário público da landing page)
-router.post('/publico', async (req, res) => {
-  try {
-    const { nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado } = req.body;
-    if (!nome?.trim()) return res.status(400).json({ erro: 'Nome obrigatório' });
-    const valor_estimado = VALORES_SERVICO[servico] || 0;
+const SERVICOS_VALIDOS  = new Set(Object.keys(VALORES_SERVICO));
+const RNM_VALIDOS       = new Set(['nenhum','temporario','permanente','']);
+const ESTADOS_VALIDOS   = new Set(['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO','']);
 
+// Rate limit restrito só para o endpoint público: 8 envios por IP a cada hora
+const limiterPublico = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 8,
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip,
+  message: { erro: 'Muitas tentativas. Tente novamente mais tarde.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// POST /api/leads/publico — sem autenticação (formulário público da landing page)
+router.post('/publico', limiterPublico, async (req, res) => {
+  try {
+    const { nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, _hp } = req.body;
+
+    // Honeypot: bots preenchem o campo oculto, humanos não
+    if (_hp) return res.json({ ok: true });
+
+    // Validações básicas
+    if (!nome?.trim() || nome.trim().length > 200) return res.status(400).json({ erro: 'Nome inválido' });
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ erro: 'E-mail inválido' });
+    if (servico && !SERVICOS_VALIDOS.has(servico)) return res.status(400).json({ erro: 'Serviço inválido' });
+    if (rnm_tipo && !RNM_VALIDOS.has(rnm_tipo)) return res.status(400).json({ erro: 'Campo inválido' });
+    if (estado && !ESTADOS_VALIDOS.has(estado)) return res.status(400).json({ erro: 'Estado inválido' });
+
+    // Sanitização de tamanho
+    const s = (v, max) => (v||'').toString().trim().slice(0, max) || null;
+    const nomeClean   = s(nome, 200);
+    const telClean    = s(tel, 30);
+    const emailClean  = s(email, 200);
+    const paisClean   = s(pais, 100);
+    const cidadeClean = s(cidade, 100);
+
+    // Bloqueio de duplicata: mesmo email ou telefone nas últimas 2h
+    if (emailClean || telClean) {
+      const [dup] = await db.query(
+        `SELECT id FROM leads WHERE created_at >= NOW() - INTERVAL 2 HOUR AND (email = ? OR tel = ?) LIMIT 1`,
+        [emailClean || '__', telClean || '__']
+      );
+      if (dup.length) return res.json({ ok: true }); // retorna ok silenciosamente
+    }
+
+    const valor_estimado = VALORES_SERVICO[servico] || 0;
     const obs = [
-      pais          ? `País: ${pais}`                     : null,
-      rnm_tipo      ? `RNM: ${rnm_tipo}`                  : null,
-      tempo_no_pais ? `Tempo no Brasil: ${tempo_no_pais}` : null,
-      cidade && estado ? `Localização: ${cidade}/${estado}` : (cidade || estado || null),
+      paisClean           ? `País: ${paisClean}`                     : null,
+      rnm_tipo            ? `RNM: ${rnm_tipo}`                       : null,
+      tempo_no_pais       ? `Tempo no Brasil: ${tempo_no_pais}`      : null,
+      cidadeClean && estado ? `Localização: ${cidadeClean}/${estado}` : (cidadeClean || estado || null),
     ].filter(Boolean).join(' | ');
 
     try {
-      // Tenta inserir com todas as colunas novas
       await db.query(
         `INSERT INTO leads (nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, origem, status, obs, valor_estimado)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Landing Page', 'novo', ?, ?)`,
-        [nome.trim(), tel||null, email||null, pais||null, servico||null,
-         rnm_tipo||null, tempo_no_pais||null, cidade||null, estado||null, obs||null, valor_estimado]
+        [nomeClean, telClean, emailClean, paisClean, servico||null,
+         rnm_tipo||null, tempo_no_pais||null, cidadeClean, estado||null, obs||null, valor_estimado]
       );
     } catch {
-      // Fallback: colunas antigas apenas
       await db.query(
         `INSERT INTO leads (nome, tel, email, servico, origem, status, obs, valor_estimado)
          VALUES (?, ?, ?, ?, 'Landing Page', 'novo', ?, ?)`,
-        [nome.trim(), tel||null, email||null, servico||null, obs||null, valor_estimado]
+        [nomeClean, telClean, emailClean, servico||null, obs||null, valor_estimado]
       );
     }
 
