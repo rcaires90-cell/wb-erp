@@ -463,17 +463,57 @@ async function carregarMetasDashboard(pagoAtual, contratosAtual) {
 }
 
 async function carregarLeadsCardDashboard() {
-  const valEl = document.getElementById('dash-leads-val');
-  const subEl = document.getElementById('dash-leads-sub');
+  const valEl    = document.getElementById('dash-leads-val');
+  const subEl    = document.getElementById('dash-leads-sub');
+  const alertaEl = document.getElementById('dash-leads-alerta');
+  const miniEl   = document.getElementById('dash-leads-mini');
   if (!valEl) return;
   try {
     const lista = await apiFetch('/leads');
     if (!Array.isArray(lista)) return;
     const novos = lista.filter(l => l.status === 'novo').length;
-    const total = lista.length;
     valEl.textContent = novos;
-    subEl.textContent = `${total} total de leads`;
-  } catch(e) { valEl.textContent = '—'; subEl.textContent = ''; }
+    subEl.textContent = `${lista.length} total de leads`;
+
+    // Alerta de leads parados há mais de 7 dias
+    const limiteMs = 7 * 24 * 60 * 60 * 1000;
+    const parados = lista.filter(l =>
+      (l.status === 'novo' || l.status === 'contato_feito') &&
+      l.created_at && (Date.now() - new Date(l.created_at).getTime()) > limiteMs
+    );
+    if (alertaEl) {
+      alertaEl.innerHTML = parados.length ? `
+        <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-lg);padding:14px 18px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:1.2rem">⏰</span>
+          <div style="flex:1;font-size:0.82rem;color:var(--orange)"><b>${parados.length} lead(s)</b> sem atualização há mais de 7 dias</div>
+          <button class="btn btn-outline btn-sm" onclick="navigateTo('leads')">Ver leads →</button>
+        </div>` : '';
+    }
+
+    // Mini-painel com últimos 3 leads
+    if (miniEl && lista.length) {
+      const ultimos = lista.slice(0, 3);
+      const stCor = { novo:'var(--text3)', contato_feito:'#60a5fa', proposta_enviada:'var(--gold)', negociando:'var(--orange)', fechado:'var(--green)', perdido:'var(--red)' };
+      miniEl.innerHTML = `
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🎯 Últimos Leads</span>
+            <button class="btn btn-ghost btn-sm" onclick="navigateTo('leads')">Ver todos →</button>
+          </div>
+          <div style="padding:8px 0">
+            ${ultimos.map(l => `
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)">
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:600;font-size:0.85rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.nome}</div>
+                  <div style="font-size:0.72rem;color:var(--text3)">${l.servico||'—'} · ${l.origem||'—'}</div>
+                </div>
+                ${l.tel ? `<a href="https://wa.me/${(l.tel||'').replace(/\D/g,'')}" target="_blank" style="color:var(--green);font-size:0.75rem;text-decoration:none;white-space:nowrap">📱 WA</a>` : ''}
+                <span style="font-size:0.72rem;font-weight:700;color:${stCor[l.status]||'var(--text3)'};white-space:nowrap">${l.status||'—'}</span>
+              </div>`).join('')}
+          </div>
+        </div>`;
+    }
+  } catch(e) { if (valEl) valEl.textContent = '—'; }
 }
 
 function abrirModalMetas() {
@@ -2458,7 +2498,9 @@ function renderDashboard() {
       </div>
     </div>
 
+    <div id="dash-leads-alerta" style="margin-bottom:12px"></div>
     <div id="metas-dashboard-widget" style="margin-bottom:20px"></div>
+    <div id="dash-leads-mini" style="margin-bottom:20px"></div>
 
     <!-- Breakdown por serviço -->
     <div class="panel" style="margin-bottom:20px">
@@ -2625,6 +2667,10 @@ function renderClientes() {
         <option value="">Todos os serviços</option>
         ${SERVICOS.map(s => `<option value="${s}">${s}</option>`).join('')}
       </select>
+      <input type="date" id="cli-data-ini" onchange="filtrarClientes()" title="Cadastrado a partir de"
+        style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:0.82rem;outline:none;font-family:'Syne',sans-serif">
+      <input type="date" id="cli-data-fim" onchange="filtrarClientes()" title="Cadastrado até"
+        style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:0.82rem;outline:none;font-family:'Syne',sans-serif">
       <button class="btn btn-primary" onclick="openNovoCliente()">+ Novo Cliente</button>
       <button class="btn btn-outline btn-sm" onclick="exportarCSV('clientes')">📥 Exportar CSV</button>
     </div>
@@ -2669,6 +2715,7 @@ function tabelaClientes(lista) {
                 <div>
                   <div style="font-weight:600;color:var(--text)">${c.nome}</div>
                   <div style="font-size:0.7rem;color:var(--text3)">${c.pais||'—'} · ${c.rnm||c.cpf||'—'}</div>
+                  ${c.tel ? `<a href="https://wa.me/${(c.tel||'').replace(/\D/g,'')}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:3px;margin-top:2px;color:var(--green);font-size:0.65rem;text-decoration:none;opacity:0.8">📱 WhatsApp</a>` : ''}
                 </div>
               </div>
             </td>
@@ -2705,6 +2752,8 @@ function filtrarClientes(q) {
   const busca   = (typeof q === 'string' ? q : document.getElementById('cli-busca')?.value || '').toLowerCase();
   const status  = document.getElementById('cli-status')?.value  || '';
   const servico = document.getElementById('cli-servico')?.value || '';
+  const dataIni = document.getElementById('cli-data-ini')?.value || '';
+  const dataFim = document.getElementById('cli-data-fim')?.value || '';
   _cliFilter = { busca: document.getElementById('cli-busca')?.value || '', status, servico };
   let lista = clientes.filter(c => {
     if (status  && c.status  !== status)  return false;
@@ -2718,6 +2767,12 @@ function filtrarClientes(q) {
       (c.pais||'').toLowerCase().includes(busca) ||
       (c.protocolo||'').toLowerCase().includes(busca)
     )) return false;
+    if (dataIni || dataFim) {
+      const dt = c.created_at ? new Date(c.created_at) : null;
+      if (!dt) return false;
+      if (dataIni && dt < new Date(dataIni)) return false;
+      if (dataFim && dt > new Date(dataFim + 'T23:59:59')) return false;
+    }
     return true;
   });
   document.getElementById('clientes-tabela').innerHTML = tabelaClientes(lista);
@@ -5165,7 +5220,10 @@ function renderLeads() {
   return `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
       <h2>Pipeline de Leads</h2>
-      <button class="btn btn-primary" onclick="novoLead()">+ Novo Lead</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="exportarCSV('leads')">📥 Exportar CSV</button>
+        <button class="btn btn-primary" onclick="novoLead()">+ Novo Lead</button>
+      </div>
     </div>
     <div id="leads-corpo"><div class="empty"><div class="icon">⏳</div><h3>Carregando...</h3></div></div>
   `;
@@ -5335,6 +5393,87 @@ function exportarCSV(tipo, params) {
   });
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// BUSCA GLOBAL (Ctrl+K)
+// ══════════════════════════════════════════════════════════════════════════════
+(function() {
+  const overlay = document.createElement('div');
+  overlay.id = 'global-search-overlay';
+  overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;align-items:flex-start;justify-content:center;padding-top:80px';
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:90%;max-width:560px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,0.5)">
+      <div style="display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);gap:10px">
+        <span style="font-size:1.1rem">🔍</span>
+        <input id="global-search-input" placeholder="Buscar cliente ou lead..." autocomplete="off"
+          style="flex:1;background:none;border:none;color:var(--text);font-size:1rem;outline:none;font-family:'Syne',sans-serif">
+        <kbd style="font-size:0.7rem;color:var(--text3);background:var(--bg3);border-radius:4px;padding:2px 6px;border:1px solid var(--border)">ESC</kbd>
+      </div>
+      <div id="global-search-results" style="max-height:360px;overflow-y:auto;padding:6px 0"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) fecharBuscaGlobal(); });
+
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); abrirBuscaGlobal(); }
+    if (e.key === 'Escape') fecharBuscaGlobal();
+  });
+
+  document.getElementById('global-search-input').addEventListener('input', function() {
+    buscarGlobal(this.value.trim());
+  });
+})();
+
+function abrirBuscaGlobal() {
+  const ov = document.getElementById('global-search-overlay');
+  ov.style.display = 'flex';
+  const inp = document.getElementById('global-search-input');
+  inp.value = '';
+  document.getElementById('global-search-results').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:0.82rem">Digite para buscar clientes e leads...</div>';
+  setTimeout(() => inp.focus(), 50);
+}
+
+function fecharBuscaGlobal() {
+  const ov = document.getElementById('global-search-overlay');
+  if (ov) ov.style.display = 'none';
+}
+
+function buscarGlobal(q) {
+  const el = document.getElementById('global-search-results');
+  if (!q || q.length < 2) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:0.82rem">Digite para buscar clientes e leads...</div>';
+    return;
+  }
+  const ql = q.toLowerCase();
+  const clis = (clientes||[]).filter(c =>
+    c.nome.toLowerCase().includes(ql) ||
+    (c.tel||'').replace(/\D/g,'').includes(ql.replace(/\D/g,'')) ||
+    (c.email||'').toLowerCase().includes(ql) ||
+    (c.cpf||'').replace(/\D/g,'').includes(ql.replace(/\D/g,'')) ||
+    (c.protocolo||'').toLowerCase().includes(ql)
+  ).slice(0, 6);
+
+  const serv = { 'Naturalização Brasileira':'🇧🇷', 'Naturalização Provisória (crianças/adolescentes)':'👦', 'Autorização de Residência (CPLP / Reunião Familiar / Mercosul)':'🏠', 'Renovação de Autorização de Residência':'🔄', 'Agendamento de Autorização de Residência':'📅', 'Visto Americano de Turismo':'🇺🇸' };
+
+  let html = '';
+  if (clis.length) {
+    html += `<div style="padding:6px 14px;font-size:0.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em">Clientes</div>`;
+    html += clis.map(c => `
+      <div onclick="fecharBuscaGlobal();openCliente(${c.id})" style="display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;border-radius:8px;margin:0 6px;transition:background 0.15s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <div class="client-av" style="width:28px;height:28px;font-size:0.6rem;flex-shrink:0">${c.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:0.85rem;color:var(--text)">${c.nome}</div>
+          <div style="font-size:0.7rem;color:var(--text3)">${serv[c.servico]||'📋'} ${c.servico||'—'}</div>
+        </div>
+        <span style="font-size:0.68rem;color:var(--text3)">${c.pais||''}</span>
+      </div>`).join('');
+  }
+
+  if (!clis.length) {
+    html = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:0.82rem">Nenhum cliente encontrado</div>';
+  }
+  el.innerHTML = html;
+}
 </script>
 </body>
 </html>

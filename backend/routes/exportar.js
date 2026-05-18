@@ -82,6 +82,19 @@ router.get('/financeiro.csv', async (req, res) => {
   res.send(toCSV(cols, rows));
 });
 
+// GET /api/exportar/leads.csv
+router.get('/leads.csv', async (req, res) => {
+  const [rows] = await db.query(
+    `SELECT nome, tel, email, pais, cidade, estado, servico, origem, status,
+            responsavel, valor_estimado, obs, created_at
+     FROM leads ORDER BY created_at DESC`
+  );
+  const cols = ['nome','tel','email','pais','cidade','estado','servico','origem','status','responsavel','valor_estimado','obs','created_at'];
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="leads.csv"');
+  res.send(toCSV(cols, rows));
+});
+
 // GET /api/exportar/backup.json  — exporta todas as tabelas principais (só CEO)
 router.get('/backup.json', async (req, res) => {
   if (req.user.role !== 'ceo') return res.status(403).json({ erro: 'Acesso negado' });
