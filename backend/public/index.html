@@ -462,6 +462,20 @@ async function carregarMetasDashboard(pagoAtual, contratosAtual) {
     </div>`;
 }
 
+async function carregarLeadsCardDashboard() {
+  const valEl = document.getElementById('dash-leads-val');
+  const subEl = document.getElementById('dash-leads-sub');
+  if (!valEl) return;
+  try {
+    const lista = await apiFetch('/leads');
+    if (!Array.isArray(lista)) return;
+    const novos = lista.filter(l => l.status === 'novo').length;
+    const total = lista.length;
+    valEl.textContent = novos;
+    subEl.textContent = `${total} total de leads`;
+  } catch(e) { valEl.textContent = '—'; subEl.textContent = ''; }
+}
+
 function abrirModalMetas() {
   const mes = new Date().toISOString().slice(0,7);
   const label = new Date().toLocaleString('pt-BR',{month:'long',year:'numeric'});
@@ -2323,10 +2337,11 @@ function getDocsComplementares(servico) {
 
 const SERVICOS = [
   'Naturalização Brasileira',
-  'Naturalização Provisória',
-  'Autorização de Residência (CPLP)',
-  'Autorização de Residência (Reagrupamento Familiar)',
-  'Visto de Turismo (E.U.A)',
+  'Naturalização Provisória (crianças/adolescentes)',
+  'Autorização de Residência (CPLP / Reunião Familiar / Mercosul)',
+  'Renovação de Autorização de Residência',
+  'Agendamento de Autorização de Residência',
+  'Visto Americano de Turismo',
 ];
 
 const PROFICIENCIA_OPTS = [
@@ -2391,6 +2406,7 @@ function renderDashboard() {
   }).sort((a,b) => a.diasAnt - b.diasAnt);
 
   setTimeout(() => carregarMetasDashboard(pago, contratosmes), 50);
+  setTimeout(() => carregarLeadsCardDashboard(), 80);
 
   return `
     ${venc3.length ? `
@@ -2434,6 +2450,11 @@ function renderDashboard() {
         <div class="stat-label">Agenda Hoje</div>
         <div class="stat-value">${agHoje.length}</div>
         <div class="stat-sub">${agHoje.length ? agHoje[0].hora + ' · ' + agHoje[0].tipo : 'Nenhum agendamento'}</div>
+      </div>
+      <div class="stat-card" id="dash-leads-card" style="cursor:pointer" onclick="navigateTo('leads')">
+        <div class="stat-label">Leads Novos</div>
+        <div class="stat-value" id="dash-leads-val" style="color:var(--gold)">…</div>
+        <div class="stat-sub" id="dash-leads-sub">carregando</div>
       </div>
     </div>
 
@@ -5184,12 +5205,16 @@ async function carregarLeads() {
     <div class="panel">
       <div class="panel-header"><span class="panel-title">Leads</span></div>
       <table class="tbl">
-        <thead><tr><th>Nome</th><th>Serviço</th><th>Origem</th><th>Status</th><th>Valor Est.</th><th>Responsável</th><th></th></tr></thead>
+        <thead><tr><th>Nome</th><th>WhatsApp</th><th>País/Cidade</th><th>Serviço</th><th>Origem</th><th>Status</th><th>Valor Est.</th><th>Responsável</th><th></th></tr></thead>
         <tbody>
           ${lista.map(l => {
             const st = LEAD_STATUS.find(s=>s.id===l.status)||LEAD_STATUS[0];
+            const telLink = l.tel ? `<a href="https://wa.me/${l.tel.replace(/\D/g,'')}" target="_blank" style="color:var(--green);font-size:0.78rem;text-decoration:none">📱 ${l.tel}</a>` : '—';
+            const locStr = [l.pais, l.cidade, l.estado].filter(Boolean).join(' · ') || '—';
             return `<tr>
               <td style="font-weight:600;color:var(--text)">${l.nome}</td>
+              <td>${telLink}</td>
+              <td style="font-size:0.75rem;color:var(--text3)">${locStr}</td>
               <td style="font-size:0.8rem;color:var(--text2)">${l.servico||'—'}</td>
               <td style="font-size:0.78rem;color:var(--text3)">${l.origem||'—'}</td>
               <td><select onchange="atualizarStatusLead(${l.id},this.value)"

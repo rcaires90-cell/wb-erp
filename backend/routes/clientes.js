@@ -15,7 +15,7 @@ async function notificarEtapa(cliente, novaEtapa) {
         <p>Olá, <b>${cliente.nome}</b>!</p>
         <p>Seu processo de <b>${cliente.servico}</b> foi atualizado para: <b>${novaEtapa}</b>.</p>
         <p>Acesse seu portal para acompanhar.</p>
-        <a href="https://wb-erp-production.up.railway.app" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Acessar Portal</a>
+        <a href="https://sistema.wbassessoriamigratoria.com.br" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Acessar Portal</a>
       </div>`
     );
   } catch(e) { console.error('[email] ERRO notificarEtapa:', e.message); }
