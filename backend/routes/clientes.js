@@ -146,6 +146,7 @@ router.post('/', async (req, res) => {
     }
 
     // Hash da senha se fornecida
+    const senhaRaw = (portal_senha && !portal_senha.startsWith('wb$') && !portal_senha.startsWith('$2')) ? portal_senha : null;
     let senhaHash = null;
     if (portal_senha) {
       if (portal_senha.startsWith('wb$') || portal_senha.startsWith('$2')) {
@@ -187,6 +188,28 @@ router.post('/', async (req, res) => {
     );
 
     const [novo] = await db.query('SELECT * FROM clientes WHERE id = ?', [result.insertId]);
+
+    // Email de boas-vindas automático
+    if (email && (portal_login || email) && senhaRaw) {
+      const loginUrl = 'https://sistema.wbassessoriamigratoria.com.br';
+      sendEmail(
+        email,
+        '👋 Bem-vindo ao Portal WB Assessoria Migratória!',
+        `<div style="font-family:Arial,sans-serif;max-width:520px;padding:28px;background:#f9f9f9;border-radius:10px">
+          <h2 style="color:#c9a84c;margin-top:0">WB Assessoria Migratória</h2>
+          <p>Olá, <b>${nome.trim()}</b>! Seja bem-vindo(a) ao portal de acompanhamento do seu processo.</p>
+          <p style="font-size:0.9rem;color:#555">Seus dados de acesso ao portal:</p>
+          <div style="background:#fff;border-radius:8px;padding:16px;margin:16px 0;border:1px solid #e0e0e0">
+            <div style="margin-bottom:8px"><span style="color:#999;font-size:0.85rem">Login</span><br><b>${portal_login || email}</b></div>
+            <div><span style="color:#999;font-size:0.85rem">Senha</span><br><b>${senhaRaw}</b></div>
+          </div>
+          <p style="font-size:0.9rem;color:#555">No portal você pode acompanhar todas as etapas do seu processo, verificar documentos e falar com nossa equipe.</p>
+          <a href="${loginUrl}" style="display:inline-block;padding:12px 28px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold;font-size:0.95rem">Acessar Portal →</a>
+          <p style="margin-top:24px;font-size:0.82rem;color:#999">Dúvidas? Fale conosco pelo WhatsApp: <a href="https://wa.me/5511914258886" style="color:#c9a84c">(11) 91425-8886</a></p>
+        </div>`
+      ).catch(e => console.error('[email] boas-vindas:', e.message));
+    }
+
     res.status(201).json(novo[0]);
   } catch (err) {
     console.error('[clientes POST]', err);

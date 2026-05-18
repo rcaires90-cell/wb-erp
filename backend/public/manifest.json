@@ -1,0 +1,18 @@
+{
+  "name": "WB Assessoria Migratória",
+  "short_name": "WB ERP",
+  "description": "Sistema de gestão — WB Assessoria Migratória",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#c9a84c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23c9a84c'/><text y='72' x='50' text-anchor='middle' font-size='60' font-family='Arial' fill='%23fff'>WB</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

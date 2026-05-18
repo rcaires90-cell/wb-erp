@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#c9a84c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="WB ERP">
+<link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#000000">
 <title>WB Assessoria Migratória</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2688,6 +2693,40 @@ function renderDashboard() {
               </div>
             </div>`;
           }).join('')}
+        </div>
+      </div>`;
+    })()}
+
+    ${(() => {
+      const byResp = {};
+      const mesAtual = new Date().toISOString().slice(0,7);
+      (clientes||[]).forEach(c => {
+        const r = c.responsavel || 'Não definido';
+        if (!byResp[r]) byResp[r] = { total:0, andamento:0, concluido:0, valor:0, novosMes:0 };
+        byResp[r].total++;
+        if (c.status === 'Em andamento') byResp[r].andamento++;
+        if (c.status === 'Concluído') byResp[r].concluido++;
+        byResp[r].valor += parseFloat(c.valor)||0;
+        if ((c.created_at||'').slice(0,7) === mesAtual || (c.data_cadastro||'').slice(6,10)+'-'+(c.data_cadastro||'').slice(3,5) === mesAtual) byResp[r].novosMes++;
+      });
+      const entries = Object.entries(byResp).sort((a,b)=>b[1].total-a[1].total);
+      if (!entries.length) return '';
+      return `
+      <div class="panel" style="margin-bottom:20px">
+        <div class="panel-header"><span class="panel-title">👥 Produtividade por Responsável</span></div>
+        <div style="padding:8px 0">
+          ${entries.map(([resp, d]) => `
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
+              <div class="client-av" style="width:32px;height:32px;font-size:0.65rem;flex-shrink:0">${resp.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:0.85rem;color:var(--text)">${resp}</div>
+                <div style="font-size:0.7rem;color:var(--text3);margin-top:2px">${d.andamento} em andamento · ${d.concluido} concluídos · ${d.novosMes} novos este mês</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:0.78rem;font-weight:700;color:var(--text)">${d.total} cliente${d.total!==1?'s':''}</div>
+                <div style="font-size:0.7rem;color:var(--text3)">R$ ${(d.valor/1000).toFixed(1)}k carteira</div>
+              </div>
+            </div>`).join('')}
         </div>
       </div>`;
     })()}
@@ -5389,12 +5428,57 @@ async function carregarLeads() {
   LEAD_STATUS.forEach(s => { grupos[s.id] = []; });
   lista.forEach(l => { if (grupos[l.status]) grupos[l.status].push(l); });
 
+  // Funil e origens
+  const convPct = lista.length ? Math.round(grupos['fechado'].length / lista.length * 100) : 0;
+  const origens = {};
+  lista.forEach(l => { const o = l.origem||'Outros'; origens[o] = (origens[o]||0)+1; });
+  const topOrigens = Object.entries(origens).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxOrig = topOrigens[0]?.[1] || 1;
+
   corpo.innerHTML = `
     <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
       <div class="stat-card"><div class="stat-label">Total de Leads</div><div class="stat-value">${lista.length}</div></div>
       <div class="stat-card"><div class="stat-label">Em Negociação</div><div class="stat-value" style="color:var(--gold)">${ativos.length}</div></div>
       <div class="stat-card"><div class="stat-label">Valor Potencial</div><div class="stat-value" style="color:var(--green)">${fmt(totalPotencial)}</div></div>
-      <div class="stat-card"><div class="stat-label">Fechados</div><div class="stat-value" style="color:var(--green)">${grupos['fechado'].length}</div></div>
+      <div class="stat-card"><div class="stat-label">Taxa de Conversão</div><div class="stat-value" style="color:${convPct>=20?'var(--green)':'var(--orange)'}">${convPct}%</div><div class="stat-sub">${grupos['fechado'].length} fechados</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">📊 Funil de Conversão</span></div>
+        <div style="padding:12px 16px">
+          ${LEAD_STATUS.map(s => {
+            const n = grupos[s.id]?.length || 0;
+            const w = lista.length ? Math.max(4, Math.round(n/lista.length*100)) : 0;
+            return `<div style="margin-bottom:10px">
+              <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:4px">
+                <span style="color:var(--text2);font-weight:600">${s.label}</span>
+                <span style="color:${s.cor};font-family:monospace">${n}</span>
+              </div>
+              <div style="height:6px;background:var(--bg3);border-radius:3px">
+                <div style="width:${w}%;height:100%;background:${s.cor};border-radius:3px;opacity:0.8;transition:width 0.4s"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">🔗 Origem dos Leads</span></div>
+        <div style="padding:12px 16px">
+          ${topOrigens.length ? topOrigens.map(([orig, n]) => {
+            const w = Math.max(4, Math.round(n/maxOrig*100));
+            return `<div style="margin-bottom:10px">
+              <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:4px">
+                <span style="color:var(--text2);font-weight:600">${orig}</span>
+                <span style="color:var(--text3);font-family:monospace">${n} · ${lista.length?Math.round(n/lista.length*100):0}%</span>
+              </div>
+              <div style="height:6px;background:var(--bg3);border-radius:3px">
+                <div style="width:${w}%;height:100%;background:var(--gold);border-radius:3px;opacity:0.7"></div>
+              </div>
+            </div>`;
+          }).join('') : '<div style="color:var(--text3);font-size:0.8rem;padding:8px 0">Sem dados</div>'}
+        </div>
+      </div>
     </div>
     <div class="panel">
       <div class="panel-header"><span class="panel-title">Leads</span></div>
@@ -5527,6 +5611,11 @@ function exportarCSV(tipo, params) {
     a.href = url; a.download = `${tipo}.csv`; a.click();
     URL.revokeObjectURL(url);
   });
+}
+
+// PWA — Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
