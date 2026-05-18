@@ -1381,18 +1381,19 @@ document.addEventListener('keydown', e => {
 });
 
 const CMD_PAGES = [
-  { label: 'Dashboard',                icon: '📊', page: 'dashboard' },
-  { label: 'Clientes',                 icon: '👥', page: 'clientes' },
-  { label: 'Financeiro',               icon: '💰', page: 'financeiro' },
-  { label: 'Agenda',                   icon: '📅', page: 'agendamentos' },
-  { label: 'Pipeline de Leads',        icon: '🎯', page: 'leads' },
-  { label: 'Despesas do Escritório',   icon: '🧾', page: 'despesas' },
-  { label: 'Pró-labore',              icon: '💵', page: 'prolabore' },
-  { label: 'Relatório Financeiro',     icon: '📈', page: 'relatorio' },
-  { label: 'Inadimplência',            icon: '⚠️',  page: 'inadimplencia' },
-  { label: 'Google Drive',             icon: '📁', page: 'drive' },
-  { label: 'Documentos',              icon: '📄', page: 'contratos' },
-  { label: 'Configurações',           icon: '⚙️',  page: 'configuracoes' },
+  { label: 'Dashboard',            icon: '📊', page: 'dashboard' },
+  { label: 'Clientes',             icon: '👥', page: 'clientes' },
+  { label: 'Pipeline de Leads',    icon: '🎯', page: 'leads' },
+  { label: 'Agenda',               icon: '📅', page: 'agendamentos' },
+  { label: 'Financeiro',           icon: '💰', page: 'financeiro' },
+  { label: 'Inadimplência',        icon: '⚠️',  page: 'inadimplencia' },
+  { label: 'Despesas',             icon: '🧾', page: 'despesas' },
+  { label: 'Pró-labore',           icon: '💵', page: 'prolabore' },
+  { label: 'Relatório Financeiro', icon: '📈', page: 'relatorio' },
+  { label: 'Conciliação Bancária', icon: '🏦', page: 'conciliacao' },
+  { label: 'WhatsApp Auto',        icon: '💬', page: 'whatsapp' },
+  { label: 'Diário Oficial',       icon: '🗞️', page: 'dou' },
+  { label: 'Configurações',        icon: '⚙️',  page: 'configuracoes' },
 ];
 
 function cmdSearch(q) {
@@ -1856,6 +1857,7 @@ let loginRole   = 'ceo';
 let _activeTab    = 'tab-processo'; // aba ativa no modal do cliente
 let _activeTabCid = null;           // id do cliente que estava aberto
 let _cliFilter    = { busca: '', status: '', servico: '' }; // filtros da lista de clientes
+let _finTab       = 'parcelas'; // aba ativa do Financeiro
 
 // Prevent double submit
 let _saving = false;
@@ -2213,21 +2215,14 @@ function buildNav() {
       ${ni('dashboard','◻','Dashboard')}
       ${ni('clientes','👤','Clientes')}
       ${ni('leads','🎯','Pipeline de Leads')}
-      ${ni('financeiro','💳','Financeiro', venc || '')}
-      ${ni('inadimplencia','🔴','Inadimplência', inadim || '')}
       ${ni('agendamentos','📅','Agenda')}
-      <div class="nav-section">Ferramentas</div>
-      ${ni('drive','📁','Google Drive')}
-      ${ni('whatsapp','💬','WhatsApp Auto')}
-      ${ni('contratos','📄','Documentos')}
-      ${ni('curso-proficiencia','🎓','Curso de Proficiência')}
       <div class="nav-section">Financeiro</div>
+      ${ni('financeiro','💳','Financeiro', venc || '')}
       ${ni('conciliacao','🏦','Conciliação Bancária')}
-      ${ni('despesas','💸','Despesas')}
-      ${ni('prolabore','💰','Pró-labore')}
-      ${ni('relatorio','📊','Relatório')}
-      <div class="nav-section">Sistema</div>
+      <div class="nav-section">Ferramentas</div>
+      ${ni('whatsapp','💬','WhatsApp Auto')}
       ${ni('dou','🗞️','Diário Oficial')}
+      <div class="nav-section">Sistema</div>
       ${ni('configuracoes','⚙','Configurações')}`;
   }
 }
@@ -2243,28 +2238,26 @@ function renderPage(page) {
     content.innerHTML = `<div class="empty"><div class="icon">🔒</div><h3>Acesso restrito</h3><p>Esta área não está disponível.</p></div>`;
     return;
   }
+  // Páginas que agora são abas do Financeiro
+  const FIN_TABS = { despesas:'despesas', prolabore:'prolabore', relatorio:'relatorio', inadimplencia:'inadimplencia' };
+  if (FIN_TABS[page]) { _finTab = FIN_TABS[page]; page = 'financeiro'; }
+  else if (page === 'financeiro') { /* mantém _finTab atual */ }
+
   const pages = {
-    'dashboard':    renderDashboard,
-    'clientes':     renderClientes,
-    'financeiro':   renderFinanceiro,
-    'agendamentos': renderAgendamentos,
-    'drive':        renderDrive,
-    'contratos':    renderContratos,
-    'whatsapp':     renderWhatsapp,
-    'configuracoes':renderConfiguracoes,
-    'despesas':     renderDespesas,
-    'prolabore':    renderProlabore,
-    'relatorio':    renderRelatorio,
-    'meu-processo': renderMeuProcesso,
+    'dashboard':     renderDashboard,
+    'clientes':      renderClientes,
+    'financeiro':    renderFinanceiro,
+    'agendamentos':  renderAgendamentos,
+    'whatsapp':      renderWhatsapp,
+    'configuracoes': renderConfiguracoes,
+    'meu-processo':  renderMeuProcesso,
     'meu-financeiro':renderMeuFinanceiro,
-    'meus-docs':    renderMeusDocs,
-    'mensagens':    renderMensagens,
-    'meus-dados':   renderMeusDados,
-    'conciliacao':  renderConciliacao,
-    'curso-proficiencia': renderCursoProficiencia,
-    'inadimplencia': renderInadimplencia,
-    'leads':        renderLeads,
-    'dou':          renderDOU,
+    'meus-docs':     renderMeusDocs,
+    'mensagens':     renderMensagens,
+    'meus-dados':    renderMeusDados,
+    'conciliacao':   renderConciliacao,
+    'leads':         renderLeads,
+    'dou':           renderDOU,
   };
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = `<div class="empty"><div class="icon">🔧</div><h3>Em breve</h3></div>`;
@@ -2279,13 +2272,10 @@ function renderPage(page) {
     filtrarClientes();
   }
   // Pós-render: carrega dados assíncronos de cada página
-  if (page === 'dou')           carregarDOU();
-  if (page === 'conciliacao')   carregarLancamentos();
-  if (page === 'despesas')      carregarDespesas();
-  if (page === 'prolabore')     carregarProlabore();
-  if (page === 'relatorio')     carregarRelatorio();
-  if (page === 'inadimplencia') carregarInadimplencia();
-  if (page === 'leads')         carregarLeads();
+  if (page === 'dou')         carregarDOU();
+  if (page === 'conciliacao') carregarLancamentos();
+  if (page === 'leads')       carregarLeads();
+  if (page === 'financeiro')  carregarAbaFinanceiro();
 }
 
 // ══════════════════════════════════
@@ -3562,7 +3552,27 @@ function renderFinanceiro() {
   const venc  = (parcelas||[]).filter(p => !p.paga && p.vencimento && new Date(p.vencimento) < new Date()).length;
   const prox7 = (parcelas||[]).filter(p => !p.paga && p.vencimento && new Date(p.vencimento) >= new Date() && new Date(p.vencimento) <= new Date(Date.now()+7*864e5)).length;
 
-  return `
+  const TABS = [
+    { id:'parcelas',     label:'💳 Parcelas' },
+    { id:'inadimplencia',label:`🔴 Inadimplência${venc ? ` (${venc})` : ''}` },
+    { id:'despesas',     label:'💸 Despesas' },
+    { id:'prolabore',    label:'💰 Pró-labore' },
+    { id:'relatorio',    label:'📊 Relatório' },
+  ];
+
+  const tabBar = `
+    <div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0;flex-wrap:wrap">
+      ${TABS.map(t => `
+        <button onclick="setFinTab('${t.id}')"
+          style="padding:8px 16px;border:none;border-bottom:2px solid ${_finTab===t.id?'var(--gold)':'transparent'};
+                 background:none;color:${_finTab===t.id?'var(--gold)':'var(--text3)'};
+                 font-family:inherit;font-size:0.82rem;font-weight:${_finTab===t.id?'700':'500'};
+                 cursor:pointer;transition:all 0.15s;white-space:nowrap">
+          ${t.label}
+        </button>`).join('')}
+    </div>`;
+
+  const statsBar = `
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
       <div class="stat-card">
         <div class="stat-label">Recebido</div>
@@ -3581,20 +3591,50 @@ function renderFinanceiro() {
         </div>
         <div class="stat-sub">${venc ? '⚠️ requer atenção' : '✓ tudo em dia'}</div>
       </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title" id="fin-title">Todas as Parcelas (${(parcelas||[]).length})</span>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button onclick="filtrarFinanceiro('todas')" class="btn btn-ghost btn-sm">Todas</button>
-          <button onclick="filtrarFinanceiro('pendentes')" class="btn btn-outline btn-sm">Pendentes</button>
-          <button onclick="filtrarFinanceiro('vencidas')" class="btn btn-danger btn-sm" style="${venc?'':'opacity:0.5'}">Vencidas${venc ? ` (${venc})` : ''}</button>
-          <button onclick="filtrarFinanceiro('pagas')" class="btn btn-green btn-sm">Pagas</button>
-        </div>
-      </div>
-      <div id="fin-tabela">${renderParcelasTabela(parcelas||[])}</div>
     </div>`;
+
+  let corpo = '';
+  if (_finTab === 'parcelas') {
+    corpo = `
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title" id="fin-title">Todas as Parcelas (${(parcelas||[]).length})</span>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button onclick="filtrarFinanceiro('todas')" class="btn btn-ghost btn-sm">Todas</button>
+            <button onclick="filtrarFinanceiro('pendentes')" class="btn btn-outline btn-sm">Pendentes</button>
+            <button onclick="filtrarFinanceiro('vencidas')" class="btn btn-danger btn-sm" style="${venc?'':'opacity:0.5'}">Vencidas${venc ? ` (${venc})` : ''}</button>
+            <button onclick="filtrarFinanceiro('pagas')" class="btn btn-green btn-sm">Pagas</button>
+          </div>
+        </div>
+        <div id="fin-tabela">${renderParcelasTabela(parcelas||[])}</div>
+      </div>`;
+  } else if (_finTab === 'inadimplencia') {
+    corpo = renderInadimplencia();
+  } else if (_finTab === 'despesas') {
+    corpo = renderDespesas();
+  } else if (_finTab === 'prolabore') {
+    corpo = renderProlabore();
+  } else if (_finTab === 'relatorio') {
+    corpo = renderRelatorio();
+  }
+
+  return tabBar + (_finTab === 'parcelas' ? statsBar : '') + corpo;
+}
+
+function setFinTab(tab) {
+  _finTab = tab;
+  const content = document.getElementById('main-content');
+  if (content) {
+    content.innerHTML = renderFinanceiro();
+    carregarAbaFinanceiro();
+  }
+}
+
+function carregarAbaFinanceiro() {
+  if (_finTab === 'despesas')      carregarDespesas();
+  else if (_finTab === 'prolabore')     carregarProlabore();
+  else if (_finTab === 'relatorio')    carregarRelatorio();
+  else if (_finTab === 'inadimplencia') carregarInadimplencia();
 }
 
 async function marcarPago(pid, cid) {
