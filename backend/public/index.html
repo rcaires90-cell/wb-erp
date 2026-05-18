@@ -5663,7 +5663,6 @@ function exportarLeadsCSV() {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'leads.csv'; a.click();
   showToast('✅ CSV exportado!','success');
 }
-}
 
 function novoLead() {
   openModal(`
