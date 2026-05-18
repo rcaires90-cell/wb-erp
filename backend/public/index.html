@@ -678,8 +678,8 @@ function renderConfiguracoes() {
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-outline btn-sm" onclick="loadData().then(()=>{renderPage(currentPage);showToast('✅ Dados atualizados!','success')})">🔄 Sincronizar agora</button>
-              <button class="btn btn-outline btn-sm" onclick="exportarJSON()">📤 Exportar JSON</button>
-              <button class="btn btn-outline btn-sm" onclick="baixarBackupCompleto()">💾 Backup Completo</button>
+              ${currentRole !== 'colaborador' ? `<button class="btn btn-outline btn-sm" onclick="exportarJSON()">📤 Exportar JSON</button>
+              <button class="btn btn-outline btn-sm" onclick="baixarBackupCompleto()">💾 Backup Completo</button>` : ''}
             </div>
           </div>
         </div>
@@ -1872,6 +1872,7 @@ let clientes     = [];
 let agendamentos = [];
 let parcelas     = [];
 let prints       = [];
+let _leadsCache  = null;
 
 // ══════════════════════════════════
 // LOGO
@@ -2379,6 +2380,20 @@ const SERVICOS = [
   'Visto Americano de Turismo',
 ];
 
+// ── CPF Validator ────────────────────────────────
+function validarCPFjs(cpf) {
+  const c = cpf.replace(/\D/g, '');
+  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  let s = 0, r;
+  for (let i = 0; i < 9; i++) s += +c[i] * (10 - i);
+  r = (s * 10) % 11; if (r >= 10) r = 0;
+  if (r !== +c[9]) return false;
+  s = 0;
+  for (let i = 0; i < 10; i++) s += +c[i] * (11 - i);
+  r = (s * 10) % 11; if (r >= 10) r = 0;
+  return r === +c[10];
+}
+
 // ── DDI + máscaras de telefone ────────────────────
 const DIAL_CODES = [
   { flag:'🇧🇷', nome:'Brasil',           code:'+55',  fmt:'(##) #####-####',  ph:'(11) 99999-0000' },
@@ -2536,6 +2551,24 @@ function renderDashboard() {
     return { ...c, diasAnt: dias };
   }).sort((a,b) => a.diasAnt - b.diasAnt);
 
+  // Outros documentos vencendo em 60 dias
+  const docFields = [
+    { key: 'doc_passaporte_val', label: 'Passaporte', icon: '✈️' },
+    { key: 'doc_rnm_val',        label: 'RNM',        icon: '🪪' },
+    { key: 'doc_visto_val',      label: 'Visto',      icon: '🛂' },
+    { key: 'data_validade_ar',   label: 'Autor. Res.', icon: '📄' },
+  ];
+  const docsVencendo = [];
+  (clientes||[]).filter(c=>!c.arquivado).forEach(c => {
+    docFields.forEach(f => {
+      if (!c[f.key]) return;
+      const val = new Date(String(c[f.key]).slice(0,10) + 'T12:00');
+      const dias = Math.ceil((val - new Date()) / 864e5);
+      if (dias <= 60) docsVencendo.push({ c, f, dias });
+    });
+  });
+  docsVencendo.sort((a,b) => a.dias - b.dias);
+
   setTimeout(() => carregarMetasDashboard(pago, contratosmes), 50);
   setTimeout(() => carregarLeadsCardDashboard(), 80);
 
@@ -2547,7 +2580,7 @@ function renderDashboard() {
         <button class="btn btn-outline btn-sm" onclick="navigateTo('financeiro')">Ver →</button>
       </div>` : ''}
     ${antecedentesAlerta.length ? `
-      <div style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:20px">
+      <div style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
           <span style="font-size:1.2rem">🔴</span>
           <div style="font-size:0.82rem;font-weight:700;color:var(--red)">${antecedentesAlerta.length} antecedente(s) criminal(is) vencendo ou vencido(s)</div>
@@ -2557,6 +2590,22 @@ function renderDashboard() {
             <div onclick="openCliente(${c.id})" style="cursor:pointer;padding:6px 12px;background:var(--bg3);border:1px solid ${c.diasAnt < 0 ? 'rgba(239,68,68,0.4)' : 'rgba(245,158,11,0.3)'};border-radius:7px;font-size:0.78rem">
               <span style="font-weight:600;color:var(--text)">${c.nome.split(' ')[0]}</span>
               <span style="color:${c.diasAnt < 0 ? 'var(--red)' : 'var(--orange)'}"> · ${c.diasAnt < 0 ? Math.abs(c.diasAnt)+'d vencido' : c.diasAnt+'d restantes'}</span>
+            </div>`).join('')}
+        </div>
+      </div>` : ''}
+    ${docsVencendo.length ? `
+      <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:1.2rem">📋</span>
+          <div style="font-size:0.82rem;font-weight:700;color:var(--blue)">${docsVencendo.length} documento(s) vencendo em até 60 dias</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${docsVencendo.map(({c, f, dias}) => `
+            <div onclick="openCliente(${c.id})" style="cursor:pointer;padding:6px 12px;background:var(--bg3);border:1px solid ${dias < 0 ? 'rgba(239,68,68,0.4)' : dias < 15 ? 'rgba(245,158,11,0.4)' : 'rgba(59,130,246,0.3)'};border-radius:7px;font-size:0.78rem">
+              <span style="font-size:0.85rem">${f.icon}</span>
+              <span style="font-weight:600;color:var(--text)"> ${c.nome.split(' ')[0]}</span>
+              <span style="color:var(--text3)"> ${f.label}</span>
+              <span style="color:${dias < 0 ? 'var(--red)' : dias < 15 ? 'var(--orange)' : 'var(--blue)'}"> · ${dias < 0 ? Math.abs(dias)+'d vencido' : dias+'d'}</span>
             </div>`).join('')}
         </div>
       </div>` : ''}
@@ -2797,7 +2846,7 @@ function renderClientes() {
       <input type="date" id="cli-data-fim" onchange="filtrarClientes()" title="Cadastrado até"
         style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:0.82rem;outline:none;font-family:'Syne',sans-serif">
       <button class="btn btn-primary" onclick="openNovoCliente()">+ Novo Cliente</button>
-      <button class="btn btn-outline btn-sm" onclick="exportarCSV('clientes')">📥 Exportar CSV</button>
+      ${currentRole !== 'colaborador' ? `<button class="btn btn-outline btn-sm" onclick="exportarCSV('clientes')">📥 Exportar CSV</button>` : ''}
     </div>
 
     <div class="panel">
@@ -3115,6 +3164,32 @@ async function openCliente(id) {
           </span>
         </div>`).join('')}
       </div>` : ''}
+
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;margin-top:20px">Validade de Documentos</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${[
+          { field:'doc_passaporte_val', label:'✈️ Passaporte' },
+          { field:'doc_rnm_val',        label:'🪪 RNM' },
+          { field:'doc_visto_val',      label:'🛂 Visto' },
+          { field:'data_validade_ar',   label:'📄 Autorização de Residência' },
+        ].map(({field, label}) => {
+          const rawVal = c[field] ? String(c[field]).slice(0,10) : '';
+          let diasStr = '', cor = 'var(--text3)';
+          if (rawVal) {
+            const dias = Math.ceil((new Date(rawVal+'T12:00') - new Date()) / 864e5);
+            diasStr = dias < 0 ? ` · ${Math.abs(dias)}d vencido` : ` · ${dias}d`;
+            cor = dias < 0 ? 'var(--red)' : dias < 30 ? 'var(--orange)' : 'var(--green)';
+          }
+          return `<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid ${rawVal && Math.ceil((new Date(rawVal+'T12:00')-new Date())/864e5)<30?'rgba(245,158,11,0.3)':'var(--border)'}">
+            <div style="font-size:0.72rem;color:var(--text2);font-weight:600;margin-bottom:6px">${label}</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="date" value="${rawVal}" onchange="updateDocVal(${c.id},'${field}',this.value)"
+                style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:4px 8px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
+              ${rawVal?`<span style="font-size:0.7rem;font-weight:700;color:${cor}">${diasStr}</span>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>
 
     <!-- ABA: FINANCEIRO -->
@@ -3208,10 +3283,10 @@ async function openCliente(id) {
       </div>
       <div style="display:flex;gap:8px;margin-top:14px">
         <button class="btn btn-gold" onclick="salvarCliente(${c.id})">💾 Salvar Dados</button>
-        <button onclick="deletarCliente(${c.id},'${c.nome.replace(/'/g,"\'")}');"
+        ${currentRole !== 'colaborador' ? `<button onclick="deletarCliente(${c.id},'${c.nome.replace(/'/g,"\\'")}');"
           style="background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:8px 16px;cursor:pointer;font-family:inherit;font-size:0.76rem;font-weight:700">
           🗑️ Arquivar
-        </button>
+        </button>` : ''}
       </div>
     </div>
 
@@ -4347,12 +4422,15 @@ async function salvarCliente(id) {
   const nome = document.getElementById('ed-nome')?.value?.trim();
   if (!nome) { showToast('Nome é obrigatório', 'warn'); return; }
 
+  const cpfRaw = document.getElementById('ed-cpf')?.value?.trim() || '';
+  if (cpfRaw && !validarCPFjs(cpfRaw)) { showToast('⚠️ CPF inválido — verifique os dígitos', 'warning'); return; }
+
   const senhaInput = document.getElementById('ed-senha')?.value;
   const data = {
     nome,
     email:           document.getElementById('ed-email')?.value?.trim()   || null,
     tel:             obterTelCompleto('ed-tel-pfx','ed-tel-num')             || null,
-    cpf:             document.getElementById('ed-cpf')?.value?.trim()      || null,
+    cpf:             cpfRaw || null,
     rnm:             document.getElementById('ed-rnm')?.value?.trim()      || null,
     pais:            document.getElementById('ed-pais')?.value?.trim()     || null,
     endereco:        document.getElementById('ed-end')?.value?.trim()      || null,
@@ -4367,6 +4445,9 @@ async function salvarCliente(id) {
     data_nascimento: document.getElementById('ed-nascimento')?.value      || null,
   };
   if (senhaInput) data.portal_senha = senhaInput;
+
+  // Campos de validade de documentos (salvos via updateDocVal, mas coleta aqui também por segurança)
+  // não sobrescreve — já são persistidos inline via updateDocVal()
 
   try {
     await apiFetch('/clientes/' + id, { method: 'PATCH', body: JSON.stringify(data) });
@@ -4453,11 +4534,14 @@ async function salvarNovoCliente() {
   const nome = document.getElementById('nc-nome')?.value?.trim();
   if (!nome) { showToast('Nome é obrigatório', 'warn'); return; }
 
+  const cpfRaw = document.getElementById('nc-cpf')?.value?.trim() || '';
+  if (cpfRaw && !validarCPFjs(cpfRaw)) { showToast('⚠️ CPF inválido — verifique os dígitos', 'warning'); return; }
+
   const data = {
     nome,
     email:           document.getElementById('nc-email')?.value?.trim()    || null,
     tel:             obterTelCompleto('nc-tel-pfx','nc-tel-num')             || null,
-    cpf:             document.getElementById('nc-cpf')?.value?.trim()       || null,
+    cpf:             cpfRaw || null,
     rnm:             document.getElementById('nc-rnm')?.value?.trim()       || null,
     pais:            document.getElementById('nc-pais')?.value?.trim()      || null,
     endereco:        document.getElementById('nc-end')?.value?.trim()       || null,
@@ -5396,7 +5480,7 @@ function renderLeads() {
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
       <h2>Pipeline de Leads</h2>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-outline btn-sm" onclick="exportarCSV('leads')">📥 Exportar CSV</button>
+        ${currentRole !== 'colaborador' ? `<button class="btn btn-outline btn-sm" onclick="exportarCSV('leads')">📥 Exportar CSV</button>` : ''}
         <button class="btn btn-primary" onclick="novoLead()">+ Novo Lead</button>
       </div>
     </div>
@@ -5418,12 +5502,35 @@ async function carregarLeads() {
   if (!corpo) return;
   const lista = await apiFetch('/leads');
   if (!Array.isArray(lista)) return;
+  _leadsCache = lista;
+
+  renderLeadsTabela(lista);
+}
+
+function renderLeadsTabela(lista) {
+  const corpo = document.getElementById('leads-corpo');
+  if (!corpo) return;
 
   const fmt = v => v ? `R$ ${(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '—';
+
+  // Ler filtros
+  const fStatus      = document.getElementById('lf-status')?.value || '';
+  const fServico     = document.getElementById('lf-servico')?.value || '';
+  const fOrigem      = document.getElementById('lf-origem')?.value || '';
+  const fResponsavel = document.getElementById('lf-responsavel')?.value || '';
+  const fBusca       = (document.getElementById('lf-busca')?.value || '').toLowerCase().trim();
+
+  let filtrado = lista;
+  if (fStatus)      filtrado = filtrado.filter(l => l.status === fStatus);
+  if (fServico)     filtrado = filtrado.filter(l => l.servico === fServico);
+  if (fOrigem)      filtrado = filtrado.filter(l => l.origem === fOrigem);
+  if (fResponsavel) filtrado = filtrado.filter(l => l.responsavel === fResponsavel);
+  if (fBusca)       filtrado = filtrado.filter(l => (l.nome||'').toLowerCase().includes(fBusca) || (l.tel||'').includes(fBusca));
+
   const ativos = lista.filter(l=>l.status!=='fechado'&&l.status!=='perdido');
   const totalPotencial = ativos.reduce((s,l)=>s+(parseFloat(l.valor_estimado)||0),0);
 
-  // Kanban por status
+  // Kanban por status (usa lista completa para funil)
   const grupos = {};
   LEAD_STATUS.forEach(s => { grupos[s.id] = []; });
   lista.forEach(l => { if (grupos[l.status]) grupos[l.status].push(l); });
@@ -5434,6 +5541,10 @@ async function carregarLeads() {
   lista.forEach(l => { const o = l.origem||'Outros'; origens[o] = (origens[o]||0)+1; });
   const topOrigens = Object.entries(origens).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const maxOrig = topOrigens[0]?.[1] || 1;
+
+  // Opções para filtros
+  const origensOpts = [...new Set(lista.map(l=>l.origem).filter(Boolean))];
+  const respOpts    = [...new Set(lista.map(l=>l.responsavel).filter(Boolean))];
 
   corpo.innerHTML = `
     <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
@@ -5481,11 +5592,39 @@ async function carregarLeads() {
       </div>
     </div>
     <div class="panel">
-      <div class="panel-header"><span class="panel-title">Leads</span></div>
+      <div class="panel-header">
+        <span class="panel-title">Leads <span style="color:var(--text3);font-size:0.8rem">(${filtrado.length}${filtrado.length!==lista.length?' de '+lista.length:''})</span></span>
+        <button class="btn btn-outline btn-sm" onclick="exportarLeadsCSV()">📥 CSV</button>
+      </div>
+      <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
+        <input id="lf-busca" placeholder="🔍 Buscar..." value="${(document.getElementById('lf-busca')?.value||'')}"
+          oninput="renderLeadsTabela(_leadsCache||[])"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit;min-width:140px">
+        <select id="lf-status" onchange="renderLeadsTabela(_leadsCache||[])"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
+          <option value="">Todos os status</option>
+          ${LEAD_STATUS.map(s=>`<option value="${s.id}" ${fStatus===s.id?'selected':''}>${s.label}</option>`).join('')}
+        </select>
+        <select id="lf-servico" onchange="renderLeadsTabela(_leadsCache||[])"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
+          <option value="">Todos os serviços</option>
+          ${[...SERVICOS,'Outro'].map(s=>`<option value="${s}" ${fServico===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+        <select id="lf-origem" onchange="renderLeadsTabela(_leadsCache||[])"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
+          <option value="">Todas as origens</option>
+          ${origensOpts.map(o=>`<option value="${o}" ${fOrigem===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+        <select id="lf-responsavel" onchange="renderLeadsTabela(_leadsCache||[])"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
+          <option value="">Todos os responsáveis</option>
+          ${respOpts.map(r=>`<option value="${r}" ${fResponsavel===r?'selected':''}>${r}</option>`).join('')}
+        </select>
+      </div>
       <table class="tbl">
         <thead><tr><th>Nome</th><th>WhatsApp</th><th>País/Cidade</th><th>Serviço</th><th>Origem</th><th>Status</th><th>Valor Est.</th><th>Responsável</th><th></th></tr></thead>
         <tbody>
-          ${lista.map(l => {
+          ${filtrado.map(l => {
             const st = LEAD_STATUS.find(s=>s.id===l.status)||LEAD_STATUS[0];
             const telLink = l.tel ? `<a href="https://wa.me/${l.tel.replace(/\D/g,'')}" target="_blank" style="color:var(--green);font-size:0.78rem;text-decoration:none">📱 ${l.tel}</a>` : '—';
             const locStr = [l.pais, l.cidade, l.estado].filter(Boolean).join(' · ') || '—';
@@ -5499,12 +5638,12 @@ async function carregarLeads() {
                 style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:${st.cor};font-size:0.75rem;font-family:inherit;font-weight:600">
                 ${LEAD_STATUS.map(s=>`<option value="${s.id}" ${l.status===s.id?'selected':''}>${s.label}</option>`).join('')}
               </select></td>
-              <td style="font-family:'Geist Mono',monospace;font-size:0.82rem">${fmt(l.valor_estimado)}</td>
+              <td style="font-family:'DM Mono',monospace;font-size:0.82rem">${fmt(l.valor_estimado)}</td>
               <td style="font-size:0.8rem;color:var(--text2)">${l.responsavel||'—'}</td>
               <td>
                 <div style="display:flex;gap:5px">
                   ${l.status!=='fechado'?`<button onclick="converterLead(${l.id},'${(l.nome||'').replace(/'/g,"\\'")}');" class="btn btn-sm" style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);font-size:0.7rem">✓ Converter</button>`:''}
-                  <button onclick="deletarLead(${l.id})" class="btn btn-danger btn-sm">×</button>
+                  ${currentRole !== 'colaborador' ? `<button onclick="deletarLead(${l.id})" class="btn btn-danger btn-sm">×</button>` : ''}
                 </div>
               </td>
             </tr>`;
@@ -5512,6 +5651,18 @@ async function carregarLeads() {
         </tbody>
       </table>
     </div>`;
+}
+
+function exportarLeadsCSV() {
+  const lista = _leadsCache || [];
+  if (!lista.length) return showToast('Nenhum lead para exportar','warning');
+  const headers = ['Nome','Telefone','Email','País','Serviço','Origem','Status','Valor Estimado','Responsável','Observação'];
+  const rows = lista.map(l => [l.nome,l.tel,l.email,l.pais,l.servico,l.origem,l.status,l.valor_estimado,l.responsavel,l.obs].map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'leads.csv'; a.click();
+  showToast('✅ CSV exportado!','success');
+}
 }
 
 function novoLead() {
@@ -5655,6 +5806,7 @@ function abrirBuscaGlobal() {
   const inp = document.getElementById('global-search-input');
   inp.value = '';
   document.getElementById('global-search-results').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3);font-size:0.82rem">Digite para buscar clientes e leads...</div>';
+  if (_leadsCache === null) apiFetch('/leads').then(r => { if (Array.isArray(r)) _leadsCache = r; }).catch(()=>{});
   setTimeout(() => inp.focus(), 50);
 }
 
@@ -5676,9 +5828,15 @@ function buscarGlobal(q) {
     (c.email||'').toLowerCase().includes(ql) ||
     (c.cpf||'').replace(/\D/g,'').includes(ql.replace(/\D/g,'')) ||
     (c.protocolo||'').toLowerCase().includes(ql)
-  ).slice(0, 6);
+  ).slice(0, 5);
 
   const serv = { 'Naturalização Brasileira':'🇧🇷', 'Naturalização Provisória (crianças/adolescentes)':'👦', 'Autorização de Residência (CPLP / Reunião Familiar / Mercosul)':'🏠', 'Renovação de Autorização de Residência':'🔄', 'Agendamento de Autorização de Residência':'📅', 'Visto Americano de Turismo':'🇺🇸' };
+
+  const leadsMatch = (_leadsCache||[]).filter(l =>
+    (l.nome||'').toLowerCase().includes(ql) ||
+    (l.tel||'').replace(/\D/g,'').includes(ql.replace(/\D/g,'')) ||
+    (l.email||'').toLowerCase().includes(ql)
+  ).slice(0, 4);
 
   let html = '';
   if (clis.length) {
@@ -5694,10 +5852,35 @@ function buscarGlobal(q) {
       </div>`).join('');
   }
 
-  if (!clis.length) {
-    html = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:0.82rem">Nenhum cliente encontrado</div>';
+  if (leadsMatch.length) {
+    html += `<div style="padding:6px 14px;font-size:0.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;border-top:1px solid var(--border);margin-top:4px">Leads</div>`;
+    html += leadsMatch.map(l => {
+      const stColors = { novo:'var(--blue)', contato:'var(--orange)', negociando:'var(--gold)', fechado:'var(--green)', perdido:'var(--red)' };
+      return `<div onclick="fecharBuscaGlobal();navigateTo('leads')" style="display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;border-radius:8px;margin:0 6px;transition:background 0.15s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <div style="width:28px;height:28px;border-radius:50%;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--gold);flex-shrink:0">🎯</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:0.85rem;color:var(--text)">${l.nome}</div>
+          <div style="font-size:0.7rem;color:var(--text3)">${l.servico||'—'} · ${l.origem||'—'}</div>
+        </div>
+        <span style="font-size:0.68rem;font-weight:700;color:${stColors[l.status]||'var(--text3)'}">${l.status||'novo'}</span>
+      </div>`;
+    }).join('');
+  }
+
+  if (!clis.length && !leadsMatch.length) {
+    if (_leadsCache === null) {
+      // Carrega leads no background para pesquisas futuras
+      apiFetch('/leads').then(r => { if (Array.isArray(r)) _leadsCache = r; }).catch(()=>{});
+    }
+    html = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:0.82rem">Nenhum resultado encontrado</div>';
   }
   el.innerHTML = html;
+}
+
+function abrirBuscaGlobalComLeads() {
+  if (_leadsCache === null) {
+    apiFetch('/leads').then(r => { if (Array.isArray(r)) _leadsCache = r; }).catch(()=>{});
+  }
 }
 </script>
 </body>

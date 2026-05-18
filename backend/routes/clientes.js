@@ -4,6 +4,19 @@ const auth         = require('../middleware/auth');
 const bcrypt       = require('bcryptjs');
 const { sendEmail } = require('../lib/email');
 
+function validarCPF(cpf) {
+  const c = cpf.replace(/\D/g, '');
+  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  let s = 0, r;
+  for (let i = 0; i < 9; i++) s += +c[i] * (10 - i);
+  r = (s * 10) % 11; if (r >= 10) r = 0;
+  if (r !== +c[9]) return false;
+  s = 0;
+  for (let i = 0; i < 10; i++) s += +c[i] * (11 - i);
+  r = (s * 10) % 11; if (r >= 10) r = 0;
+  return r === +c[10];
+}
+
 async function notificarEtapa(cliente, novaEtapa) {
   if (!cliente.email) return;
   try {
@@ -257,6 +270,8 @@ router.patch('/:id', async (req, res) => {
       'doc_ds160', 'doc_foto_americana', 'doc_taxa_mrv',
       'doc_comprovante_renda', 'doc_extrato_bancario', 'doc_vinculo_brasil',
       'data_nascimento',
+      // Validade de documentos extras
+      'doc_passaporte_val', 'doc_rnm_val', 'doc_visto_val', 'data_validade_ar',
     ];
 
     const setClauses = [];

@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const db     = require('../db');
 const auth   = require('../middleware/auth');
+const { sendEmail } = require('../lib/email');
 
 router.use(auth);
 
@@ -80,6 +81,34 @@ router.post('/', async (req, res) => {
       ]
     );
     const [novo] = await db.query('SELECT * FROM agendamentos WHERE id = ?', [r.insertId]);
+
+    // Email de confirmação para o cliente
+    if (cliente_id) {
+      try {
+        const [cli] = await db.query('SELECT nome, email FROM clientes WHERE id = ?', [parseInt(cliente_id)]);
+        if (cli.length && cli[0].email) {
+          const dataFmt = new Date(data + 'T12:00:00').toLocaleDateString('pt-BR');
+          await sendEmail(
+            cli[0].email,
+            '📅 Agendamento confirmado — WB Assessoria',
+            `<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
+              <h2 style="color:#c9a84c">WB Assessoria Migratória</h2>
+              <p>Olá, <b>${cli[0].nome}</b>!</p>
+              <p>Seu agendamento foi confirmado:</p>
+              <table style="border-collapse:collapse;width:100%;margin:12px 0">
+                <tr><td style="padding:6px;color:#666">Data:</td><td style="padding:6px;font-weight:bold">${dataFmt}</td></tr>
+                <tr><td style="padding:6px;color:#666">Horário:</td><td style="padding:6px;font-weight:bold">${hora}</td></tr>
+                <tr><td style="padding:6px;color:#666">Tipo:</td><td style="padding:6px;font-weight:bold">${tipo || 'Reunião'}</td></tr>
+                ${obs ? `<tr><td style="padding:6px;color:#666">Obs:</td><td style="padding:6px">${obs}</td></tr>` : ''}
+              </table>
+              <p style="color:#888;font-size:13px">Em caso de dúvidas entre em contato pelo WhatsApp: (11) 91425-8886</p>
+              <a href="https://sistema.wbassessoriamigratoria.com.br" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Acessar Portal</a>
+            </div>`
+          );
+        }
+      } catch(e) { console.error('[agendamentos] email confirmação:', e.message); }
+    }
+
     res.status(201).json(novo[0]);
   } catch (e) {
     console.error('[agendamentos POST]', e);

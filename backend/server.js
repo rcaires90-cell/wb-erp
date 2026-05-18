@@ -43,6 +43,11 @@ async function runMigrations() {
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_vinculo_brasil   TINYINT(1)    DEFAULT 0",
     // Aniversariantes
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS data_nascimento      DATE          DEFAULT NULL",
+    // Validade de documentos extras
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_passaporte_val   DATE          DEFAULT NULL",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_rnm_val          DATE          DEFAULT NULL",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_visto_val        DATE          DEFAULT NULL",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS data_validade_ar     DATE          DEFAULT NULL",
     "ALTER TABLE leads ADD COLUMN IF NOT EXISTS pais          VARCHAR(100) DEFAULT NULL",
     "ALTER TABLE leads ADD COLUMN IF NOT EXISTS rnm_tipo      VARCHAR(50)  DEFAULT NULL",
     "ALTER TABLE leads ADD COLUMN IF NOT EXISTS tempo_no_pais VARCHAR(50)  DEFAULT NULL",
@@ -332,8 +337,117 @@ async function verificarAntecedenteCron() {
   }
 }
 
+async function lembreteAgendamentoCron() {
+  const { sendEmail } = require('./lib/email');
+  const amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
+  const amanhaISO = amanha.toISOString().slice(0, 10);
+  try {
+    const [ags] = await db.query(
+      `SELECT a.*, c.nome AS cli_nome, c.email AS cli_email
+       FROM agendamentos a
+       LEFT JOIN clientes c ON a.cliente_id = c.id
+       WHERE a.data = ?`, [amanhaISO]
+    );
+    for (const ag of ags) {
+      if (!ag.cli_email) continue;
+      const dtFmt = amanha.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+      await sendEmail(ag.cli_email, '📅 Lembrete de Agendamento — WB Assessoria',
+        `<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
+          <h2 style="color:#c9a84c;margin-top:0">WB Assessoria Migratória</h2>
+          <p>Olá, <b>${ag.cli_nome || ag.cliente_nome}</b>! Este é um lembrete do seu agendamento de amanhã:</p>
+          <div style="background:#fff;border-left:4px solid #c9a84c;padding:16px;border-radius:0 8px 8px 0;margin:16px 0">
+            <div style="font-size:0.9rem;color:#666">Data</div>
+            <div style="font-weight:700;font-size:1.1rem;color:#333">${dtFmt}</div>
+            <div style="font-size:0.9rem;color:#666;margin-top:8px">Horário</div>
+            <div style="font-weight:700;font-size:1.1rem;color:#333">${ag.hora}</div>
+            ${ag.tipo ? `<div style="font-size:0.9rem;color:#666;margin-top:8px">Tipo</div><div style="font-weight:600;color:#333">${ag.tipo}</div>` : ''}
+          </div>
+          <p style="color:#555;font-size:0.9rem">Dúvidas? Fale conosco: <a href="https://wa.me/5511914258886" style="color:#c9a84c">(11) 91425-8886</a></p>
+        </div>`
+      ).catch(e => console.error('[email] lembrete agendamento:', e.message));
+    }
+    if (ags.length) console.log(`[cron/lembretes] ${ags.length} lembrete(s) enviado(s) para ${amanhaISO}`);
+  } catch (e) { console.error('[cron/lembretes]', e.message); }
+}
+
+async function verificarDocumentosVencendoCron() {
+  const { sendEmail } = require('./lib/email');
+  const EQUIPE = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
+  try {
+    const [rows] = await db.query(`
+      SELECT nome, email,
+        doc_passaporte_val, doc_rnm_val, doc_visto_val, data_validade_ar
+      FROM clientes WHERE arquivado = 0
+        AND (
+          (doc_passaporte_val IS NOT NULL AND doc_passaporte_val <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)) OR
+          (doc_rnm_val        IS NOT NULL AND doc_rnm_val        <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)) OR
+          (doc_visto_val      IS NOT NULL AND doc_visto_val      <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)) OR
+          (data_validade_ar   IS NOT NULL AND data_validade_ar   <= DATE_ADD(CURDATE(), INTERVAL 60 DAY))
+        ) ORDER BY nome ASC`);
+    if (!rows.length) return;
+    const hoje = new Date();
+    const fmtDias = (val) => {
+      if (!val) return null;
+      const d = Math.ceil((new Date(String(val).slice(0,10)+'T12:00') - hoje) / 864e5);
+      return d < 0 ? `<span style="color:#e53e3e">VENCIDO (${Math.abs(d)}d)</span>` : `<span style="color:#d97706">${d}d restantes</span>`;
+    };
+    const linhas = rows.map(c => `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:8px 12px;font-weight:700">${c.nome}</td>
+      <td style="padding:8px 12px">${c.doc_passaporte_val ? fmtDias(c.doc_passaporte_val) : '—'}</td>
+      <td style="padding:8px 12px">${c.doc_rnm_val ? fmtDias(c.doc_rnm_val) : '—'}</td>
+      <td style="padding:8px 12px">${c.data_validade_ar ? fmtDias(c.data_validade_ar) : '—'}</td>
+      <td style="padding:8px 12px">${c.doc_visto_val ? fmtDias(c.doc_visto_val) : '—'}</td>
+    </tr>`).join('');
+    await sendEmail(EQUIPE, `⚠️ Documentos a vencer — ${rows.length} cliente(s)`,
+      `<div style="font-family:Arial;max-width:700px;padding:24px;background:#f9f9f9;border-radius:8px">
+        <h2 style="color:#c9a84c">WB Assessoria — Documentos a Vencer</h2>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #ddd;border-radius:6px">
+          <thead><tr style="background:#c9a84c;color:#fff">
+            <th style="padding:10px 12px;text-align:left">Cliente</th>
+            <th style="padding:10px 12px">Passaporte</th>
+            <th style="padding:10px 12px">RNM</th>
+            <th style="padding:10px 12px">Aut. Residência</th>
+            <th style="padding:10px 12px">Visto EUA</th>
+          </tr></thead><tbody>${linhas}</tbody>
+        </table>
+      </div>`);
+    console.log(`[cron/documentos] Email enviado — ${rows.length} cliente(s) com documentos vencendo`);
+  } catch (e) { console.error('[cron/documentos]', e.message); }
+}
+
+async function backupSemanalCron() {
+  const { sendEmail } = require('./lib/email');
+  const EQUIPE = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
+  try {
+    const tabelas = ['clientes','parcelas','agendamentos','leads','notas_clientes'];
+    const backup = { gerado_em: new Date().toISOString(), tabelas: {} };
+    for (const t of tabelas) {
+      const [rows] = await db.query(`SELECT * FROM \`${t}\``);
+      backup.tabelas[t] = rows;
+    }
+    const json = JSON.stringify(backup);
+    const data = new Date().toISOString().slice(0,10);
+    await sendEmail(EQUIPE, `💾 Backup Semanal WB ERP — ${data}`,
+      `<div style="font-family:Arial;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
+        <h2 style="color:#c9a84c">Backup Semanal — WB ERP</h2>
+        <p>Backup gerado em <b>${new Date().toLocaleString('pt-BR')}</b>.</p>
+        <ul>${tabelas.map(t=>`<li><b>${t}</b>: ${backup.tabelas[t].length} registros</li>`).join('')}</ul>
+        <p style="color:#888;font-size:0.85rem">Para backup completo, acesse o sistema: Exportar → backup.json</p>
+      </div>`,
+      [{ filename: `wb-backup-${data}.json`, content: json, contentType: 'application/json' }]
+    ).catch(() => {
+      // sendEmail pode não suportar attachments — envia sem anexo
+      sendEmail(EQUIPE, `💾 Backup Semanal WB ERP — ${data}`,
+        `<p>Backup gerado: ${tabelas.map(t=>`${t}: ${backup.tabelas[t].length} registros`).join(', ')}. Acesse o sistema para baixar o backup completo.</p>`);
+    });
+    console.log(`[cron/backup] Backup semanal enviado para ${EQUIPE}`);
+  } catch (e) { console.error('[cron/backup]', e.message); }
+}
+
 async function cronDiario() {
   await verificarAntecedenteCron();
+  await verificarDocumentosVencendoCron();
+  await lembreteAgendamentoCron();
 
   // Verificação do DOU: chama o endpoint interno
   try {
@@ -462,10 +576,17 @@ app.listen(PORT, async () => {
   console.log(`🌐 CORS     : all origins\n`);
   await runMigrations();
 
-  // Cron: todo dia às 8h de Brasília (11h UTC)
+  // Cron diário às 8h de Brasília (11h UTC)
   cron.schedule('0 11 * * *', () => {
     console.log('\n⏰ [cron] Rodando rotina diária — DOU + Antecedentes...');
     cronDiario().catch(e => console.error('[cron] Erro geral:', e.message));
   }, { timezone: 'America/Sao_Paulo' });
   console.log('⏰ Cron diário agendado — 08:00 Brasília (11:00 UTC)');
+
+  // Cron semanal domingo às 9h de Brasília (12h UTC) — backup
+  cron.schedule('0 12 * * 0', () => {
+    console.log('\n💾 [cron] Backup semanal...');
+    backupSemanalCron().catch(e => console.error('[cron/backup]', e.message));
+  }, { timezone: 'America/Sao_Paulo' });
+  console.log('💾 Cron de backup agendado — domingo 09:00 Brasília');
 });
