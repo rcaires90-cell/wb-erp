@@ -2384,6 +2384,102 @@ const SERVICOS = [
   'Visto Americano de Turismo',
 ];
 
+// ── DDI + máscaras de telefone ────────────────────
+const DIAL_CODES = [
+  { flag:'🇧🇷', nome:'Brasil',           code:'+55',  fmt:'(##) #####-####',  ph:'(11) 99999-0000' },
+  { flag:'🇵🇹', nome:'Portugal',          code:'+351', fmt:'### ### ###',       ph:'912 345 678' },
+  { flag:'🇮🇹', nome:'Itália',            code:'+39',  fmt:'### ### ####',      ph:'333 123 4567' },
+  { flag:'🇩🇪', nome:'Alemanha',          code:'+49',  fmt:'#### #######',      ph:'0151 1234567' },
+  { flag:'🇪🇸', nome:'Espanha',           code:'+34',  fmt:'### ### ###',       ph:'612 345 678' },
+  { flag:'🇫🇷', nome:'França',            code:'+33',  fmt:'# ## ## ## ##',     ph:'6 12 34 56 78' },
+  { flag:'🇬🇧', nome:'Reino Unido',       code:'+44',  fmt:'##### ######',      ph:'07911 123456' },
+  { flag:'🇺🇸', nome:'Estados Unidos',    code:'+1',   fmt:'(###) ###-####',    ph:'(555) 123-4567' },
+  { flag:'🇨🇦', nome:'Canadá',            code:'+1',   fmt:'(###) ###-####',    ph:'(555) 123-4567' },
+  { flag:'🇦🇷', nome:'Argentina',         code:'+54',  fmt:'## ####-####',      ph:'11 2345-6789' },
+  { flag:'🇧🇴', nome:'Bolívia',           code:'+591', fmt:'########',          ph:'71234567' },
+  { flag:'🇨🇱', nome:'Chile',             code:'+56',  fmt:'# ####-####',       ph:'9 1234-5678' },
+  { flag:'🇨🇴', nome:'Colômbia',          code:'+57',  fmt:'### ### ####',      ph:'300 123 4567' },
+  { flag:'🇻🇪', nome:'Venezuela',         code:'+58',  fmt:'###-###-####',      ph:'412-123-4567' },
+  { flag:'🇵🇾', nome:'Paraguai',          code:'+595', fmt:'### ### ###',       ph:'981 234 567' },
+  { flag:'🇺🇾', nome:'Uruguai',           code:'+598', fmt:'# ###-####',        ph:'9 123-4567' },
+  { flag:'🇵🇪', nome:'Peru',              code:'+51',  fmt:'### ### ###',       ph:'912 345 678' },
+  { flag:'🇲🇽', nome:'México',            code:'+52',  fmt:'## #### ####',      ph:'55 1234 5678' },
+  { flag:'🇦🇴', nome:'Angola',            code:'+244', fmt:'### ### ###',       ph:'923 456 789' },
+  { flag:'🇲🇿', nome:'Moçambique',        code:'+258', fmt:'## ### ####',       ph:'82 123 4567' },
+  { flag:'🇨🇻', nome:'Cabo Verde',        code:'+238', fmt:'### ## ##',         ph:'991 12 34' },
+  { flag:'🇬🇼', nome:'Guiné-Bissau',      code:'+245', fmt:'## ### ####',       ph:'96 123 4567' },
+  { flag:'🇸🇹', nome:'São Tomé',          code:'+239', fmt:'## #####',          ph:'99 12345' },
+  { flag:'🇹🇱', nome:'Timor-Leste',       code:'+670', fmt:'#### ####',         ph:'7712 3456' },
+  { flag:'🇨🇳', nome:'China',             code:'+86',  fmt:'### #### ####',     ph:'138 1234 5678' },
+  { flag:'🇯🇵', nome:'Japão',             code:'+81',  fmt:'## #### ####',      ph:'90 1234 5678' },
+  { flag:'🇰🇷', nome:'Coreia do Sul',     code:'+82',  fmt:'##-####-####',      ph:'10-1234-5678' },
+  { flag:'🇮🇳', nome:'Índia',             code:'+91',  fmt:'#####-#####',       ph:'98765-43210' },
+  { flag:'🇳🇱', nome:'Holanda',           code:'+31',  fmt:'# ## ## ## ##',     ph:'6 12 34 56 78' },
+  { flag:'🇧🇪', nome:'Bélgica',           code:'+32',  fmt:'### ## ## ##',      ph:'470 12 34 56' },
+  { flag:'🇨🇭', nome:'Suíça',             code:'+41',  fmt:'## ### ## ##',      ph:'79 123 45 67' },
+  { flag:'🇦🇹', nome:'Áustria',           code:'+43',  fmt:'### #######',       ph:'664 1234567' },
+];
+
+function parseTelExistente(tel) {
+  if (!tel) return { idx: 0, num: '' };
+  const digits = tel.replace(/\D/g, '');
+  // Testa do código mais longo para o mais curto para evitar ambiguidade
+  const sorted = DIAL_CODES.map((d,i) => ({ i, len: d.code.length })).sort((a,b)=>b.len-a.len);
+  for (const { i } of sorted) {
+    const code = DIAL_CODES[i].code.replace('+','');
+    if (digits.startsWith(code) && digits.length > code.length) {
+      return { idx: i, num: formatar(digits.slice(code.length), DIAL_CODES[i].fmt) };
+    }
+  }
+  return { idx: 0, num: tel }; // fallback: Brasil, número como veio
+}
+
+function formatar(digits, fmt) {
+  let r = '', d = 0;
+  for (let i = 0; i < fmt.length && d < digits.length; i++) {
+    r += fmt[i] === '#' ? digits[d++] : fmt[i];
+  }
+  return r;
+}
+
+function aplicarMascaraTel(el, fmt) {
+  const cur  = el.selectionStart;
+  const prev = el.value.length;
+  const dig  = el.value.replace(/\D/g, '');
+  el.value   = formatar(dig, fmt);
+  // mantém cursor aproximado
+  const diff = el.value.length - prev;
+  el.selectionStart = el.selectionEnd = Math.max(0, cur + diff);
+}
+
+function atualizarPlaceholderTel(pfxId, numId) {
+  const dc  = DIAL_CODES[parseInt(document.getElementById(pfxId)?.value || 0)];
+  const inp = document.getElementById(numId);
+  if (dc && inp) {
+    inp.placeholder = dc.ph;
+    if (inp.value) aplicarMascaraTel(inp, dc.fmt);
+  }
+}
+
+function obterTelCompleto(pfxId, numId) {
+  const idx = parseInt(document.getElementById(pfxId)?.value ?? 0);
+  const num = (document.getElementById(numId)?.value || '').replace(/\D/g, '');
+  return num ? DIAL_CODES[idx].code + num : '';
+}
+
+function htmlCampoTel(pfxId, numId, valorAtual) {
+  const { idx, num } = parseTelExistente(valorAtual);
+  const selectStyle = 'background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 8px;color:var(--text);font-size:0.82rem;outline:none;font-family:inherit;min-width:0;max-width:130px';
+  const inputStyle  = 'flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:0.82rem;outline:none;font-family:inherit';
+  return `<div style="display:flex;gap:6px;align-items:center">
+    <select id="${pfxId}" style="${selectStyle}" onchange="atualizarPlaceholderTel('${pfxId}','${numId}')">
+      ${DIAL_CODES.map((d,i)=>`<option value="${i}"${i===idx?' selected':''}>${d.flag} ${d.code}</option>`).join('')}
+    </select>
+    <input id="${numId}" type="tel" value="${num}" placeholder="${DIAL_CODES[idx].ph}" style="${inputStyle}"
+      oninput="aplicarMascaraTel(this, DIAL_CODES[parseInt(document.getElementById('${pfxId}').value)].fmt)">
+  </div>`;
+}
+
 const PROFICIENCIA_OPTS = [
   { id:'pendente',        label:'⏳ Pendente',                  cor:'var(--orange)' },
   { id:'paga_parte',      label:'💳 Paga à parte',              cor:'var(--blue)' },
@@ -3047,7 +3143,7 @@ async function openCliente(id) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
         <div class="form-group form-full"><label>Nome Completo</label><input id="ed-nome" value="${c.nome}"></div>
         <div class="form-group"><label>E-mail</label><input id="ed-email" value="${c.email||''}"></div>
-        <div class="form-group"><label>Telefone (com DDI)</label><input id="ed-tel" value="${c.tel||''}" placeholder="55 11 99999-0000"></div>
+        <div class="form-group"><label>Telefone / WhatsApp</label>${htmlCampoTel('ed-tel-pfx','ed-tel-num',c.tel||'')}</div>
         <div class="form-group"><label>CPF</label><input id="ed-cpf" value="${c.cpf||''}"></div>
         <div class="form-group"><label>RNM</label><input id="ed-rnm" value="${c.rnm||''}"></div>
         <div class="form-group"><label>País de Origem</label><input id="ed-pais" value="${c.pais||''}"></div>
@@ -4176,7 +4272,7 @@ async function salvarCliente(id) {
   const data = {
     nome,
     email:           document.getElementById('ed-email')?.value?.trim()   || null,
-    tel:             document.getElementById('ed-tel')?.value?.trim()      || null,
+    tel:             obterTelCompleto('ed-tel-pfx','ed-tel-num')             || null,
     cpf:             document.getElementById('ed-cpf')?.value?.trim()      || null,
     rnm:             document.getElementById('ed-rnm')?.value?.trim()      || null,
     pais:            document.getElementById('ed-pais')?.value?.trim()     || null,
@@ -4225,7 +4321,7 @@ function openNovoCliente() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
         <div class="form-group form-full"><label>Nome Completo *</label><input id="nc-nome" placeholder="Nome completo do cliente"></div>
         <div class="form-group"><label>E-mail</label><input id="nc-email" type="email" placeholder="email@exemplo.com"></div>
-        <div class="form-group"><label>Telefone (com DDI)</label><input id="nc-tel" placeholder="55 11 99999-0000"></div>
+        <div class="form-group"><label>Telefone / WhatsApp</label>${htmlCampoTel('nc-tel-pfx','nc-tel-num','')}</div>
         <div class="form-group"><label>CPF</label><input id="nc-cpf" placeholder="000.000.000-00"></div>
         <div class="form-group"><label>RNM</label><input id="nc-rnm" placeholder="Número RNM"></div>
         <div class="form-group"><label>País de Origem</label><input id="nc-pais" placeholder="Ex: Haiti, Venezuela..."></div>
@@ -4281,7 +4377,7 @@ async function salvarNovoCliente() {
   const data = {
     nome,
     email:           document.getElementById('nc-email')?.value?.trim()    || null,
-    tel:             document.getElementById('nc-tel')?.value?.trim()       || null,
+    tel:             obterTelCompleto('nc-tel-pfx','nc-tel-num')             || null,
     cpf:             document.getElementById('nc-cpf')?.value?.trim()       || null,
     rnm:             document.getElementById('nc-rnm')?.value?.trim()       || null,
     pais:            document.getElementById('nc-pais')?.value?.trim()      || null,
@@ -5300,7 +5396,7 @@ function novoLead() {
     <div class="modal-body">
       <div class="form-grid" style="gap:11px">
         <div class="form-group form-full"><label>Nome *</label><input id="ld-nome" placeholder="Nome completo"></div>
-        <div class="form-group"><label>Telefone</label><input id="ld-tel" placeholder="55 11 99999-0000"></div>
+        <div class="form-group"><label>Telefone / WhatsApp</label>${htmlCampoTel('ld-tel-pfx','ld-tel-num','')}</div>
         <div class="form-group"><label>E-mail</label><input id="ld-email" type="email"></div>
         <div class="form-group"><label>País de Origem</label><input id="ld-pais"></div>
         <div class="form-group"><label>Serviço de Interesse</label>
@@ -5333,7 +5429,7 @@ async function salvarLead() {
   if (!nome) return showToast('⚠️ Nome obrigatório','warning');
   await apiFetch('/leads', { method:'POST', body: JSON.stringify({
     nome,
-    tel:            document.getElementById('ld-tel')?.value?.trim(),
+    tel:            obterTelCompleto('ld-tel-pfx','ld-tel-num'),
     email:          document.getElementById('ld-email')?.value?.trim(),
     pais:           document.getElementById('ld-pais')?.value?.trim(),
     servico:        document.getElementById('ld-servico')?.value,
