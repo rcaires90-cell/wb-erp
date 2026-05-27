@@ -2434,6 +2434,10 @@ function mascaraCPF(el) {
   }
 }
 
+// ── HTML escaping helper (prevents attribute-breaking from client data) ──
+const htmlEsc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
 // ── CEP + Endereço estruturado ────────────────────
 function mascaraCEP(el) {
   let v = el.value.replace(/\D/g,'').slice(0,8);
@@ -2507,50 +2511,6 @@ function capitalizarNome(el) {
     .toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
 }
 
-function htmlEnderecoBlock(pfx, endereco) {
-  const cepSt = `id="${pfx}-cep-status" style="font-size:0.7rem;margin-left:6px"`;
-  const inpSt = 'background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:0.82rem;width:100%;box-sizing:border-box;outline:none';
-  return `
-    <div class="form-group" style="display:flex;flex-direction:column;gap:4px">
-      <label style="display:flex;align-items:center;gap:0">CEP <span ${cepSt}></span></label>
-      <div style="display:flex;gap:6px">
-        <input id="${pfx}-cep" placeholder="00000-000" maxlength="9"
-          oninput="mascaraCEP(this)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();buscarCEP('${pfx}')}"
-          style="${inpSt};width:140px;flex-shrink:0">
-        <button type="button" onclick="buscarCEP('${pfx}')"
-          style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text3);cursor:pointer;font-size:0.78rem;font-family:inherit;white-space:nowrap;transition:border-color 0.15s"
-          onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">🔍 Buscar</button>
-      </div>
-    </div>
-    <div class="form-group form-full">
-      <label>Logradouro</label>
-      <input id="${pfx}-logradouro" placeholder="Rua, Avenida, Alameda..." value="${(endereco||'').replace(/"/g,'&quot;')}"
-        style="${inpSt}">
-    </div>
-    <div class="form-group">
-      <label>Número</label>
-      <input id="${pfx}-numero" placeholder="123" style="${inpSt}">
-    </div>
-    <div class="form-group">
-      <label>Complemento</label>
-      <input id="${pfx}-complemento" placeholder="Apto 42, Bloco B..." style="${inpSt}">
-    </div>
-    <div class="form-group">
-      <label>Bairro</label>
-      <input id="${pfx}-bairro" placeholder="Bairro" style="${inpSt}">
-    </div>
-    <div class="form-group">
-      <label>Cidade</label>
-      <input id="${pfx}-cidade" placeholder="São Paulo" style="${inpSt}">
-    </div>
-    <div class="form-group">
-      <label>UF</label>
-      <input id="${pfx}-uf" placeholder="SP" maxlength="2"
-        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'')"
-        style="${inpSt}">
-    </div>`;
-}
 
 // ── Badges da sidebar ─────────────────────────────
 function atualizarBadgesSidebar() {
@@ -3493,14 +3453,26 @@ async function openCliente(id) {
       <div id="ocr-resultado-${c.id}" style="margin-bottom:14px"></div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
-        <div class="form-group form-full"><label>Nome Completo</label><input id="ed-nome" value="${c.nome}" onblur="capitalizarNome(this)"></div>
-        <div class="form-group"><label>E-mail</label><input id="ed-email" type="email" value="${c.email||''}" onblur="this.value=this.value.toLowerCase().trim()"></div>
+        <div class="form-group form-full"><label>Nome Completo</label><input id="ed-nome" value="${htmlEsc(c.nome)}" onblur="capitalizarNome(this)"></div>
+        <div class="form-group"><label>E-mail</label><input id="ed-email" type="email" value="${htmlEsc(c.email)}" onblur="this.value=this.value.toLowerCase().trim()"></div>
         <div class="form-group"><label>Telefone / WhatsApp</label>${htmlCampoTel('ed-tel-pfx','ed-tel-num',c.tel||'')}</div>
-        <div class="form-group"><label>CPF</label><input id="ed-cpf" value="${c.cpf||''}" oninput="mascaraCPF(this)" placeholder="000.000.000-00"></div>
-        <div class="form-group"><label>RNM</label><input id="ed-rnm" value="${c.rnm||''}" oninput="mascaraRNM(this)" placeholder="Ex: G123456-7"></div>
-        <div class="form-group"><label>País de Origem</label><input id="ed-pais" value="${c.pais||''}" placeholder="Ex: Haiti, Venezuela, Angola..."></div>
+        <div class="form-group"><label>CPF</label><input id="ed-cpf" value="${htmlEsc(c.cpf)}" oninput="mascaraCPF(this)" placeholder="000.000.000-00"></div>
+        <div class="form-group"><label>RNM</label><input id="ed-rnm" value="${htmlEsc(c.rnm)}" oninput="mascaraRNM(this)" placeholder="Ex: G123456-7"></div>
+        <div class="form-group"><label>País de Origem</label><input id="ed-pais" value="${htmlEsc(c.pais)}" placeholder="Ex: Haiti, Venezuela, Angola..."></div>
         <div class="form-group"><label>Data de Nascimento</label><input id="ed-nascimento" type="date" value="${c.data_nascimento ? String(c.data_nascimento).slice(0,10) : ''}"></div>
-        ${htmlEnderecoBlock('ed', c.endereco||'')}
+        <div class="form-group" style="display:flex;flex-direction:column;gap:5px">
+          <label style="display:flex;align-items:center;gap:6px">CEP <span id="ed-cep-status" style="font-size:0.7rem;font-weight:400;text-transform:none;letter-spacing:0"></span></label>
+          <div style="display:flex;gap:6px">
+            <input id="ed-cep" placeholder="00000-000" maxlength="9" oninput="mascaraCEP(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();buscarCEP('ed')}">
+            <button type="button" onclick="buscarCEP('ed')" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text3);cursor:pointer;font-size:0.78rem;font-family:inherit;white-space:nowrap;flex-shrink:0" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">🔍 Buscar</button>
+          </div>
+        </div>
+        <div class="form-group form-full"><label>Logradouro</label><input id="ed-logradouro" placeholder="Rua, Avenida, Alameda..." value="${htmlEsc(c.endereco)}"></div>
+        <div class="form-group"><label>Número</label><input id="ed-numero" placeholder="123"></div>
+        <div class="form-group"><label>Complemento</label><input id="ed-complemento" placeholder="Apto 42, Bloco B..."></div>
+        <div class="form-group"><label>Bairro</label><input id="ed-bairro" placeholder="Bairro"></div>
+        <div class="form-group"><label>Cidade</label><input id="ed-cidade" placeholder="São Paulo"></div>
+        <div class="form-group"><label>UF</label><input id="ed-uf" placeholder="SP" maxlength="2" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'')"></div>
         <div class="form-group"><label>Serviço</label>
           <select id="ed-servico">
             ${SERVICOS.map(s=>`<option ${(c.servico||'Naturalização Brasileira')===s?'selected':''}>${s}</option>`).join('')}
@@ -3524,10 +3496,10 @@ async function openCliente(id) {
           </select>
         </div>
         <div class="form-group"><label>Valor Total do Contrato (R$)</label><input id="ed-valor" type="number" step="0.01" value="${c.valor||0}"></div>
-        <div class="form-group"><label>Data de Cadastro</label><input id="ed-datacad" value="${c.data_cadastro||''}" placeholder="DD/MM/AAAA" oninput="mascaraDataBR(this)" maxlength="10"></div>
-        <div class="form-group"><label>Login Portal do Cliente</label><input id="ed-login" value="${c.portal_login||''}"></div>
+        <div class="form-group"><label>Data de Cadastro</label><input id="ed-datacad" value="${htmlEsc(c.data_cadastro)}" placeholder="DD/MM/AAAA" oninput="mascaraDataBR(this)" maxlength="10"></div>
+        <div class="form-group"><label>Login Portal do Cliente</label><input id="ed-login" value="${htmlEsc(c.portal_login)}"></div>
         <div class="form-group"><label>Nova Senha Portal</label><input id="ed-senha" type="password" placeholder="deixe vazio para manter"></div>
-        <div class="form-group form-full"><label>Link Google Drive (pasta do cliente)</label><input id="ed-drive" value="${c.drive_folder_url||''}" placeholder="https://drive.google.com/drive/folders/..."></div>
+        <div class="form-group form-full"><label>Link Google Drive (pasta do cliente)</label><input id="ed-drive" value="${htmlEsc(c.drive_folder_url)}" placeholder="https://drive.google.com/drive/folders/..."></div>
       </div>
       <div style="display:flex;gap:8px;margin-top:14px">
         <button class="btn btn-gold" onclick="salvarCliente(${c.id})">💾 Salvar Dados</button>
@@ -5073,7 +5045,19 @@ function openNovoCliente() {
         <div class="form-group"><label>CPF</label><input id="nc-cpf" placeholder="000.000.000-00" oninput="mascaraCPF(this)"></div>
         <div class="form-group"><label>RNM</label><input id="nc-rnm" placeholder="Ex: G123456-7" oninput="mascaraRNM(this)"></div>
         <div class="form-group"><label>País de Origem</label><input id="nc-pais" placeholder="Ex: Haiti, Venezuela, Angola..."></div>
-        ${htmlEnderecoBlock('nc','')}
+        <div class="form-group" style="display:flex;flex-direction:column;gap:5px">
+          <label style="display:flex;align-items:center;gap:6px">CEP <span id="nc-cep-status" style="font-size:0.7rem;font-weight:400;text-transform:none;letter-spacing:0"></span></label>
+          <div style="display:flex;gap:6px">
+            <input id="nc-cep" placeholder="00000-000" maxlength="9" oninput="mascaraCEP(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();buscarCEP('nc')}">
+            <button type="button" onclick="buscarCEP('nc')" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text3);cursor:pointer;font-size:0.78rem;font-family:inherit;white-space:nowrap;flex-shrink:0" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">🔍 Buscar</button>
+          </div>
+        </div>
+        <div class="form-group form-full"><label>Logradouro</label><input id="nc-logradouro" placeholder="Rua, Avenida, Alameda..."></div>
+        <div class="form-group"><label>Número</label><input id="nc-numero" placeholder="123"></div>
+        <div class="form-group"><label>Complemento</label><input id="nc-complemento" placeholder="Apto 42, Bloco B..."></div>
+        <div class="form-group"><label>Bairro</label><input id="nc-bairro" placeholder="Bairro"></div>
+        <div class="form-group"><label>Cidade</label><input id="nc-cidade" placeholder="São Paulo"></div>
+        <div class="form-group"><label>UF</label><input id="nc-uf" placeholder="SP" maxlength="2" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'')"></div>
         <div class="form-group"><label>Serviço</label>
           <select id="nc-servico">
             ${SERVICOS.map(s=>`<option>${s}</option>`).join('')}
