@@ -3359,6 +3359,21 @@ async function openCliente(id) {
 
     <!-- ABA: DADOS -->
     <div id="tab-dados" class="modal-tab-pane" style="display:none;padding:18px 22px">
+
+      <!-- OCR Banner -->
+      <div style="background:linear-gradient(135deg,rgba(201,168,76,0.12),rgba(201,168,76,0.04));border:1px solid rgba(201,168,76,0.3);border-radius:12px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:14px">
+        <div style="font-size:1.8rem">🪄</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:0.88rem;color:var(--gold)">Leitura automática de documento</div>
+          <div style="font-size:0.75rem;color:var(--text3);margin-top:2px">Tire uma foto do passaporte ou RNM — a IA preenche os campos automaticamente</div>
+        </div>
+        <label for="ocr-input-${c.id}" style="cursor:pointer">
+          <div class="btn btn-gold" style="white-space:nowrap;pointer-events:none">📷 Ler Documento</div>
+        </label>
+        <input type="file" id="ocr-input-${c.id}" accept="image/*" capture="environment" style="display:none" onchange="processarOCR(${c.id},this)">
+      </div>
+      <div id="ocr-resultado-${c.id}" style="margin-bottom:14px"></div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
         <div class="form-group form-full"><label>Nome Completo</label><input id="ed-nome" value="${c.nome}"></div>
         <div class="form-group"><label>E-mail</label><input id="ed-email" value="${c.email||''}"></div>
@@ -3689,6 +3704,117 @@ async function deletarComunicacao(comId, clienteId) {
     await apiFetch(`/comunicacoes/${comId}`, { method:'DELETE' });
     await carregarComunicacoes(clienteId);
   } catch(e) { showToast('Erro ao excluir','error'); }
+}
+
+// ── OCR INTELIGENTE DE DOCUMENTOS ────────────────────────────────────────────
+async function processarOCR(clienteId, input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  const box = document.getElementById(`ocr-resultado-${clienteId}`);
+  if (!box) return;
+
+  // Preview da imagem + estado carregando
+  const previewUrl = URL.createObjectURL(file);
+  box.innerHTML = `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;gap:14px;align-items:flex-start">
+      <img src="${previewUrl}" style="width:90px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex-shrink:0">
+      <div style="flex:1">
+        <div style="font-size:0.82rem;color:var(--gold);font-weight:700;margin-bottom:4px">🤖 Analisando documento...</div>
+        <div style="font-size:0.75rem;color:var(--text3)">A IA está lendo as informações do documento. Aguarde...</div>
+        <div style="margin-top:8px;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden">
+          <div style="height:100%;background:var(--gold);border-radius:2px;animation:ocr-progress 2s ease-in-out infinite"></div>
+        </div>
+      </div>
+    </div>`;
+
+  // Anima barra de progresso via CSS
+  if (!document.getElementById('ocr-style')) {
+    const st = document.createElement('style');
+    st.id = 'ocr-style';
+    st.textContent = '@keyframes ocr-progress{0%{width:0%}50%{width:80%}100%{width:95%}}';
+    document.head.appendChild(st);
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('imagem', file);
+    const resp = await fetch(API_BASE + '/ocr-documento', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('wb_token') || '') },
+      body: formData,
+    });
+    const json = await resp.json();
+    if (!resp.ok || !json.ok) throw new Error(json.erro || 'Falha na leitura');
+
+    const d = json.dados;
+    const TIPOS = { passaporte:'✈️ Passaporte', rnm:'🪪 RNM / CRNM', visto:'🛂 Visto', identidade:'🪪 Identidade', outro:'📄 Documento' };
+    const tipoLabel = TIPOS[d.tipo_doc] || '📄 Documento';
+    const fmtDt = iso => {
+      if (!iso) return null;
+      const [y,m,dd] = iso.split('-');
+      return `${dd}/${m}/${y}`;
+    };
+    const campos = [
+      d.nome           && { label:'Nome',              val: d.nome,              campo: 'nome' },
+      d.numero_doc     && { label:'Nº Documento',      val: d.numero_doc,        campo: d.tipo_doc==='rnm'?'rnm':null },
+      d.nacionalidade  && { label:'Nacionalidade',     val: d.nacionalidade,     campo: 'pais' },
+      d.data_nascimento&& { label:'Nascimento',        val: fmtDt(d.data_nascimento), campo: 'nasc', rawDate: d.data_nascimento },
+      d.data_validade  && { label:'Validade',          val: fmtDt(d.data_validade),   campo: d.tipo_doc==='rnm'?'val_rnm':'val_pass', rawDate: d.data_validade },
+      d.genero         && { label:'Gênero',            val: d.genero==='M'?'Masculino':'Feminino', campo: null },
+    ].filter(Boolean);
+
+    box.innerHTML = `
+      <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25);border-radius:10px;padding:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <img src="${previewUrl}" style="width:60px;height:48px;object-fit:cover;border-radius:5px;border:1px solid var(--border);flex-shrink:0">
+          <div>
+            <div style="font-weight:700;font-size:0.88rem;color:var(--green)">✓ Documento lido com sucesso</div>
+            <div style="font-size:0.72rem;color:var(--text3);margin-top:2px">${tipoLabel}</div>
+          </div>
+          <button onclick="aplicarDadosOCR(${clienteId})" class="btn btn-green btn-sm" style="margin-left:auto;white-space:nowrap">⬇️ Aplicar nos campos</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${campos.map(f => `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:0.75rem">
+            <span style="color:var(--text3)">${f.label}:</span> <span style="font-weight:600;color:var(--text)">${f.val}</span>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    window[`_ocrDados_${clienteId}`] = d;
+  } catch(e) {
+    box.innerHTML = `
+      <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px;font-size:0.82rem;color:var(--red)">
+        ⚠️ Não foi possível ler o documento: ${e.message}. Verifique se a imagem está nítida e bem iluminada.
+      </div>`;
+  }
+  input.value = '';
+}
+
+function aplicarDadosOCR(clienteId) {
+  const d = window[`_ocrDados_${clienteId}`];
+  if (!d) return;
+
+  if (d.nome)  { const el = document.getElementById('ed-nome');        if (el) el.value = d.nome; }
+  if (d.nacionalidade) { const el = document.getElementById('ed-pais'); if (el) el.value = d.nacionalidade; }
+  if (d.data_nascimento) { const el = document.getElementById('ed-nascimento'); if (el) el.value = d.data_nascimento; }
+  if (d.tipo_doc === 'rnm' && d.numero_doc) {
+    const el = document.getElementById('ed-rnm'); if (el) el.value = d.numero_doc;
+  }
+  // validade do passaporte ou RNM → guardados no tab-docs (campos de data)
+  if (d.data_validade) {
+    window[`_ocrValidade_${clienteId}`] = { tipo: d.tipo_doc, data: d.data_validade };
+  }
+
+  const box = document.getElementById(`ocr-resultado-${clienteId}`);
+  if (box) {
+    const prev = box.querySelector('div');
+    if (prev) {
+      prev.style.borderColor = 'var(--gold)';
+      prev.style.background  = 'rgba(201,168,76,0.06)';
+      const btn = prev.querySelector('button');
+      if (btn) { btn.textContent = '✓ Aplicado!'; btn.disabled = true; }
+    }
+  }
+  showToast('Dados aplicados nos campos — revise e salve', 'success');
 }
 
 // ── AGENTE IA NO MODAL ────────────────────────────────────────────────────────

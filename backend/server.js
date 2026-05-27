@@ -226,6 +226,7 @@ app.use('/api/portal',      require('./routes/portal'));
 app.use('/api/notificar',   require('./routes/notificar'));
 app.use('/api/dou',           require('./routes/dou'));
 app.use('/api/comunicacoes',  require('./routes/comunicacoes'));
+app.use('/api/ocr-documento', require('./routes/ocr-documento'));
 
 // ── HEALTH CHECK ──────────────────────────────────
 app.get('/api/health', (_req, res) => {
