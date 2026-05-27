@@ -114,7 +114,7 @@ router.put('/dados', auth, async (req, res) => {
     const { tel, endereco, nova_senha } = req.body;
     await db.query('UPDATE clientes SET tel=?, endereco=? WHERE id=?',
       [tel||null, endereco||null, req.user.clienteId]);
-    if (nova_senha?.trim()) {
+    if (nova_senha?.trim() && !process.env.PORTAL_SENHA_GLOBAL) {
       const hash = await bcrypt.hash(nova_senha, 10);
       await db.query('UPDATE clientes SET portal_senha=? WHERE id=?', [hash, req.user.clienteId]);
     }
