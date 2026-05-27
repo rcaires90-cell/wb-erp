@@ -2185,6 +2185,7 @@ async function loadData() {
       prints       = Array.isArray(prs)  ? prs  : (prs?.dados  || []);
     }
     setSyncStatus('ok');
+    setTimeout(atualizarBadgesSidebar, 100);
   } catch(e) {
     console.error('loadData error:', e.message);
     showErr(e.message);
@@ -2240,9 +2241,9 @@ function buildNav() {
     const inadim = parcelas.filter(p => !p.paga && p.vencimento && new Date(p.vencimento) < new Date()).length;
     nav.innerHTML = `
       <div class="nav-section">Gestão</div>
-      ${ni('dashboard','◻','Dashboard')}
-      ${ni('clientes','👤','Clientes')}
-      ${ni('leads','🎯','Pipeline de Leads')}
+      ${ni('dashboard','📊','Dashboard <span id="badge-sidebar-dash" class="nav-badge" style="display:none;background:var(--red);color:#fff"></span>')}
+      ${ni('clientes','👥','Clientes')}
+      ${ni('leads','🎯','Pipeline de Leads <span id="badge-sidebar-leads" class="nav-badge" style="display:none"></span>')}
       ${ni('agendamentos','📅','Agenda')}
       <div class="nav-section">Financeiro</div>
       ${ni('financeiro','💳','Financeiro', venc || '')}
@@ -2402,7 +2403,7 @@ const SERVICOS = [
   'Visto Americano de Turismo',
 ];
 
-// ── CPF Validator ────────────────────────────────
+// ── CPF Validator + Mask ─────────────────────────
 function validarCPFjs(cpf) {
   const c = cpf.replace(/\D/g, '');
   if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
@@ -2414,6 +2415,46 @@ function validarCPFjs(cpf) {
   for (let i = 0; i < 10; i++) s += +c[i] * (11 - i);
   r = (s * 10) % 11; if (r >= 10) r = 0;
   return r === +c[10];
+}
+
+function mascaraCPF(el) {
+  let v = el.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length > 9)      v = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6,9)+'-'+v.slice(9);
+  else if (v.length > 6) v = v.slice(0,3)+'.'+v.slice(3,6)+'.'+v.slice(6);
+  else if (v.length > 3) v = v.slice(0,3)+'.'+v.slice(3);
+  el.value = v;
+  if (v.replace(/\D/g,'').length === 11) {
+    el.style.borderColor = validarCPFjs(v) ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)';
+    el.title = validarCPFjs(v) ? 'CPF válido ✓' : 'CPF inválido — verifique os dígitos';
+  } else {
+    el.style.borderColor = '';
+    el.title = '';
+  }
+}
+
+// ── Badges da sidebar ─────────────────────────────
+function atualizarBadgesSidebar() {
+  // Alerta de docs vencendo → badge vermelho no Dashboard
+  const FASES_SEM = ['pf_analise','pf_biometria','mjsp_analise','dou_publicado','concluido'];
+  let totalAlerta = 0;
+  (clientes||[]).filter(c => !c.arquivado).forEach(c => {
+    if (c.doc_antecedente_val && !FASES_SEM.includes(c.processo_fase)) {
+      const d = Math.ceil((new Date(String(c.doc_antecedente_val).slice(0,10)+'T12:00') - new Date()) / 864e5);
+      if (d <= 30) totalAlerta++;
+    }
+    ['doc_passaporte_val','doc_rnm_val','doc_visto_val','data_validade_ar'].forEach(f => {
+      if (!c[f]) return;
+      const d = Math.ceil((new Date(String(c[f]).slice(0,10)+'T12:00') - new Date()) / 864e5);
+      if (d <= 60) totalAlerta++;
+    });
+  });
+  const bdDash = document.getElementById('badge-sidebar-dash');
+  if (bdDash) { bdDash.textContent = totalAlerta || ''; bdDash.style.display = totalAlerta ? '' : 'none'; }
+
+  // Leads novos → badge dourado no Pipeline
+  const novos = (_leadsCache||[]).filter(l => l.status === 'novo').length;
+  const bdLeads = document.getElementById('badge-sidebar-leads');
+  if (bdLeads) { bdLeads.textContent = novos || ''; bdLeads.style.display = novos ? '' : 'none'; }
 }
 
 // ── DDI + máscaras de telefone ────────────────────
@@ -3015,7 +3056,10 @@ async function openCliente(id) {
           </div>
         </div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${c.tel ? `<button onclick="abrirWhatsAppCliente(${c.id})" style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);border-radius:7px;padding:5px 10px;cursor:pointer;font-family:inherit;font-size:0.72rem;font-weight:700;white-space:nowrap">💬 WhatsApp</button>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+      </div>
     </div>
 
     <div style="display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto">
@@ -3270,7 +3314,7 @@ async function openCliente(id) {
         <div class="form-group form-full"><label>Nome Completo</label><input id="ed-nome" value="${c.nome}"></div>
         <div class="form-group"><label>E-mail</label><input id="ed-email" value="${c.email||''}"></div>
         <div class="form-group"><label>Telefone / WhatsApp</label>${htmlCampoTel('ed-tel-pfx','ed-tel-num',c.tel||'')}</div>
-        <div class="form-group"><label>CPF</label><input id="ed-cpf" value="${c.cpf||''}"></div>
+        <div class="form-group"><label>CPF</label><input id="ed-cpf" value="${c.cpf||''}" oninput="mascaraCPF(this)" placeholder="000.000.000-00"></div>
         <div class="form-group"><label>RNM</label><input id="ed-rnm" value="${c.rnm||''}"></div>
         <div class="form-group"><label>País de Origem</label><input id="ed-pais" value="${c.pais||''}"></div>
         <div class="form-group"><label>Data de Nascimento</label><input id="ed-nascimento" type="date" value="${c.data_nascimento ? String(c.data_nascimento).slice(0,10) : ''}"></div>
@@ -3392,6 +3436,48 @@ async function openCliente(id) {
   carregarHistoricoFases(id);
 }
 
+function abrirWhatsAppCliente(id) {
+  const c = clientes.find(x => x.id === id);
+  if (!c || !c.tel) return;
+  const tel = c.tel.replace(/\D/g,'');
+  const nome = c.nome.split(' ')[0];
+  const servico = c.servico || 'seu processo';
+
+  const msgs = [
+    { label: '👋 Boas-vindas', msg: `Olá, ${nome}! Bem-vindo(a) à WB Assessoria Migratória. Estamos prontos para começar ${servico}. Qualquer dúvida estamos aqui! 😊` },
+    { label: '📋 Solicitar documento', msg: `Olá, ${nome}! Temos uma atualização sobre ${servico}. Precisamos que você nos envie um documento. Pode nos mandar aqui pelo WhatsApp ou agendar uma visita?` },
+    { label: '📅 Confirmar agendamento', msg: `Olá, ${nome}! Gostaríamos de confirmar nosso agendamento. Está tudo certo para você? Qualquer imprevisto nos avise com antecedência. 😊` },
+    { label: '🔄 Status do processo', msg: `Olá, ${nome}! Passando para informar que seu processo de ${servico} está em andamento. Em breve teremos novidades. Qualquer dúvida estamos aqui!` },
+    { label: '💰 Parcela em aberto', msg: `Olá, ${nome}! Identificamos uma parcela em aberto referente ao seu processo. Pode nos confirmar a previsão de pagamento? Obrigado!` },
+    { label: '✅ Processo concluído', msg: `Parabéns, ${nome}! 🎉 Seu processo de ${servico} foi concluído com sucesso! Foi um prazer trabalhar com você. Qualquer necessidade futura, estamos à disposição!` },
+  ];
+
+  openModal(`
+    <div class="modal-header"><span style="font-weight:700">💬 WhatsApp — ${c.nome}</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div style="padding:16px 20px">
+      <div style="font-size:0.78rem;color:var(--text2);margin-bottom:12px">Escolha uma mensagem pré-pronta ou escreva a sua:</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        ${msgs.map((m,i) => `
+          <button onclick="document.getElementById('wa-msg').value=${JSON.stringify(m.msg)}"
+            style="text-align:left;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 12px;cursor:pointer;font-family:inherit;font-size:0.78rem;color:var(--text2);transition:border-color 0.15s"
+            onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">${m.label}</button>`).join('')}
+      </div>
+      <textarea id="wa-msg" rows="4" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:0.82rem;outline:none;font-family:inherit;resize:vertical" placeholder="Ou escreva sua mensagem..."></textarea>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button onclick="enviarWhatsApp('${tel}')" class="btn btn-primary" style="flex:1;background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3)">📤 Abrir WhatsApp</button>
+        <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      </div>
+    </div>`);
+}
+
+function enviarWhatsApp(tel) {
+  const msg = document.getElementById('wa-msg')?.value?.trim();
+  const url = `https://wa.me/${tel}${msg ? '?text=' + encodeURIComponent(msg) : ''}`;
+  window.open(url, '_blank');
+  closeModal();
+}
+
 async function carregarHistoricoFases(clienteId) {
   const el = document.getElementById(`historico-fases-${clienteId}`);
   if (!el) return;
@@ -3401,16 +3487,22 @@ async function carregarHistoricoFases(clienteId) {
       el.innerHTML = `<div style="font-size:0.78rem;color:var(--text3);font-style:italic">Nenhuma movimentação registrada ainda.</div>`;
       return;
     }
-    el.innerHTML = lista.map(h => `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--gold)">
+    el.innerHTML = lista.map(h => {
+      const isStatus = h.fase_id === 'status_change';
+      const cor = isStatus ? 'var(--blue)' : 'var(--gold)';
+      const bg  = isStatus ? 'rgba(59,130,246,0.08)' : 'var(--gold-dim)';
+      const bordr = isStatus ? 'rgba(59,130,246,0.3)' : 'var(--gold-glow)';
+      return `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:8px;border-left:3px solid ${cor}">
         <div style="flex:1">
           <div style="font-size:0.82rem;font-weight:600;color:var(--text)">${h.fase_label}</div>
           <div style="font-size:0.68rem;color:var(--text3);margin-top:2px">
             ${h.usuario_nome||'—'} · ${new Date(h.created_at).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
           </div>
         </div>
-        <span style="font-size:0.68rem;background:var(--gold-dim);color:var(--gold);border-radius:10px;padding:2px 8px;border:1px solid var(--gold-glow)">✓</span>
-      </div>`).join('');
+        <span style="font-size:0.68rem;background:${bg};color:${cor};border-radius:10px;padding:2px 8px;border:1px solid ${bordr}">${isStatus?'◈ Status':'⚙ Fase'}</span>
+      </div>`;
+    }).join('');
   } catch(e) {
     el.innerHTML = `<div style="font-size:0.78rem;color:var(--text3)">—</div>`;
   }
@@ -4504,7 +4596,7 @@ function openNovoCliente() {
         <div class="form-group form-full"><label>Nome Completo *</label><input id="nc-nome" placeholder="Nome completo do cliente"></div>
         <div class="form-group"><label>E-mail</label><input id="nc-email" type="email" placeholder="email@exemplo.com"></div>
         <div class="form-group"><label>Telefone / WhatsApp</label>${htmlCampoTel('nc-tel-pfx','nc-tel-num','')}</div>
-        <div class="form-group"><label>CPF</label><input id="nc-cpf" placeholder="000.000.000-00"></div>
+        <div class="form-group"><label>CPF</label><input id="nc-cpf" placeholder="000.000.000-00" oninput="mascaraCPF(this)"></div>
         <div class="form-group"><label>RNM</label><input id="nc-rnm" placeholder="Número RNM"></div>
         <div class="form-group"><label>País de Origem</label><input id="nc-pais" placeholder="Ex: Haiti, Venezuela..."></div>
         <div class="form-group form-full"><label>Endereço</label><input id="nc-end" placeholder="Rua, número, cidade - UF"></div>
@@ -5525,7 +5617,7 @@ async function carregarLeads() {
   const lista = await apiFetch('/leads');
   if (!Array.isArray(lista)) return;
   _leadsCache = lista;
-
+  atualizarBadgesSidebar();
   renderLeadsTabela(lista);
 }
 

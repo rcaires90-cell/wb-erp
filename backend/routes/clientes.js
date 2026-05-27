@@ -287,7 +287,7 @@ router.patch('/:id', async (req, res) => {
       return res.status(400).json({ erro: 'Nenhum campo válido para atualizar' });
     }
 
-    const [[antes]] = await db.query('SELECT etapa, processo_fase, email, nome, servico FROM clientes WHERE id=?', [id]);
+    const [[antes]] = await db.query('SELECT etapa, processo_fase, status, email, nome, servico FROM clientes WHERE id=?', [id]);
     params.push(id);
     await db.query(
       `UPDATE clientes SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = ?`,
@@ -297,10 +297,19 @@ router.patch('/:id', async (req, res) => {
     const [updated] = await db.query('SELECT * FROM clientes WHERE id = ?', [id]);
     if (!updated.length) return res.status(404).json({ erro: 'Cliente não encontrado' });
 
+    const usuario_nome = req.user.nome || req.user.email || 'Sistema';
+
     if ('etapa' in fields && parseInt(fields.etapa) !== parseInt(antes?.etapa)) {
       notificarEtapa(antes, parseInt(fields.etapa) + 1);
     } else if ('processo_fase' in fields && fields.processo_fase !== antes?.processo_fase) {
       notificarEtapa(antes, fields.processo_fase);
+      db.query('INSERT INTO historico_fases (cliente_id, fase_id, fase_label, usuario_nome) VALUES (?,?,?,?)',
+        [id, fields.processo_fase, `Fase: ${antes.processo_fase||'início'} → ${fields.processo_fase}`, usuario_nome]).catch(()=>{});
+    }
+
+    if ('status' in fields && fields.status !== antes?.status) {
+      db.query('INSERT INTO historico_fases (cliente_id, fase_id, fase_label, usuario_nome) VALUES (?,?,?,?)',
+        [id, 'status_change', `Status: ${antes.status||'?'} → ${fields.status}`, usuario_nome]).catch(()=>{});
     }
 
     res.json(updated[0]);
