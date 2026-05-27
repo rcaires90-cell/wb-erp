@@ -42,7 +42,7 @@ async function runMigrations() {
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_extrato_bancario TINYINT(1)    DEFAULT 0",
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_vinculo_brasil   TINYINT(1)    DEFAULT 0",
     // Aniversariantes
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS data_nascimento      DATE          DEFAULT NULL",
+    "ALTER TABLE clientes ADD COLUMN data_nascimento DATE DEFAULT NULL",
     // Validade de documentos extras
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_passaporte_val   DATE          DEFAULT NULL",
     "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_rnm_val          DATE          DEFAULT NULL",
