@@ -1895,6 +1895,8 @@ let agendamentos = [];
 let parcelas     = [];
 let prints       = [];
 let _leadsCache  = null;
+let _agView     = 'lista';
+let _agCalMes   = '';
 
 // ══════════════════════════════════
 // LOGO
@@ -2839,6 +2841,51 @@ function renderDashboard() {
                 <div style="font-size:0.7rem;color:var(--text3)">R$ ${(d.valor/1000).toFixed(1)}k carteira</div>
               </div>
             </div>`).join('')}
+        </div>
+      </div>`;
+    })()}
+
+    ${(() => {
+      const hoje90 = new Date(); hoje90.setHours(0,0,0,0);
+      const d30 = new Date(hoje90.getTime() + 30*864e5);
+      const d60 = new Date(hoje90.getTime() + 60*864e5);
+      const d90 = new Date(hoje90.getTime() + 90*864e5);
+      const pendentes90 = (parcelas||[]).filter(p => !p.paga && p.vencimento);
+      const b1 = pendentes90.filter(p => { const d=new Date(String(p.vencimento).slice(0,10)+'T12:00'); return d>=hoje90 && d<=d30; });
+      const b2 = pendentes90.filter(p => { const d=new Date(String(p.vencimento).slice(0,10)+'T12:00'); return d>d30 && d<=d60; });
+      const b3 = pendentes90.filter(p => { const d=new Date(String(p.vencimento).slice(0,10)+'T12:00'); return d>d60 && d<=d90; });
+      const s1 = b1.reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
+      const s2 = b2.reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
+      const s3 = b3.reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
+      const tot = s1+s2+s3;
+      if (!tot) return '';
+      const fmtR = v => `R$ ${v.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+      const bw = v => tot > 0 ? Math.max(4,Math.round(v/tot*100)) : 0;
+      return `
+      <div class="panel" style="margin-bottom:20px">
+        <div class="panel-header">
+          <span class="panel-title">📈 Previsão de Receita — 90 dias</span>
+          <span style="font-size:0.72rem;color:var(--text3)">Total: ${fmtR(tot)}</span>
+        </div>
+        <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Próximos 30 dias</div>
+            <div style="font-size:1.1rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--green)">${fmtR(s1)}</div>
+            <div style="font-size:0.7rem;color:var(--text3);margin-top:3px">${b1.length} parcela${b1.length!==1?'s':''}</div>
+            <div style="margin-top:8px;height:4px;background:var(--bg4);border-radius:2px"><div style="width:${bw(s1)}%;height:100%;background:var(--green);border-radius:2px;opacity:0.7"></div></div>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">31 a 60 dias</div>
+            <div style="font-size:1.1rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--gold)">${fmtR(s2)}</div>
+            <div style="font-size:0.7rem;color:var(--text3);margin-top:3px">${b2.length} parcela${b2.length!==1?'s':''}</div>
+            <div style="margin-top:8px;height:4px;background:var(--bg4);border-radius:2px"><div style="width:${bw(s2)}%;height:100%;background:var(--gold);border-radius:2px;opacity:0.7"></div></div>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">61 a 90 dias</div>
+            <div style="font-size:1.1rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--text2)">${fmtR(s3)}</div>
+            <div style="font-size:0.7rem;color:var(--text3);margin-top:3px">${b3.length} parcela${b3.length!==1?'s':''}</div>
+            <div style="margin-top:8px;height:4px;background:var(--bg4);border-radius:2px"><div style="width:${bw(s3)}%;height:100%;background:rgba(148,163,184,0.5);border-radius:2px"></div></div>
+          </div>
         </div>
       </div>`;
     })()}
@@ -3888,22 +3935,120 @@ async function deletarParcela(pid, cid) {
 }
 
 function renderAgendamentos() {
-  var hoje = new Date().toISOString().split('T')[0];
-  var fut = (agendamentos||[]).filter(function(a){return a.data>=hoje}).sort(function(a,b){return a.data>b.data?1:-1});
-  var rows = fut.map(function(a){
-    var c=(clientes||[]).find(function(x){return x.id===a.cliente_id});
-    var isHoje=a.data===hoje;
-    return '<tr style="border-bottom:1px solid var(--border);'+(isHoje?'background:var(--gold-dim)':'')+'"><td style="padding:10px 14px;font-family:\'DM Mono\',monospace;font-size:0.8rem;'+(isHoje?'color:var(--gold);font-weight:700':'')+'">'+fmtDate(a.data)+(isHoje?' hoje':'')+'</td><td style="padding:10px 14px;font-family:\'DM Mono\',monospace;font-size:0.8rem;color:var(--gold);font-weight:700">'+(a.hora||'—')+'</td><td style="padding:10px 14px;font-weight:600;font-size:0.8rem">'+(c?c.nome.split(' ').slice(0,2).join(' '):a.cliente_nome||'—')+'</td><td style="padding:10px 14px"><span style="background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:2px 9px;font-size:0.68rem;font-weight:700">'+(a.tipo||'Reuniao')+'</span></td><td style="padding:10px 14px"><button onclick="deletarAg('+a.id+')" style="background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:0.7rem">x</button></td></tr>';
+  if (!_agCalMes) _agCalMes = new Date().toISOString().slice(0,7);
+  const hoje = new Date().toISOString().split('T')[0];
+  const btnBase = 'padding:6px 14px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-size:0.78rem;font-weight:600;font-family:inherit;transition:all 0.15s';
+  const viewToggle = `<div style="display:flex;gap:5px">
+    <button onclick="setAgView('lista')" style="${btnBase};background:${_agView==='lista'?'var(--gold)':'var(--bg3)'};color:${_agView==='lista'?'#000':'var(--text3)'}">≡ Lista</button>
+    <button onclick="setAgView('calendario')" style="${btnBase};background:${_agView==='calendario'?'var(--gold)':'var(--bg3)'};color:${_agView==='calendario'?'#000':'var(--text3)'}">📅 Calendário</button>
+  </div>`;
+  const header = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+    <h2 style="font-size:0.9rem;font-weight:800">Agenda</h2>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${viewToggle}<button class="btn btn-gold" onclick="abrirNovoAgendamento()">+ Agendar</button></div>
+  </div>`;
+  if (_agView === 'calendario') return header + renderAgCalendario();
+  const fut = (agendamentos||[]).filter(a => a.data >= hoje).sort((a,b) => a.data>b.data?1:a.data<b.data?-1:a.hora>b.hora?1:-1);
+  const rows = fut.map(a => {
+    const c = (clientes||[]).find(x => x.id===a.cliente_id);
+    const isHoje = a.data===hoje;
+    return `<tr style="border-bottom:1px solid var(--border);${isHoje?'background:var(--gold-dim)':''}">
+      <td style="padding:10px 14px;font-family:'DM Mono',monospace;font-size:0.8rem;${isHoje?'color:var(--gold);font-weight:700':''}">${fmtDate(a.data)}${isHoje?' hoje':''}</td>
+      <td style="padding:10px 14px;font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--gold);font-weight:700">${a.hora||'—'}</td>
+      <td style="padding:10px 14px;font-weight:600;font-size:0.8rem">${c?c.nome.split(' ').slice(0,2).join(' '):a.cliente_nome||'—'}</td>
+      <td style="padding:10px 14px"><span style="background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:2px 9px;font-size:0.68rem;font-weight:700">${a.tipo||'Reunião'}</span></td>
+      <td style="padding:10px 14px"><button onclick="deletarAg(${a.id})" style="background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:0.7rem">✕</button></td>
+    </tr>`;
   }).join('');
-  return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h2 style="font-size:0.9rem;font-weight:800">Agenda</h2><button class="btn btn-gold" onclick="abrirNovoAgendamento()">+ Agendar</button></div>'+
-    '<div class="panel"><div class="panel-header"><span class="panel-title">Proximos ('+fut.length+')</span></div>'+
-    '<table style="width:100%;border-collapse:collapse"><thead><tr>'+
-    '<th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Data</th>'+
-    '<th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Hora</th>'+
-    '<th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Cliente</th>'+
-    '<th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Tipo</th>'+
-    '<th style="padding:9px 14px;border-bottom:1px solid var(--border)"></th></tr></thead>'+
-    '<tbody>'+rows+(fut.length?'':'<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3)">Nenhum agendamento futuro</td></tr>')+'</tbody></table></div>';
+  return header +
+    `<div class="panel"><div class="panel-header"><span class="panel-title">Próximos (${fut.length})</span></div>
+    <table style="width:100%;border-collapse:collapse"><thead><tr>
+      <th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Data</th>
+      <th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Hora</th>
+      <th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Cliente</th>
+      <th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Tipo</th>
+      <th style="padding:9px 14px;border-bottom:1px solid var(--border)"></th></tr></thead>
+    <tbody>${rows}${fut.length?'':'<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3)">Nenhum agendamento futuro</td></tr>'}</tbody></table></div>`;
+}
+
+function renderAgCalendario() {
+  const [ano, mes] = _agCalMes.split('-').map(Number);
+  const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const hoje = new Date().toISOString().split('T')[0];
+  const primeiroDia = new Date(ano, mes-1, 1).getDay();
+  const ultimoDia   = new Date(ano, mes, 0).getDate();
+  const byDay = {};
+  (agendamentos||[]).forEach(a => {
+    if ((a.data||'').slice(0,7) === _agCalMes) {
+      const d = a.data.slice(8,10);
+      if (!byDay[d]) byDay[d] = [];
+      byDay[d].push(a);
+    }
+  });
+  const semana = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const cab = semana.map(d => `<div style="text-align:center;font-size:0.65rem;color:var(--text3);font-weight:700;padding:6px 2px">${d}</div>`).join('');
+  const cells = [];
+  for (let i = 0; i < primeiroDia; i++) cells.push('<div></div>');
+  for (let d = 1; d <= ultimoDia; d++) {
+    const dd = String(d).padStart(2,'0');
+    const dataStr = `${_agCalMes}-${dd}`;
+    const ags = byDay[dd] || [];
+    const isHoje = dataStr === hoje;
+    cells.push(`<div onclick="agCalDia('${dataStr}')" style="cursor:pointer;min-height:52px;background:${isHoje?'rgba(201,168,76,0.1)':'var(--bg3)'};border:1px solid ${isHoje?'var(--gold)':'var(--border)'};border-radius:7px;padding:6px 7px;transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='${isHoje?'var(--gold)':'var(--border)'}'">
+      <div style="font-size:0.78rem;font-weight:${isHoje?'800':'500'};color:${isHoje?'var(--gold)':'var(--text2)'}">${d}</div>
+      ${ags.length ? `<div style="margin-top:3px;font-size:0.62rem;font-weight:700;color:var(--gold);background:rgba(201,168,76,0.15);border-radius:4px;padding:1px 5px;display:inline-block">${ags.length}</div>` : ''}
+    </div>`);
+  }
+  return `<div class="panel" style="margin-bottom:16px">
+    <div class="panel-header">
+      <span class="panel-title">${MESES[mes-1]} ${ano}</span>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-sm" onclick="agCalPrev()">← Ant.</button>
+        <button class="btn btn-ghost btn-sm" onclick="agCalHoje()">Hoje</button>
+        <button class="btn btn-ghost btn-sm" onclick="agCalNext()">Próx. →</button>
+      </div>
+    </div>
+    <div style="padding:10px 12px">
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px">${cab}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells.join('')}</div>
+    </div>
+  </div>
+  <div id="ag-cal-dia"></div>`;
+}
+
+function setAgView(v) { _agView = v; renderPage('agendamentos'); }
+function agCalPrev() {
+  const [a,m] = _agCalMes.split('-').map(Number);
+  const p = new Date(a, m-2, 1);
+  _agCalMes = `${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}`;
+  renderPage('agendamentos');
+}
+function agCalNext() {
+  const [a,m] = _agCalMes.split('-').map(Number);
+  const n = new Date(a, m, 1);
+  _agCalMes = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
+  renderPage('agendamentos');
+}
+function agCalHoje() { _agCalMes = new Date().toISOString().slice(0,7); renderPage('agendamentos'); }
+function agCalDia(data) {
+  const box = document.getElementById('ag-cal-dia');
+  if (!box) return;
+  const ags = (agendamentos||[]).filter(a => a.data === data).sort((a,b) => (a.hora||'')>(b.hora||'')?1:-1);
+  const dtFmt = new Date(data+'T12:00').toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+  const titulo = dtFmt.charAt(0).toUpperCase()+dtFmt.slice(1);
+  if (!ags.length) { box.innerHTML = `<div class="panel"><div style="padding:16px 18px;color:var(--text3);font-size:0.83rem">Sem agendamentos em ${titulo}.</div></div>`; return; }
+  const rows = ags.map(a => {
+    const c = (clientes||[]).find(x => x.id===a.cliente_id);
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="font-family:'DM Mono',monospace;font-size:0.88rem;color:var(--gold);font-weight:700;flex-shrink:0;width:50px">${a.hora||'—'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:0.85rem">${c?c.nome.split(' ').slice(0,2).join(' '):a.cliente_nome||'—'}</div>
+        ${a.obs?`<div style="font-size:0.72rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.obs}</div>`:''}
+      </div>
+      <span style="background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:2px 9px;font-size:0.68rem;font-weight:700;flex-shrink:0">${a.tipo||'Reunião'}</span>
+      <button onclick="deletarAg(${a.id})" style="background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:0.7rem;flex-shrink:0">✕</button>
+    </div>`;
+  }).join('');
+  box.innerHTML = `<div class="panel"><div class="panel-header"><span class="panel-title">${titulo}</span><span style="font-size:0.72rem;color:var(--text3)">${ags.length} agendamento${ags.length!==1?'s':''}</span></div>${rows}</div>`;
 }
 
 function abrirNovoAgendamento() {
@@ -4936,19 +5081,114 @@ async function deletarCliente(id, nome) {
 function renderRelatorio() {
   const hoje = new Date();
   const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  const NOMES_MES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  // Resumo executivo gerado a partir dos dados locais (sem chamada à API)
+  function resumoExec(mes) {
+    const [ano, m] = mes.split('-').map(Number);
+    const nomeMesStr = `${NOMES_MES[m-1]} ${ano}`;
+    const parcelasRecMes = (parcelas||[]).filter(p => p.paga && (String(p.data_pgto||p.updated_at||'')).slice(0,7) === mes);
+    const pagoMes  = parcelasRecMes.reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
+    const pendMes  = (parcelas||[]).filter(p => !p.paga && (String(p.vencimento||'')).slice(0,7) === mes).reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
+    const novosMes = (clientes||[]).filter(c => (c.created_at||'').slice(0,7)===mes || (c.data_cadastro||'').slice(6,10)+'-'+(c.data_cadastro||'').slice(3,5)===mes).length;
+    const conclMes = (clientes||[]).filter(c => c.status==='Concluído').length;
+    const agsMes   = (agendamentos||[]).filter(a => (a.data||'').slice(0,7)===mes).length;
+    const fmt = v => `R$ ${(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+    const card = (label, val, sub, cor) => `
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px">${label}</div>
+        <div style="font-size:1rem;font-weight:800;font-family:'DM Mono',monospace;color:${cor||'var(--text)'}">${val}</div>
+        <div style="font-size:0.68rem;color:var(--text3);margin-top:2px">${sub}</div>
+      </div>`;
+    return `
+      <div class="panel" style="margin-bottom:20px;border-color:rgba(201,168,76,0.2)">
+        <div class="panel-header">
+          <span class="panel-title">📋 Resumo Executivo — ${nomeMesStr}</span>
+          <button class="btn btn-ghost btn-sm" onclick="imprimirResumoRapido()">🖨️ Imprimir</button>
+        </div>
+        <div id="resumo-exec-area" style="padding:12px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px">
+          ${card('Recebido no mês', fmt(pagoMes), parcelasRecMes.length+' parcelas pagas', 'var(--green)')}
+          ${card('A receber', fmt(pendMes), 'vencimento no mês', 'var(--orange)')}
+          ${card('Novos clientes', novosMes, 'novos contratos', 'var(--text)')}
+          ${card('Agendamentos', agsMes, 'reuniões/atendimentos', 'var(--blue)')}
+          ${card('Concluídos', conclMes, 'processos finalizados', 'var(--green)')}
+        </div>
+      </div>`;
+  }
+
   return `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
       <h2>Relatório Financeiro — DRE</h2>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <input id="rel-mes" type="month" value="${mesAtual}"
           style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:0.85rem"
-          onchange="carregarRelatorio()">
+          onchange="carregarRelatorio();atualizarResumoExec()">
         <button class="btn btn-outline" onclick="imprimirRelatorio()">🖨️ Imprimir / PDF</button>
         <button class="btn btn-outline" onclick="exportarRelatorioCSV()">📥 Exportar CSV</button>
       </div>
     </div>
+    ${resumoExec(mesAtual)}
     <div id="rel-corpo"><div class="empty"><div class="icon">⏳</div><h3>Carregando...</h3></div></div>
   `;
+}
+
+function atualizarResumoExec() {
+  const mes = document.getElementById('rel-mes')?.value;
+  if (!mes) return;
+  const NOMES_MES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const [ano, m] = mes.split('-').map(Number);
+  const nomeMesStr = `${NOMES_MES[m-1]} ${ano}`;
+  const parcelasRecMes = (parcelas||[]).filter(p => p.paga && (String(p.data_pgto||p.updated_at||'')).slice(0,7) === mes);
+  const pagoMes  = parcelasRecMes.reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
+  const pendMes  = (parcelas||[]).filter(p => !p.paga && (String(p.vencimento||'')).slice(0,7) === mes).reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
+  const novosMes = (clientes||[]).filter(c => (c.created_at||'').slice(0,7)===mes || (c.data_cadastro||'').slice(6,10)+'-'+(c.data_cadastro||'').slice(3,5)===mes).length;
+  const conclMes = (clientes||[]).filter(c => c.status==='Concluído').length;
+  const agsMes   = (agendamentos||[]).filter(a => (a.data||'').slice(0,7)===mes).length;
+  const fmt = v => `R$ ${(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+  const card = (label, val, sub, cor) => `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
+      <div style="font-size:0.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px">${label}</div>
+      <div style="font-size:1rem;font-weight:800;font-family:'DM Mono',monospace;color:${cor||'var(--text)'}">${val}</div>
+      <div style="font-size:0.68rem;color:var(--text3);margin-top:2px">${sub}</div>
+    </div>`;
+  const area = document.getElementById('resumo-exec-area');
+  if (area) area.innerHTML = `
+    ${card('Recebido no mês', fmt(pagoMes), parcelasRecMes.length+' parcelas pagas', 'var(--green)')}
+    ${card('A receber', fmt(pendMes), 'vencimento no mês', 'var(--orange)')}
+    ${card('Novos clientes', novosMes, 'novos contratos', 'var(--text)')}
+    ${card('Agendamentos', agsMes, 'reuniões/atendimentos', 'var(--blue)')}
+    ${card('Concluídos', conclMes, 'processos finalizados', 'var(--green)')}`;
+}
+
+function imprimirResumoRapido() {
+  const mes = document.getElementById('rel-mes')?.value || new Date().toISOString().slice(0,7);
+  const NOMES_MES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const [ano, m] = mes.split('-').map(Number);
+  const nomeMesStr = `${NOMES_MES[m-1]} ${ano}`;
+  const parcelasRecMes = (parcelas||[]).filter(p => p.paga && (String(p.data_pgto||p.updated_at||'')).slice(0,7) === mes);
+  const pagoMes  = parcelasRecMes.reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
+  const pendMes  = (parcelas||[]).filter(p => !p.paga && (String(p.vencimento||'')).slice(0,7) === mes).reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
+  const novosMes = (clientes||[]).filter(c => (c.created_at||'').slice(0,7)===mes || (c.data_cadastro||'').slice(6,10)+'-'+(c.data_cadastro||'').slice(3,5)===mes).length;
+  const conclMes = (clientes||[]).filter(c => c.status==='Concluído').length;
+  const agsMes   = (agendamentos||[]).filter(a => (a.data||'').slice(0,7)===mes).length;
+  const fmt = v => `R$ ${(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Resumo ${nomeMesStr} — WB Assessoria</title>
+  <style>body{font-family:Arial,sans-serif;margin:32px;color:#111;background:#fff}h1{font-size:1.2rem;margin-bottom:4px}p{font-size:0.85rem;color:#666;margin-bottom:24px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}.card{border:1px solid #ddd;border-radius:8px;padding:16px}.card-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:#888;margin-bottom:6px}.card-val{font-size:1.2rem;font-weight:800}.card-sub{font-size:0.72rem;color:#888;margin-top:2px}@media print{button{display:none}}</style>
+  </head><body>
+  <h1>WB Assessoria Migratória</h1>
+  <p>Relatório Mensal Resumido — ${nomeMesStr}</p>
+  <div class="grid">
+    <div class="card"><div class="card-label">Recebido no mês</div><div class="card-val" style="color:#16a34a">${fmt(pagoMes)}</div><div class="card-sub">${parcelasRecMes.length} parcelas pagas</div></div>
+    <div class="card"><div class="card-label">A receber</div><div class="card-val" style="color:#d97706">${fmt(pendMes)}</div><div class="card-sub">vencimento no mês</div></div>
+    <div class="card"><div class="card-label">Novos clientes</div><div class="card-val">${novosMes}</div><div class="card-sub">novos contratos</div></div>
+    <div class="card"><div class="card-label">Agendamentos</div><div class="card-val" style="color:#2563eb">${agsMes}</div><div class="card-sub">reuniões/atendimentos</div></div>
+    <div class="card"><div class="card-label">Concluídos</div><div class="card-val" style="color:#16a34a">${conclMes}</div><div class="card-sub">processos finalizados</div></div>
+  </div>
+  <button onclick="window.print()" style="padding:10px 24px;background:#c9a84c;color:#000;border:none;border-radius:6px;font-size:0.9rem;cursor:pointer;font-weight:700">🖨️ Imprimir / Salvar PDF</button>
+  <script>setTimeout(()=>window.print(),400)<\/script>
+  </body></html>`);
+  win.document.close();
 }
 
 async function carregarRelatorio() {
