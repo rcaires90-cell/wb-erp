@@ -553,11 +553,14 @@ async function salvarMetas(mes) {
   navigateTo('dashboard');
 }
 
+let _usersCache = [];
+
 async function carregarColaboradores() {
   const el = document.getElementById('colaboradores-lista');
   if (!el) return;
   const users = await apiFetch('/auth/usuarios');
   if (!Array.isArray(users)) { el.innerHTML = '<div style="padding:16px;color:var(--text3);font-size:0.82rem">Sem permissão.</div>'; return; }
+  _usersCache = users;
   const roleLabel = { ceo:'Diretor', colaborador:'Colaborador' };
   el.innerHTML = users.map(u => `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)">
@@ -567,7 +570,7 @@ async function carregarColaboradores() {
         <div style="font-size:0.72rem;color:var(--text3)">${u.cargo||roleLabel[u.role]||u.role} · ${u.email}</div>
       </div>
       <span class="badge ${u.ativo?'badge-green':'badge-gray'}">${u.ativo?'Ativo':'Inativo'}</span>
-      <button class="btn btn-ghost btn-sm" onclick="abrirModalEditarColaborador(${JSON.stringify(JSON.stringify(u))})">✏️</button>
+      <button class="btn btn-ghost btn-sm" onclick="abrirModalEditarColaborador(${u.id})">✏️ Editar</button>
     </div>`).join('');
 }
 
@@ -606,12 +609,16 @@ async function salvarNovoColaborador() {
   carregarColaboradores();
 }
 
-function abrirModalEditarColaborador(userJson) {
-  const u = JSON.parse(userJson);
+function abrirModalEditarColaborador(uid) {
+  const u = _usersCache.find(x => x.id === uid);
+  if (!u) return showToast('Usuário não encontrado', 'error');
   openModal(`
     <div class="modal-header"><span style="font-weight:700">✏️ Editar — ${u.nome}</span>
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
     <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div style="background:var(--bg3);border-radius:8px;padding:10px 14px;font-size:0.8rem;color:var(--text2)">
+        <b style="color:var(--text)">${u.nome}</b> · ${u.email}
+      </div>
       <div class="form-group"><label>Cargo</label><input id="edit-cargo" class="form-input" value="${u.cargo||''}"></div>
       <div class="form-group"><label>Nível de acesso</label>
         <select id="edit-role" class="form-input">
@@ -619,24 +626,39 @@ function abrirModalEditarColaborador(userJson) {
           <option value="ceo" ${u.role==='ceo'?'selected':''}>Diretor</option>
         </select>
       </div>
-      <div class="form-group"><label>Nova Senha (deixe vazio para manter)</label><input id="edit-senha" type="password" class="form-input" placeholder="Nova senha..."></div>
+      <div class="form-group">
+        <label>Nova Senha <span style="color:var(--text3);font-weight:400">(deixe vazio para manter a atual)</span></label>
+        <input id="edit-senha" type="password" class="form-input" placeholder="Digite a nova senha...">
+      </div>
+      <div id="edit-erro" style="color:var(--red);font-size:0.8rem;display:none;padding:8px 12px;background:rgba(239,68,68,0.08);border-radius:6px"></div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-primary" style="flex:1" onclick="salvarEdicaoColaborador(${u.id})">Salvar</button>
-        <button class="btn ${u.ativo?'btn-outline':'btn-ghost'}" onclick="toggleAtivoColaborador(${u.id},${u.ativo?0:1})">${u.ativo?'Desativar':'Ativar'}</button>
+        <button class="btn btn-primary" style="flex:1" onclick="salvarEdicaoColaborador(${u.id})">💾 Salvar</button>
+        <button class="btn ${u.ativo?'btn-outline':'btn-ghost'}" onclick="toggleAtivoColaborador(${u.id},${u.ativo?0:1})">${u.ativo?'⏸ Desativar':'▶ Ativar'}</button>
       </div>
     </div>`);
 }
 
 async function salvarEdicaoColaborador(id) {
-  const cargo     = document.getElementById('edit-cargo').value.trim();
-  const role      = document.getElementById('edit-role').value;
+  const cargo      = document.getElementById('edit-cargo').value.trim();
+  const role       = document.getElementById('edit-role').value;
   const nova_senha = document.getElementById('edit-senha').value;
+  const erroEl     = document.getElementById('edit-erro');
   const body = { cargo, role };
   if (nova_senha) body.nova_senha = nova_senha;
-  await apiFetch(`/auth/usuarios/${id}`, { method:'PUT', body: JSON.stringify(body) });
-  closeModal();
-  showToast('✅ Colaborador atualizado!', 'success');
-  carregarColaboradores();
+  try {
+    const res = await apiFetch(`/auth/usuarios/${id}`, { method:'PUT', body: JSON.stringify(body) });
+    if (res?.erro) {
+      erroEl.textContent = res.erro;
+      erroEl.style.display = 'block';
+      return;
+    }
+    closeModal();
+    showToast('✅ Colaborador atualizado' + (nova_senha ? ' — senha alterada!' : '!'), 'success');
+    carregarColaboradores();
+  } catch(e) {
+    erroEl.textContent = 'Erro ao salvar: ' + e.message;
+    erroEl.style.display = 'block';
+  }
 }
 
 async function toggleAtivoColaborador(id, ativo) {
