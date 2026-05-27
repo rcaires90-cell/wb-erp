@@ -323,7 +323,7 @@ html, body { margin:0; padding:0; height:100%; overflow:hidden; }
         <div class="brand">Meu Portal</div>
         <div class="sub">WB ASSESSORIA</div>
       </div>
-      <div class="form-group"><label>Login</label><input type="text" id="cli-email" placeholder="email ou login" onkeydown="if(event.key==='Enter')loginCliente()"></div>
+      <div class="form-group"><label>CPF</label><input type="text" id="cli-email" placeholder="000.000.000-00" maxlength="14" oninput="mascaraCPF(this)" onkeydown="if(event.key==='Enter')loginCliente()"></div>
       <div class="form-group"><label>Senha</label><input type="password" id="cli-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')loginCliente()"></div>
       <div class="login-error" id="cli-erro" style="display:none">Dados incorretos</div>
       <button class="login-btn" onclick="loginCliente()">Acessar Meu Portal</button>
@@ -1108,8 +1108,8 @@ function renderMeusDados() {
     <div class="panel" style="margin-bottom:16px">
       <div class="panel-header"><span class="panel-title">✏️ Atualizar Contato</span></div>
       <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
-        <div class="form-group"><label>Telefone</label><input id="dados-tel" class="form-input" value="${c.tel||''}" placeholder="(11) 9 9999-9999"></div>
-        <div class="form-group"><label>Endereço</label><input id="dados-end" class="form-input" value="${c.endereco||''}" placeholder="Rua, número, cidade..."></div>
+        <div class="form-group"><label>Telefone</label><input id="dados-tel" class="form-input" value="${htmlEsc(c.tel)}" placeholder="(11) 9 9999-9999"></div>
+        <div class="form-group"><label>Endereço</label><input id="dados-end" class="form-input" value="${htmlEsc(c.endereco)}" placeholder="Rua, número, cidade..."></div>
         <button class="btn btn-primary" onclick="salvarDadosPortal()">Salvar Alterações</button>
         <div id="dados-status" style="font-size:0.8rem"></div>
       </div>
@@ -3273,8 +3273,6 @@ async function openCliente(id) {
               ${(c.proficiencia_status||'pendente')===o.id?`background:${o.cor};color:#fff;border:1px solid ${o.cor}`:'background:var(--bg2);color:var(--text2);border:1px solid var(--border2)'}"
             data-prof="${o.id}">${o.label}</button>`).join('')}
         </div>
-        <input id="proc-prof-obs" value="${c.proficiencia_obs||''}" placeholder="Observações sobre o curso..."
-          style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
       </div>` : ''}
 
       <!-- Gov.br — somente Naturalização e Residência (não EUA) -->
@@ -3289,7 +3287,7 @@ async function openCliente(id) {
           </div>
           <div>
             <div style="font-size:0.62rem;color:var(--text3);margin-bottom:3px">Senha Gov.br</div>
-            <input id="proc-gov-senha" type="password" value="${c.gov_senha||''}" placeholder="Senha"
+            <input id="proc-gov-senha" type="password" value="${htmlEsc(c.gov_senha)}" placeholder="Senha"
               style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
           </div>
         </div>
@@ -3992,12 +3990,10 @@ async function salvarProcesso(clienteId) {
     processo_protocolo:   document.getElementById('proc-protocolo')?.value || null,
     processo_data_inicio: document.getElementById('proc-inicio')?.value    || null,
   };
-  const obs      = document.getElementById('proc-prof-obs')?.value;
   const govLogin = document.getElementById('proc-gov-login')?.value;
   const govSenha = document.getElementById('proc-gov-senha')?.value;
-  if (obs      !== undefined) payload.proficiencia_obs = obs;
-  if (govLogin !== undefined) payload.gov_login        = govLogin || null;
-  if (govSenha !== undefined) payload.gov_senha        = govSenha || null;
+  if (govLogin !== undefined) payload.gov_login = govLogin || null;
+  if (govSenha !== undefined) payload.gov_senha = govSenha || null;
 
   await apiFetch('/clientes/' + clienteId, { method: 'PATCH', body: JSON.stringify(payload) });
   await loadData();
