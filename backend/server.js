@@ -224,7 +224,8 @@ app.use('/api/exportar',    require('./routes/exportar'));
 app.use('/api/metas',       require('./routes/metas'));
 app.use('/api/portal',      require('./routes/portal'));
 app.use('/api/notificar',   require('./routes/notificar'));
-app.use('/api/dou',        require('./routes/dou'));
+app.use('/api/dou',           require('./routes/dou'));
+app.use('/api/comunicacoes',  require('./routes/comunicacoes'));
 
 // ── HEALTH CHECK ──────────────────────────────────
 app.get('/api/health', (_req, res) => {

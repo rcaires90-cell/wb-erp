@@ -2957,6 +2957,7 @@ function renderClientes() {
         style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:0.82rem;outline:none;font-family:'Syne',sans-serif">
       <button class="btn btn-primary" onclick="openNovoCliente()">+ Novo Cliente</button>
       ${currentRole !== 'colaborador' ? `<button class="btn btn-outline btn-sm" onclick="exportarCSV('clientes')">📥 Exportar CSV</button>` : ''}
+      ${currentRole !== 'colaborador' ? `<button class="btn btn-outline btn-sm" onclick="abrirImportarCSV()">⬆️ Importar CSV</button>` : ''}
     </div>
 
     <div class="panel">
@@ -3116,6 +3117,7 @@ async function openCliente(id) {
       <button class="modal-tab" onclick="switchModalTab(this,'tab-dados')">👤 Dados</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-notas');carregarNotas(${c.id})">📝 Notas</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-msgs');carregarMsgsEquipe(${c.id})">💬 Mensagens</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'tab-comunicacoes');carregarComunicacoes(${c.id})">📞 Contatos</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-ia')">🤖 IA</button>
     </div>
 
@@ -3462,6 +3464,38 @@ async function openCliente(id) {
         </div>
       </div>
     </div>
+
+    <!-- ABA: COMUNICAÇÕES / CONTATOS -->
+    <div id="tab-comunicacoes" class="modal-tab-pane" style="display:none;padding:18px 22px">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:14px">Histórico de Contatos</div>
+
+      <!-- Formulário de novo registro -->
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:160px 1fr auto;gap:8px;align-items:end">
+          <div>
+            <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:4px">Tipo</label>
+            <select id="com-tipo-${c.id}" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-family:inherit;font-size:0.82rem">
+              <option>📞 Ligação</option>
+              <option>💬 WhatsApp</option>
+              <option>📅 Reunião</option>
+              <option>📧 Email</option>
+              <option>📋 Anotação</option>
+              <option>🔄 Outro</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.72rem;color:var(--text3);display:block;margin-bottom:4px">Descrição</label>
+            <input id="com-texto-${c.id}" placeholder="Ex: cliente confirmou envio do passaporte até sexta..." style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-family:inherit;font-size:0.82rem;box-sizing:border-box" onkeydown="if(event.key==='Enter')registrarComunicacao(${c.id})">
+          </div>
+          <button class="btn btn-gold" onclick="registrarComunicacao(${c.id})">Registrar</button>
+        </div>
+      </div>
+
+      <!-- Timeline de contatos -->
+      <div id="com-lista-${c.id}">
+        <div style="text-align:center;padding:24px;color:var(--text3);font-size:0.82rem">Carregando...</div>
+      </div>
+    </div>
   `, true);
 
   // Restaura a aba que estava ativa se for o mesmo cliente sendo recarregado
@@ -3477,6 +3511,7 @@ async function openCliente(id) {
       _activeTab = _tabToRestore;
       if (_tabToRestore === 'tab-notas') carregarNotas(id);
       else if (_tabToRestore === 'tab-msgs') carregarMsgsEquipe(id);
+      else if (_tabToRestore === 'tab-comunicacoes') carregarComunicacoes(id);
     }
   }
   // Carrega histórico de fases sempre que abre o processo
@@ -3604,6 +3639,56 @@ async function deletarNota(notaId, clienteId) {
     await apiFetch(`/financeiro/notas/${notaId}`, { method: 'DELETE' });
     await carregarNotas(clienteId);
   } catch(e) { showToast('Erro ao excluir nota','error'); }
+}
+
+// ── COMUNICAÇÕES / HISTÓRICO DE CONTATOS ─────────────────────────────────────
+const COM_ICONS = { '📞 Ligação':'📞','💬 WhatsApp':'💬','📅 Reunião':'📅','📧 Email':'📧','📋 Anotação':'📋','🔄 Outro':'🔄' };
+
+async function carregarComunicacoes(clienteId) {
+  const el = document.getElementById(`com-lista-${clienteId}`);
+  if (!el) return;
+  try {
+    const lista = await apiFetch(`/comunicacoes?cliente_id=${clienteId}`);
+    if (!Array.isArray(lista) || !lista.length) {
+      el.innerHTML = `<div class="empty" style="padding:20px"><div class="icon">📞</div><h3>Nenhum contato registrado</h3><p>Registre ligações, mensagens e reuniões acima</p></div>`;
+      return;
+    }
+    el.innerHTML = lista.map(com => {
+      const icon = COM_ICONS[com.tipo] || '🔄';
+      const dt = new Date(com.created_at).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      return `
+        <div style="display:flex;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:7px;border-left:3px solid var(--border)">
+          <div style="font-size:1.1rem;flex-shrink:0;margin-top:1px">${icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.83rem;color:var(--text);line-height:1.5;word-break:break-word">${com.texto}</div>
+            <div style="font-size:0.68rem;color:var(--text3);margin-top:3px">${com.usuario_nome||'—'} · ${dt} · <span style="color:var(--text2)">${com.tipo}</span></div>
+          </div>
+          <button onclick="deletarComunicacao(${com.id},${clienteId})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:0.9rem;padding:0 4px;opacity:0.5;transition:opacity 0.15s;flex-shrink:0" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">×</button>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="font-size:0.78rem;color:var(--text3);padding:12px">Erro ao carregar contatos.</div>`;
+  }
+}
+
+async function registrarComunicacao(clienteId) {
+  const tipo  = document.getElementById(`com-tipo-${clienteId}`)?.value;
+  const texto = document.getElementById(`com-texto-${clienteId}`)?.value?.trim();
+  if (!texto) { showToast('Descreva o contato antes de registrar','error'); return; }
+  try {
+    await apiFetch('/comunicacoes', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, tipo, texto }) });
+    const inp = document.getElementById(`com-texto-${clienteId}`);
+    if (inp) inp.value = '';
+    await carregarComunicacoes(clienteId);
+    showToast('Contato registrado','success');
+  } catch(e) { showToast('Erro: '+e.message,'error'); }
+}
+
+async function deletarComunicacao(comId, clienteId) {
+  try {
+    await apiFetch(`/comunicacoes/${comId}`, { method:'DELETE' });
+    await carregarComunicacoes(clienteId);
+  } catch(e) { showToast('Erro ao excluir','error'); }
 }
 
 // ── AGENTE IA NO MODAL ────────────────────────────────────────────────────────
@@ -6115,6 +6200,140 @@ function exportarCSV(tipo, params) {
     a.href = url; a.download = `${tipo}.csv`; a.click();
     URL.revokeObjectURL(url);
   });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// IMPORTAR CLIENTES VIA CSV
+// ══════════════════════════════════════════════════════════════════════════════
+function abrirImportarCSV() {
+  openModal(`
+    <div class="modal-header">
+      <span style="font-weight:700">⬆️ Importar Clientes via CSV</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div style="padding:18px 22px;max-width:700px">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.78rem">
+        <div style="font-weight:700;color:var(--text2);margin-bottom:6px">Colunas esperadas (1ª linha = cabeçalho):</div>
+        <code style="font-size:0.72rem;color:var(--gold)">nome, email, tel, cpf, servico, status, pais, responsavel, valor, obs</code>
+        <div style="margin-top:6px;color:var(--text3)">Apenas <strong>nome</strong> é obrigatório. Separador: vírgula. Codificação: UTF-8.</div>
+      </div>
+      <div style="margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <label style="font-size:0.8rem;color:var(--text2)">Arquivo:</label>
+        <input type="file" id="csv-file" accept=".csv,.txt" onchange="lerCSVArquivo()" style="color:var(--text);font-size:0.78rem">
+        <span style="font-size:0.72rem;color:var(--text3)">ou cole abaixo</span>
+      </div>
+      <textarea id="csv-texto" rows="7" placeholder="nome,email,tel,servico
+João Silva,joao@mail.com,11999991234,Naturalização
+Maria Lima,,11888885678,Residência Permanente"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.74rem;resize:vertical;box-sizing:border-box;outline:none"></textarea>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="previewCSVImport()">👁️ Pré-visualizar</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      </div>
+      <div id="csv-preview" style="margin-top:14px"></div>
+    </div>`);
+}
+
+function lerCSVArquivo() {
+  const file = document.getElementById('csv-file')?.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { const ta = document.getElementById('csv-texto'); if (ta) ta.value = e.target.result; };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parsearCSV(text) {
+  const linhas = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (linhas.length < 2) return null;
+  const headers = linhas[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g,''));
+  const rows = [];
+  for (let i = 1; i < linhas.length; i++) {
+    const vals = linhas[i].split(',').map(v => v.trim().replace(/^"|"$/g,''));
+    if (!vals.some(v => v)) continue;
+    const obj = {};
+    headers.forEach((h, j) => { obj[h] = vals[j] || ''; });
+    rows.push(obj);
+  }
+  return { headers, rows };
+}
+
+function previewCSVImport() {
+  const text = document.getElementById('csv-texto')?.value?.trim();
+  const preview = document.getElementById('csv-preview');
+  if (!text || !preview) return;
+  const parsed = parsearCSV(text);
+  if (!parsed || !parsed.rows.length) {
+    preview.innerHTML = '<div style="color:var(--red);font-size:0.82rem;padding:8px 0">CSV inválido ou sem dados. Verifique o formato.</div>';
+    return;
+  }
+  const { rows } = parsed;
+  const semNome = rows.filter(r => !r.nome?.trim());
+  if (semNome.length) {
+    preview.innerHTML = `<div style="color:var(--red);font-size:0.82rem;padding:8px 0">${semNome.length} linha(s) sem "nome". A coluna nome é obrigatória em todas as linhas.</div>`;
+    return;
+  }
+  window._csvRowsParsed = rows;
+  preview.innerHTML = `
+    <div style="font-size:0.78rem;color:var(--text2);margin-bottom:8px;font-weight:600">${rows.length} cliente${rows.length!==1?'s':''} para importar:</div>
+    <div style="overflow:auto;max-height:220px;border:1px solid var(--border);border-radius:7px">
+      <table style="width:100%;border-collapse:collapse;font-size:0.75rem">
+        <thead><tr style="background:var(--bg3)">
+          <th style="padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">Nome</th>
+          <th style="padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">Email</th>
+          <th style="padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">Telefone</th>
+          <th style="padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">Serviço</th>
+          <th style="padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">País</th>
+        </tr></thead>
+        <tbody>
+          ${rows.slice(0,25).map((r,i) => `<tr style="${i%2?'background:var(--bg3)':''}">
+            <td style="padding:5px 10px;font-weight:600">${r.nome}</td>
+            <td style="padding:5px 10px;color:var(--text3)">${r.email||'—'}</td>
+            <td style="padding:5px 10px;color:var(--text3)">${r.tel||'—'}</td>
+            <td style="padding:5px 10px;color:var(--text3)">${r.servico||'—'}</td>
+            <td style="padding:5px 10px;color:var(--text3)">${r.pais||'—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${rows.length > 25 ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:4px">…e mais ${rows.length-25} linha(s) não exibidas</div>` : ''}
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+      <button class="btn btn-gold" onclick="executarImportCSV()">⬆️ Importar ${rows.length} cliente${rows.length!==1?'s':''}</button>
+      <span id="csv-import-status" style="font-size:0.78rem;color:var(--text3)"></span>
+    </div>`;
+}
+
+async function executarImportCSV() {
+  const rows = window._csvRowsParsed;
+  if (!rows?.length) return;
+  const btn = document.querySelector('#csv-preview .btn-gold');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Importando...'; }
+  const status = document.getElementById('csv-import-status');
+  let ok = 0, erros = 0;
+  for (const r of rows) {
+    try {
+      await apiFetch('/clientes', {
+        method: 'POST',
+        body: JSON.stringify({
+          nome:        r.nome?.trim(),
+          email:       r.email?.trim() || null,
+          tel:         r.tel?.trim() || null,
+          cpf:         r.cpf?.trim() || null,
+          servico:     r.servico?.trim() || null,
+          status:      r.status?.trim() || 'Em andamento',
+          pais:        r.pais?.trim() || null,
+          responsavel: r.responsavel?.trim() || null,
+          valor:       r.valor ? parseFloat(r.valor.replace(/[^\d.,]/g,'').replace(',','.')) || null : null,
+          obs:         r.obs?.trim() || null,
+        })
+      });
+      ok++;
+      if (status) status.textContent = `${ok} importado${ok!==1?'s':''}…`;
+    } catch(_) { erros++; }
+  }
+  await loadData();
+  closeModal();
+  renderPage('clientes');
+  showToast(`${ok} cliente${ok!==1?'s':''} importado${ok!==1?'s':''}${erros ? ' · '+erros+' erro(s)' : ''}`, erros ? 'error' : 'success');
 }
 
 // PWA — Service Worker
