@@ -6330,7 +6330,7 @@ async function mktCallGemini(apiKey, prompt) {
 
 function mktTab(t) {
   _mktTab = t;
-  ['templates','ia','whatsapp','hashtags','estrategias'].forEach(function(id) {
+  ['templates','ia','whatsapp','hashtags','estrategias','arte'].forEach(function(id) {
     var btn = document.getElementById('mkt-tab-' + id);
     var panel = document.getElementById('mkt-panel-' + id);
     if (btn) {
@@ -6408,6 +6408,90 @@ async function mktGenerate() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '✨ Gerar Post com IA'; }
   }
+}
+
+async function mktGerarArte() {
+  var key = localStorage.getItem('wb_gemini_key') || '';
+  if (!key) {
+    key = window.prompt('Digite sua API Key do Gemini (salva localmente):');
+    if (!key || !key.trim()) return;
+    key = key.trim();
+    localStorage.setItem('wb_gemini_key', key);
+  }
+  var tipo    = document.getElementById('mkt-arte-tipo')?.value    || '1:1';
+  var servico = document.getElementById('mkt-arte-servico')?.value || 'naturalizacao';
+  var estilo  = document.getElementById('mkt-arte-estilo')?.value  || 'moderno';
+  var texto   = document.getElementById('mkt-arte-texto')?.value   || '';
+  var servicoL = {
+    naturalizacao:'Brazilian Naturalization citizenship services',
+    residencia:'Residence Authorization permit for foreigners in Brazil',
+    atleta:'Foreign Athletes registration and work permit in Brazil',
+    ambos:'Brazilian Immigration Law — Naturalization and Residence Authorization'
+  };
+  var estiloL = {
+    moderno:'modern corporate design, clean layout, strong typography, professional and trustworthy',
+    minimalista:'minimalist design, lots of white space, elegant thin fonts, subtle and sophisticated',
+    bold:'bold and impactful, strong contrasts, large typography, eye-catching and energetic',
+    premium:'premium luxury feel, dark background with gold metallic accents, high-end law firm aesthetic'
+  };
+  var dimMap = {
+    '1:1': {w:1080,h:1080,desc:'square 1:1 Instagram post'},
+    '9:16':{w:1080,h:1920,desc:'vertical 9:16 Story and Reels'},
+    '16:9':{w:1920,h:1080,desc:'horizontal 16:9 banner ad'}
+  };
+  var dim = dimMap[tipo] || dimMap['1:1'];
+  var geminiPrompt = 'Write an optimized AI image generation prompt (English only, for FLUX/Stable Diffusion) for a professional marketing visual:\n\nBusiness: WB Assessoria Migratória (Brazilian immigration consultancy in São Paulo)\nService: ' + (servicoL[servico]||servico) + '\nFormat: ' + dim.desc + '\nVisual style: ' + (estiloL[estilo]||estilo) + '\n' + (texto ? 'Text/headline to incorporate: "' + texto + '"\n' : '') + '\nRequirements:\n- Professional advertising imagery\n- Color palette: deep navy blue or black background, gold/amber accents, white clean typography\n- Subtle Brazilian legal/official visual elements (scales of justice, document, flag colors)\n- Abstract or symbolic imagery only — no realistic people faces\n- Marketing poster composition with clear visual hierarchy\n- High quality, suitable for social media advertising\n- Do NOT include watermarks or placeholder text\n\nReturn ONLY the image prompt, nothing else. 80-120 words max.';
+  var btn     = document.getElementById('mkt-arte-btn');
+  var preview = document.getElementById('mkt-arte-preview');
+  var imgEl   = document.getElementById('mkt-arte-img');
+  var actions = document.getElementById('mkt-arte-actions');
+  var status  = document.getElementById('mkt-arte-status');
+  var statusTxt = document.getElementById('mkt-arte-status-txt');
+  var promptEl= document.getElementById('mkt-arte-prompt-txt');
+  var setStatus = function(msg) { if (status) { status.style.display = 'flex'; } if (statusTxt) statusTxt.textContent = msg; };
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Gerando...'; }
+  if (preview) preview.style.display = 'none';
+  if (actions) actions.style.display = 'none';
+  setStatus('1/2 — Criando prompt inteligente com Gemini...');
+  try {
+    var imagePrompt = (await mktCallGemini(key, geminiPrompt)).trim();
+    if (promptEl) promptEl.textContent = imagePrompt;
+    setStatus('2/2 — Gerando arte com FLUX AI (pode levar até 30s)...');
+    var seed = Math.floor(Math.random() * 999999);
+    var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(imagePrompt) + '?width=' + dim.w + '&height=' + dim.h + '&seed=' + seed + '&nologo=true&enhance=true&model=flux';
+    imgEl.onload = function() {
+      if (preview) preview.style.display = 'block';
+      if (actions) { actions.style.display = 'flex'; }
+      if (status) { status.style.display = 'none'; }
+      var dlBtn = document.getElementById('mkt-arte-dl');
+      if (dlBtn) { dlBtn._url = url; }
+      showToast('✅ Arte gerada com sucesso!', 'success');
+    };
+    imgEl.onerror = function() {
+      setStatus('❌ Erro ao gerar imagem. Tente novamente.');
+      showToast('Erro ao gerar imagem. Tente novamente.', 'error');
+    };
+    imgEl.src = url;
+  } catch(e) {
+    setStatus('❌ Erro: ' + e.message);
+    showToast('Erro: ' + e.message, 'error');
+    if (e.message.includes('400') || e.message.includes('401')) { localStorage.removeItem('wb_gemini_key'); }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🎨 Gerar Arte com IA'; }
+  }
+}
+
+function mktDownloadArte() {
+  var dlBtn = document.getElementById('mkt-arte-dl');
+  var url = dlBtn && dlBtn._url;
+  if (!url) return;
+  var a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.download = 'wb-arte-marketing.jpg';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function renderMarketing() {
@@ -6509,6 +6593,7 @@ function renderMarketing() {
     '<button id="mkt-tab-whatsapp"    onclick="mktTab(\'whatsapp\')"    style="flex:1;padding:8px 10px;border-radius:7px;border:none;cursor:pointer;font-size:0.75rem;font-weight:600;font-family:inherit;min-width:80px;transition:all 0.15s">💬 WhatsApp</button>' +
     '<button id="mkt-tab-hashtags"    onclick="mktTab(\'hashtags\')"    style="flex:1;padding:8px 10px;border-radius:7px;border:none;cursor:pointer;font-size:0.75rem;font-weight:600;font-family:inherit;min-width:80px;transition:all 0.15s">🔖 Hashtags</button>' +
     '<button id="mkt-tab-estrategias" onclick="mktTab(\'estrategias\')" style="flex:1;padding:8px 10px;border-radius:7px;border:none;cursor:pointer;font-size:0.75rem;font-weight:600;font-family:inherit;min-width:80px;transition:all 0.15s">🧠 Estratégias</button>' +
+    '<button id="mkt-tab-arte"        onclick="mktTab(\'arte\')"        style="flex:1;padding:8px 10px;border-radius:7px;border:none;cursor:pointer;font-size:0.75rem;font-weight:600;font-family:inherit;min-width:80px;transition:all 0.15s">🎨 Gerar Arte</button>' +
   '</div>' +
   '<div id="mkt-panel-templates">' +
     '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.78rem;color:var(--text3)">ℹ️ Templates profissionais prontos para usar. Personalize com seus números reais antes de publicar.</div>' +
@@ -6551,6 +6636,63 @@ function renderMarketing() {
       '<div style="font-size:0.78rem;color:var(--text3)">Estratégias validadas para maximizar leads e fechar contratos no nicho de assessoria migratória.</div>' +
     '</div>' +
     '<div style="display:flex;flex-direction:column;gap:8px">' + estratHTML + '</div>' +
+  '</div>' +
+  '<div id="mkt-panel-arte" style="display:none">' +
+    '<div style="background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:10px;padding:14px 16px;margin-bottom:16px">' +
+      '<div style="font-weight:700;font-size:0.85rem;color:var(--gold);margin-bottom:4px">🎨 Gerador de Artes com IA</div>' +
+      '<div style="font-size:0.78rem;color:var(--text3)">Cria artes profissionais para posts, stories e anúncios. O Gemini cria o prompt visual ideal e o FLUX AI gera a imagem — sem custo adicional.</div>' +
+    '</div>' +
+    '<div class="panel"><div class="panel-body">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
+        '<div class="form-group"><label>Formato da Arte</label>' +
+          '<select id="mkt-arte-tipo" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:0.82rem">' +
+            '<option value="1:1">📷 Post Quadrado — Instagram (1:1)</option>' +
+            '<option value="9:16">📱 Story / Reels (9:16)</option>' +
+            '<option value="16:9">🖥️ Banner Horizontal (16:9)</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="form-group"><label>Serviço em Foco</label>' +
+          '<select id="mkt-arte-servico" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:0.82rem">' +
+            '<option value="naturalizacao">Naturalização Brasileira</option>' +
+            '<option value="residencia">Autorização de Residência</option>' +
+            '<option value="atleta">Regularização de Atleta</option>' +
+            '<option value="ambos">Ambos os Serviços</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="form-group"><label>Estilo Visual</label>' +
+          '<select id="mkt-arte-estilo" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:0.82rem">' +
+            '<option value="moderno">Moderno e Profissional</option>' +
+            '<option value="minimalista">Minimalista e Elegante</option>' +
+            '<option value="bold">Impactante / Bold</option>' +
+            '<option value="premium">Premium / Luxo (dourado)</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="form-group"><label>Texto / Headline na Arte (opcional)</label>' +
+          '<input id="mkt-arte-texto" type="text" placeholder="Ex: Você tem direito à naturalização?" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:0.82rem"/>' +
+        '</div>' +
+      '</div>' +
+      '<button id="mkt-arte-btn" onclick="mktGerarArte()" class="btn btn-gold" style="width:100%;padding:12px">🎨 Gerar Arte com IA</button>' +
+    '</div></div>' +
+    '<div id="mkt-arte-status" style="display:none;align-items:center;gap:10px;margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:0.82rem;color:var(--text2)">' +
+      '<span style="font-size:1.2rem;animation:spin 1s linear infinite;display:inline-block">⏳</span>' +
+      '<span id="mkt-arte-status-txt"></span>' +
+    '</div>' +
+    '<div id="mkt-arte-preview" style="display:none;margin-top:16px">' +
+      '<div class="panel"><div class="panel-header" style="background:rgba(201,168,76,0.05);border-bottom:1px solid var(--border)">' +
+        '<span class="panel-title" style="color:var(--gold)">✅ Arte Gerada</span>' +
+        '<div id="mkt-arte-actions" style="display:none;gap:8px">' +
+          '<button id="mkt-arte-dl" onclick="mktDownloadArte()" class="btn btn-gold btn-sm">⬇️ Baixar</button>' +
+          '<button onclick="mktGerarArte()" class="btn btn-outline btn-sm">🔄 Nova Versão</button>' +
+        '</div>' +
+      '</div>' +
+      '<div style="padding:16px">' +
+        '<img id="mkt-arte-img" style="width:100%;border-radius:8px;display:block" alt="Arte gerada"/>' +
+        '<details style="margin-top:12px">' +
+          '<summary style="font-size:0.72rem;color:var(--text3);cursor:pointer;user-select:none">Ver prompt usado pela IA</summary>' +
+          '<pre id="mkt-arte-prompt-txt" style="margin-top:8px;font-family:inherit;font-size:0.72rem;color:var(--text3);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;white-space:pre-wrap;line-height:1.5"></pre>' +
+        '</details>' +
+      '</div>' +
+    '</div></div>' +
   '</div>';
 }
 
