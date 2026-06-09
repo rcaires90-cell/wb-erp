@@ -6419,66 +6419,73 @@ function mktTrocarChave() {
   alert('✅ Chave salva! Tente gerar novamente.');
 }
 
-function mktBuildArtePrompt(servico, estilo, texto, dimDesc) {
+function mktBuildArtePrompt(servico, estilo, texto) {
   var temas = {
-    naturalizacao: 'Brazilian citizenship naturalization law firm, Brazilian flag colors green and gold, official document with seal, scales of justice symbol, São Paulo cityscape silhouette at night',
-    residencia: 'residence authorization permit Brazil, immigration office professional setting, passport and visa document close-up, South American city skyline, legal certificate with official stamp',
-    atleta: 'professional athlete Brazil registration, sports and law concept, Brazilian flag colors, sports equipment silhouette with legal document, dynamic energy professional setting',
-    ambos: 'Brazilian immigration consultancy law firm, passport globe travel concept, professional legal advisory, Brazilian and international flags, document signing ceremony'
+    naturalizacao: 'Brazilian immigration law firm, scales of justice, Brazilian flag, official document seal, gold and navy blue',
+    residencia: 'Brazil residence permit, passport visa document, professional legal office, South American city skyline',
+    atleta: 'athlete sports Brazil registration, Brazilian flag, sports equipment silhouette, legal document',
+    ambos: 'Brazilian immigration consultancy, passport globe, legal advisory office, Brazilian flag gold accent'
   };
   var estilos = {
-    moderno: 'modern corporate advertising poster, deep navy blue background, gold and white typography, clean geometric shapes, professional law firm branding, high contrast, sharp clean lines, corporate identity design',
-    minimalista: 'minimalist luxury advertising, pure black background, thin gold serif typography, subtle texture, sophisticated law firm aesthetic, negative space composition, editorial design quality',
-    bold: 'bold impactful advertising, dramatic lighting, deep black and electric gold palette, strong graphic typography, high contrast poster design, powerful visual impact, commercial photography style',
-    premium: 'ultra premium luxury branding, dark charcoal background, 24k gold metallic accents, embossed legal seal, velvet texture, elite immigration law consultancy, prestige visual identity, 8K cinematic quality'
+    moderno: 'modern corporate poster, navy blue background, gold white typography, clean geometric, professional law firm',
+    minimalista: 'minimalist black background, thin gold serif font, elegant negative space, sophisticated',
+    bold: 'bold dramatic lighting, black gold palette, strong typography, high contrast, powerful impact',
+    premium: 'luxury dark background, 24k gold metallic accents, premium law firm, cinematic quality'
   };
-  var tema = temas[servico] || temas['ambos'];
-  var est  = estilos[estilo] || estilos['moderno'];
-  var textoPart = texto ? ', bold headline text overlay: "' + texto + '", legible white gold typography' : '';
-  return 'Professional marketing advertisement for WB Assessoria Migratória, premium Brazilian immigration law consultancy based in São Paulo. Visual concept: ' + tema + '. Style: ' + est + textoPart + '. Format: ' + dimDesc + '. No human faces, no watermarks, no placeholder text. Ultra high quality commercial print advertising, photorealistic render, 4K resolution.';
+  var base = (temas[servico] || temas['ambos']) + ', ' + (estilos[estilo] || estilos['moderno']);
+  if (texto) base += ', text overlay "' + texto + '"';
+  return base + ', no human faces, no watermarks, advertising banner';
 }
 
 async function mktGerarArte() {
   var tipo    = document.getElementById('mkt-arte-tipo')?.value    || '1:1';
   var servico = document.getElementById('mkt-arte-servico')?.value || 'naturalizacao';
   var estilo  = document.getElementById('mkt-arte-estilo')?.value  || 'moderno';
-  var texto   = document.getElementById('mkt-arte-texto')?.value   || '';
-  var dimMap = {
-    '1:1': {w:1080,h:1080,desc:'square Instagram post 1:1'},
-    '9:16':{w:1080,h:1920,desc:'vertical Story and Reels 9:16'},
-    '16:9':{w:1920,h:1080,desc:'horizontal Facebook banner 16:9'}
-  };
-  var dim = dimMap[tipo] || dimMap['1:1'];
-  var btn     = document.getElementById('mkt-arte-btn');
-  var preview = document.getElementById('mkt-arte-preview');
-  var imgEl   = document.getElementById('mkt-arte-img');
-  var actions = document.getElementById('mkt-arte-actions');
-  var status  = document.getElementById('mkt-arte-status');
-  var statusTxt = document.getElementById('mkt-arte-status-txt');
-  var promptEl= document.getElementById('mkt-arte-prompt-txt');
-  var setStatus = function(msg) { if (status) { status.style.display = 'flex'; } if (statusTxt) statusTxt.textContent = msg; };
+  var texto   = (document.getElementById('mkt-arte-texto')?.value  || '').slice(0, 60);
+  var dimMap  = { '1:1':{w:1080,h:1080}, '9:16':{w:1080,h:1920}, '16:9':{w:1920,h:1080} };
+  var dim     = dimMap[tipo] || dimMap['1:1'];
+  var btn      = document.getElementById('mkt-arte-btn');
+  var preview  = document.getElementById('mkt-arte-preview');
+  var imgEl    = document.getElementById('mkt-arte-img');
+  var actions  = document.getElementById('mkt-arte-actions');
+  var status   = document.getElementById('mkt-arte-status');
+  var statusTxt= document.getElementById('mkt-arte-status-txt');
+  var promptEl = document.getElementById('mkt-arte-prompt-txt');
+  var done = false;
+  var setStatus = function(msg) { if (status) status.style.display = 'flex'; if (statusTxt) statusTxt.textContent = msg; };
+  var finish = function() { if (btn) { btn.disabled = false; btn.textContent = '🎨 Gerar Arte com IA'; } };
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Gerando...'; }
   if (preview) preview.style.display = 'none';
   if (actions) actions.style.display = 'none';
-  setStatus('Gerando arte com FLUX AI (pode levar até 30s)...');
-  var imagePrompt = mktBuildArtePrompt(servico, estilo, texto, dim.desc);
-  if (promptEl) promptEl.textContent = imagePrompt;
+  setStatus('Conectando ao FLUX AI... (pode levar até 60s)');
+  var prompt = mktBuildArtePrompt(servico, estilo, texto);
+  if (promptEl) promptEl.textContent = prompt;
   var seed = Math.floor(Math.random() * 999999);
-  var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(imagePrompt) + '?width=' + dim.w + '&height=' + dim.h + '&seed=' + seed + '&nologo=true&enhance=true&model=flux';
-  imgEl.onload = function() {
+  var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) +
+    '?width=' + dim.w + '&height=' + dim.h + '&seed=' + seed + '&nologo=true&model=flux';
+  try {
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 90000);
+    setStatus('Gerando arte com FLUX AI... aguarde até 60s');
+    var resp = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    var blob = await resp.blob();
+    var objUrl = URL.createObjectURL(blob);
+    imgEl.src = objUrl;
     if (preview) preview.style.display = 'block';
-    if (actions) { actions.style.display = 'flex'; }
-    if (status) { status.style.display = 'none'; }
+    if (actions) actions.style.display = 'flex';
+    if (status) status.style.display = 'none';
     var dlBtn = document.getElementById('mkt-arte-dl');
-    if (dlBtn) { dlBtn._url = url; }
-    if (btn) { btn.disabled = false; btn.textContent = '🎨 Gerar Arte com IA'; }
+    if (dlBtn) dlBtn._url = objUrl;
+    done = true;
     showToast('✅ Arte gerada com sucesso!', 'success');
-  };
-  imgEl.onerror = function() {
-    setStatus('❌ Erro ao gerar imagem. Tente novamente.');
-    if (btn) { btn.disabled = false; btn.textContent = '🎨 Gerar Arte com IA'; }
-  };
-  imgEl.src = url;
+  } catch(e) {
+    var msg = e.name === 'AbortError' ? '⏱️ Tempo esgotado. O servidor está ocupado — tente novamente.' : '❌ Erro: ' + e.message + '. Tente novamente.';
+    setStatus(msg);
+  } finally {
+    finish();
+  }
 }
 
 function mktDownloadArte() {
