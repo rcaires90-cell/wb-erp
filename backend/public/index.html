@@ -6401,13 +6401,22 @@ async function mktGenerate() {
     showToast('✅ Post gerado com sucesso!', 'success');
   } catch(e) {
     showToast('Erro ao gerar: ' + e.message, 'error');
-    if (e.message.includes('400') || e.message.includes('401')) {
+    if (e.message.includes('429')) {
+      showToast('Limite de requisições. Troque a chave ou aguarde 1 min.', 'error');
+    } else if (e.message.includes('400') || e.message.includes('401') || e.message.includes('403')) {
       localStorage.removeItem('wb_gemini_key');
-      showToast('API Key inválida. Será solicitada novamente.', 'error');
+      showToast('Chave API inválida. Clique em Trocar Chave API.', 'error');
     }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '✨ Gerar Post com IA'; }
   }
+}
+
+function mktTrocarChave() {
+  var nova = window.prompt('Cole a nova API Key do Gemini:');
+  if (!nova || !nova.trim()) return;
+  localStorage.setItem('wb_gemini_key', nova.trim());
+  alert('✅ Chave salva! Tente gerar novamente.');
 }
 
 async function mktGerarArte() {
@@ -6475,7 +6484,8 @@ async function mktGerarArte() {
   } catch(e) {
     setStatus('❌ Erro: ' + e.message);
     showToast('Erro: ' + e.message, 'error');
-    if (e.message.includes('400') || e.message.includes('401')) { localStorage.removeItem('wb_gemini_key'); }
+    if (e.message.includes('429')) { setStatus('❌ Limite de requisições atingido. Troque a chave API ou aguarde 1 minuto.'); }
+    if (e.message.includes('400') || e.message.includes('401') || e.message.includes('403')) { localStorage.removeItem('wb_gemini_key'); setStatus('❌ Chave API inválida. Clique em "Trocar Chave API" e cole a nova chave.'); }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '🎨 Gerar Arte com IA'; }
   }
@@ -6641,6 +6651,7 @@ function renderMarketing() {
     '<div style="background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:10px;padding:14px 16px;margin-bottom:16px">' +
       '<div style="font-weight:700;font-size:0.85rem;color:var(--gold);margin-bottom:4px">🎨 Gerador de Artes com IA</div>' +
       '<div style="font-size:0.78rem;color:var(--text3)">Cria artes profissionais para posts, stories e anúncios. O Gemini cria o prompt visual ideal e o FLUX AI gera a imagem — sem custo adicional.</div>' +
+      '<div style="margin-top:8px"><button onclick="mktTrocarChave()" style="background:transparent;border:1px solid rgba(201,168,76,0.3);border-radius:6px;color:var(--text3);font-size:0.72rem;padding:4px 10px;cursor:pointer;font-family:inherit">🔑 Trocar Chave API</button></div>' +
     '</div>' +
     '<div class="panel"><div class="panel-body">' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
