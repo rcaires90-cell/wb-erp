@@ -6419,37 +6419,36 @@ function mktTrocarChave() {
   alert('✅ Chave salva! Tente gerar novamente.');
 }
 
+function mktBuildArtePrompt(servico, estilo, texto, dimDesc) {
+  var temas = {
+    naturalizacao: 'Brazilian citizenship naturalization law firm, Brazilian flag colors green and gold, official document with seal, scales of justice symbol, São Paulo cityscape silhouette at night',
+    residencia: 'residence authorization permit Brazil, immigration office professional setting, passport and visa document close-up, South American city skyline, legal certificate with official stamp',
+    atleta: 'professional athlete Brazil registration, sports and law concept, Brazilian flag colors, sports equipment silhouette with legal document, dynamic energy professional setting',
+    ambos: 'Brazilian immigration consultancy law firm, passport globe travel concept, professional legal advisory, Brazilian and international flags, document signing ceremony'
+  };
+  var estilos = {
+    moderno: 'modern corporate advertising poster, deep navy blue background, gold and white typography, clean geometric shapes, professional law firm branding, high contrast, sharp clean lines, corporate identity design',
+    minimalista: 'minimalist luxury advertising, pure black background, thin gold serif typography, subtle texture, sophisticated law firm aesthetic, negative space composition, editorial design quality',
+    bold: 'bold impactful advertising, dramatic lighting, deep black and electric gold palette, strong graphic typography, high contrast poster design, powerful visual impact, commercial photography style',
+    premium: 'ultra premium luxury branding, dark charcoal background, 24k gold metallic accents, embossed legal seal, velvet texture, elite immigration law consultancy, prestige visual identity, 8K cinematic quality'
+  };
+  var tema = temas[servico] || temas['ambos'];
+  var est  = estilos[estilo] || estilos['moderno'];
+  var textoPart = texto ? ', bold headline text overlay: "' + texto + '", legible white gold typography' : '';
+  return 'Professional marketing advertisement for WB Assessoria Migratória, premium Brazilian immigration law consultancy based in São Paulo. Visual concept: ' + tema + '. Style: ' + est + textoPart + '. Format: ' + dimDesc + '. No human faces, no watermarks, no placeholder text. Ultra high quality commercial print advertising, photorealistic render, 4K resolution.';
+}
+
 async function mktGerarArte() {
-  var key = localStorage.getItem('wb_gemini_key') || '';
-  if (!key) {
-    key = window.prompt('Digite sua API Key do Gemini (salva localmente):');
-    if (!key || !key.trim()) return;
-    key = key.trim();
-    localStorage.setItem('wb_gemini_key', key);
-  }
   var tipo    = document.getElementById('mkt-arte-tipo')?.value    || '1:1';
   var servico = document.getElementById('mkt-arte-servico')?.value || 'naturalizacao';
   var estilo  = document.getElementById('mkt-arte-estilo')?.value  || 'moderno';
   var texto   = document.getElementById('mkt-arte-texto')?.value   || '';
-  var servicoL = {
-    naturalizacao:'Brazilian Naturalization citizenship services',
-    residencia:'Residence Authorization permit for foreigners in Brazil',
-    atleta:'Foreign Athletes registration and work permit in Brazil',
-    ambos:'Brazilian Immigration Law — Naturalization and Residence Authorization'
-  };
-  var estiloL = {
-    moderno:'modern corporate design, clean layout, strong typography, professional and trustworthy',
-    minimalista:'minimalist design, lots of white space, elegant thin fonts, subtle and sophisticated',
-    bold:'bold and impactful, strong contrasts, large typography, eye-catching and energetic',
-    premium:'premium luxury feel, dark background with gold metallic accents, high-end law firm aesthetic'
-  };
   var dimMap = {
-    '1:1': {w:1080,h:1080,desc:'square 1:1 Instagram post'},
-    '9:16':{w:1080,h:1920,desc:'vertical 9:16 Story and Reels'},
-    '16:9':{w:1920,h:1080,desc:'horizontal 16:9 banner ad'}
+    '1:1': {w:1080,h:1080,desc:'square Instagram post 1:1'},
+    '9:16':{w:1080,h:1920,desc:'vertical Story and Reels 9:16'},
+    '16:9':{w:1920,h:1080,desc:'horizontal Facebook banner 16:9'}
   };
   var dim = dimMap[tipo] || dimMap['1:1'];
-  var geminiPrompt = 'Write an optimized AI image generation prompt (English only, for FLUX/Stable Diffusion) for a professional marketing visual:\n\nBusiness: WB Assessoria Migratória (Brazilian immigration consultancy in São Paulo)\nService: ' + (servicoL[servico]||servico) + '\nFormat: ' + dim.desc + '\nVisual style: ' + (estiloL[estilo]||estilo) + '\n' + (texto ? 'Text/headline to incorporate: "' + texto + '"\n' : '') + '\nRequirements:\n- Professional advertising imagery\n- Color palette: deep navy blue or black background, gold/amber accents, white clean typography\n- Subtle Brazilian legal/official visual elements (scales of justice, document, flag colors)\n- Abstract or symbolic imagery only — no realistic people faces\n- Marketing poster composition with clear visual hierarchy\n- High quality, suitable for social media advertising\n- Do NOT include watermarks or placeholder text\n\nReturn ONLY the image prompt, nothing else. 80-120 words max.';
   var btn     = document.getElementById('mkt-arte-btn');
   var preview = document.getElementById('mkt-arte-preview');
   var imgEl   = document.getElementById('mkt-arte-img');
@@ -6461,34 +6460,25 @@ async function mktGerarArte() {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Gerando...'; }
   if (preview) preview.style.display = 'none';
   if (actions) actions.style.display = 'none';
-  setStatus('1/2 — Criando prompt inteligente com Gemini...');
-  try {
-    var imagePrompt = (await mktCallGemini(key, geminiPrompt)).trim();
-    if (promptEl) promptEl.textContent = imagePrompt;
-    setStatus('2/2 — Gerando arte com FLUX AI (pode levar até 30s)...');
-    var seed = Math.floor(Math.random() * 999999);
-    var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(imagePrompt) + '?width=' + dim.w + '&height=' + dim.h + '&seed=' + seed + '&nologo=true&enhance=true&model=flux';
-    imgEl.onload = function() {
-      if (preview) preview.style.display = 'block';
-      if (actions) { actions.style.display = 'flex'; }
-      if (status) { status.style.display = 'none'; }
-      var dlBtn = document.getElementById('mkt-arte-dl');
-      if (dlBtn) { dlBtn._url = url; }
-      showToast('✅ Arte gerada com sucesso!', 'success');
-    };
-    imgEl.onerror = function() {
-      setStatus('❌ Erro ao gerar imagem. Tente novamente.');
-      showToast('Erro ao gerar imagem. Tente novamente.', 'error');
-    };
-    imgEl.src = url;
-  } catch(e) {
-    setStatus('❌ Erro: ' + e.message);
-    showToast('Erro: ' + e.message, 'error');
-    if (e.message.includes('429')) { setStatus('❌ Limite de requisições atingido. Troque a chave API ou aguarde 1 minuto.'); }
-    if (e.message.includes('400') || e.message.includes('401') || e.message.includes('403')) { localStorage.removeItem('wb_gemini_key'); setStatus('❌ Chave API inválida. Clique em "Trocar Chave API" e cole a nova chave.'); }
-  } finally {
+  setStatus('Gerando arte com FLUX AI (pode levar até 30s)...');
+  var imagePrompt = mktBuildArtePrompt(servico, estilo, texto, dim.desc);
+  if (promptEl) promptEl.textContent = imagePrompt;
+  var seed = Math.floor(Math.random() * 999999);
+  var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(imagePrompt) + '?width=' + dim.w + '&height=' + dim.h + '&seed=' + seed + '&nologo=true&enhance=true&model=flux';
+  imgEl.onload = function() {
+    if (preview) preview.style.display = 'block';
+    if (actions) { actions.style.display = 'flex'; }
+    if (status) { status.style.display = 'none'; }
+    var dlBtn = document.getElementById('mkt-arte-dl');
+    if (dlBtn) { dlBtn._url = url; }
     if (btn) { btn.disabled = false; btn.textContent = '🎨 Gerar Arte com IA'; }
-  }
+    showToast('✅ Arte gerada com sucesso!', 'success');
+  };
+  imgEl.onerror = function() {
+    setStatus('❌ Erro ao gerar imagem. Tente novamente.');
+    if (btn) { btn.disabled = false; btn.textContent = '🎨 Gerar Arte com IA'; }
+  };
+  imgEl.src = url;
 }
 
 function mktDownloadArte() {
@@ -6650,8 +6640,7 @@ function renderMarketing() {
   '<div id="mkt-panel-arte" style="display:none">' +
     '<div style="background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:10px;padding:14px 16px;margin-bottom:16px">' +
       '<div style="font-weight:700;font-size:0.85rem;color:var(--gold);margin-bottom:4px">🎨 Gerador de Artes com IA</div>' +
-      '<div style="font-size:0.78rem;color:var(--text3)">Cria artes profissionais para posts, stories e anúncios. O Gemini cria o prompt visual ideal e o FLUX AI gera a imagem — sem custo adicional.</div>' +
-      '<div style="margin-top:8px"><button onclick="mktTrocarChave()" style="background:transparent;border:1px solid rgba(201,168,76,0.3);border-radius:6px;color:var(--text3);font-size:0.72rem;padding:4px 10px;cursor:pointer;font-family:inherit">🔑 Trocar Chave API</button></div>' +
+      '<div style="font-size:0.78rem;color:var(--text3)">Cria artes profissionais para posts, stories e anúncios. O FLUX AI gera a imagem — 100% gratuito, sem API key necessária.</div>' +
     '</div>' +
     '<div class="panel"><div class="panel-body">' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
