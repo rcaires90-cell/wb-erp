@@ -2185,6 +2185,7 @@ const PAGE_TITLES = {
   'meu-processo': 'Meu Processo', 'meu-financeiro': 'Financeiro',
   'meus-docs': 'Documentos', 'mensagens': 'Mensagens', 'meus-dados': 'Meus Dados',
   conciliacao: 'Conciliação Bancária', 'curso-proficiencia': 'Curso de Proficiência',
+  marketing: 'Marketing Studio',
 };
 
 function getDefaultPage() {
@@ -2233,6 +2234,7 @@ function buildNav() {
       <div class="nav-section">Ferramentas</div>
       ${ni('whatsapp','💬','WhatsApp Auto')}
       ${ni('dou','🗞️','Diário Oficial')}
+      ${ni('marketing','🚀','Marketing Studio')}
       <div class="nav-section">Sistema</div>
       ${ni('configuracoes','⚙','Configurações')}`;
   }
@@ -2280,6 +2282,7 @@ function renderPage(page) {
     'conciliacao':   renderConciliacao,
     'leads':         renderLeads,
     'dou':           renderDOU,
+    'marketing':     renderMarketing,
   };
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = `<div class="empty"><div class="icon">🔧</div><h3>Em breve</h3></div>`;
@@ -6124,6 +6127,431 @@ async function deletarAlertaDOU(id) {
     await apiFetch(`/dou/historico/${id}`, { method: 'DELETE' });
     await carregarDOU();
   } catch(e) { showToast('Erro ao remover', 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MARKETING STUDIO
+// ══════════════════════════════════════════════════════════════════════════════
+var _mktTab = 'templates';
+
+const MKT_SYSTEM_PROMPT = `Você é um estrategista de marketing de classe mundial — nível Apple, Nike, Nvidia — especializado no nicho de assessoria migratória brasileira.
+
+EMPRESA: WB Assessoria Migratória
+SERVIÇOS: Naturalização Brasileira e Autorização de Residência para estrangeiros e atletas no Brasil
+
+EXPERTISE DO NICHO:
+- Naturalização Brasileira: regra geral = 4 anos de residência permanente. Exceções: 1 ano (casado com brasileiro(a) ou filho(a) brasileiro(a)), 3 anos (países de língua portuguesa)
+- Autorização de Residência: regulamentada pela Lei nº 13.445/2017 e Decreto nº 9.199/2017
+- Para atletas: Ministério da Justiça (15-45 dias) → PF → RNM → CBF
+- Documentos críticos: antecedentes criminais (validade 90 dias), passaporte (mín. 6 meses)
+
+PÚBLICO-ALVO:
+- Estrangeiros residentes no Brasil (hispano-americanos, africanos, europeus, asiáticos)
+- Atletas profissionais (principalmente futebol) e suas famílias
+- Empresas/clubes que contratam atletas estrangeiros
+
+DORES REAIS:
+- Medo de deportação e multas (até R$10.000)
+- Insegurança jurídica
+- Burocracia complexa
+- Risco de trabalhar ilegalmente
+- Documentos rejeitados por erro
+
+GATILHOS MENTAIS DE ALTA CONVERSÃO:
+1. MEDO/URGÊNCIA — Cada dia irregular é um risco: multas, deportação, perda de emprego
+2. TRANSFORMAÇÃO — De irregular a cidadão brasileiro. Antes/depois emocional
+3. AUTORIDADE — Cite leis reais, números exatos
+4. PROVA SOCIAL — X clientes regularizados. Sempre número específico
+5. ESCASSEZ — Agenda com vagas limitadas
+6. RECIPROCIDADE — Consulta gratuita, guia grátis
+7. ESPECIFICIDADE — 45 dias, R$168,13, 4 anos — números exatos convertem mais
+
+DIRETRIZES:
+- Português brasileiro natural e fluente
+- Emojis estratégicos (2-6 por post, com função)
+- Sempre CTA claro e direto
+- Instagram Feed: 300-800 caracteres ideais
+- Reels/Stories: primeiros 3 segundos decidem tudo
+- LinkedIn: técnico/formal, cite legislação
+- WhatsApp: conversacional, empático
+
+Entregue sempre: 1) Post completo, 2) Hashtags, 3) Sugestão de arte/visual, 4) Por que converte`;
+
+const MKT_TEMPLATES = [
+  { id:1, categoria:'naturalizacao', catLabel:'Naturalização', plataforma:'instagram', platLabel:'Instagram Feed', gatilho:'Transformação',
+    titulo:'De Estrangeiro a Brasileiro',
+    texto:'Você mora no Brasil há mais de 4 anos?\n\nEntão você pode estar a um passo de se tornar BRASILEIRO DE DIREITO.\n\nA Naturalização Brasileira não é apenas um documento.\n\nÉ a garantia de:\n🇧🇷 Trabalhar sem nenhuma restrição\n🇧🇷 Viajar com o passaporte brasileiro\n🇧🇷 Ter a mesma segurança jurídica de qualquer cidadão\n🇧🇷 Construir sua vida definitivamente no Brasil\n\nSão famílias que transformaram incerteza em segurança. São carreiras que saíram da sombra para a luz.\n\n📲 Primeira consulta 100% gratuita.\nClique no link da bio e fale com um especialista agora.',
+    hashtags:'#NaturalizaçãoBrasileira #CidadaniaBrasileira #ImigraçãoBrasil #VidaNoBrasil #BrasileiroPorEscolha #EstrangeiroNoBrasil #WBAssessoria #RegularizaçãoBrasil #DireitosMigratórios #VisaBrasil'
+  },
+  { id:2, categoria:'urgencia', catLabel:'Urgência', plataforma:'instagram', platLabel:'Instagram Feed', gatilho:'Medo / Urgência',
+    titulo:'O Custo de Ficar Irregular',
+    texto:'Você sabe o que acontece com quem vive em situação irregular no Brasil?\n\n⚠️ Multas que chegam a R$10.000\n⚠️ Impossibilidade de trabalhar legalmente\n⚠️ Risco real de deportação\n⚠️ Anos de processo para regularizar depois\n\nA pergunta não é SE algo vai acontecer.\nÉ QUANDO.\n\nMas você ainda tem tempo de agir AGORA.\n\nCom a WB Assessoria, sua Naturalização ou Autorização de Residência é tratada por especialistas — de A a Z, com transparência e agilidade.\n\nNão deixe que a burocracia defina o seu futuro.\n\n👉 Fale conosco HOJE. Link na bio.',
+    hashtags:'#ImigraçãoBrasil #NaturalizaçãoBrasileira #RegularizaçãoBrasil #WBAssessoria #EstrangeiroNoBrasil #DireitoMigratório #SegurançaJurídica #AutorizaçãoResidência'
+  },
+  { id:3, categoria:'residencia', catLabel:'Autorização de Residência', plataforma:'instagram', platLabel:'Instagram Feed', gatilho:'Dor → Solução',
+    titulo:'Atleta: Sua Carreira Depende Disso',
+    texto:'Jogar no Brasil é um sonho.\n\nJogar no Brasil SEM a documentação certa é um pesadelo.\n\nSem a Autorização de Residência:\n❌ Você não pode ser registrado na CBF\n❌ Você não pode atuar em competições oficiais\n❌ Sua carreira está em risco permanente\n\nCom a WB Assessoria:\n✅ Autorização de Residência em até 45 dias\n✅ Suporte completo em todo o processo\n✅ Você foca no que mais importa: jogar\n\nNão arrisque o que você mais ama por falta de informação.\n\n📲 Fale com um especialista agora — link na bio.',
+    hashtags:'#AtletaEstrangeiro #CBF #AutorizaçãoDeResidência #WBAssessoria #FutebolBrasileiro #RNM #ImigraçãoEsportiva #JogadorEstrangeiro #RegularizaçãoAtleta #VisaEsportiva'
+  },
+  { id:4, categoria:'prova_social', catLabel:'Prova Social', plataforma:'instagram', platLabel:'Instagram Feed', gatilho:'Prova Social + Autoridade',
+    titulo:'Resultados Que Falam Por Si',
+    texto:'"Tentei sozinho por 2 anos. Com a WB Assessoria, resolveram em 5 meses."\n\nEssa frase resume o que fazemos todos os dias.\n\nEnquanto você gasta meses com burocracia, nós:\n→ Verificamos e coletamos toda a documentação\n→ Acompanhamos cada etapa no Ministério da Justiça\n→ Garantimos que nenhum documento seja recusado por erro\n→ Você não precisa ir a nenhuma repartição sozinho\n\nResultado? Sua vida regularizada. Sua família protegida. Sua carreira garantida.\n\nJá são centenas de processos concluídos com sucesso.\n\n📩 Consulta gratuita. Resposta em até 2 horas.\nLink na bio.',
+    hashtags:'#NaturalizaçãoBrasileira #ImigraçãoBrasil #AutorizaçãoResidência #WBAssessoria #RegularizaçãoBrasil #DireitosMigratórios #ConsultaGratuita'
+  },
+  { id:5, categoria:'educativo', catLabel:'Educativo', plataforma:'instagram', platLabel:'Instagram Feed', gatilho:'Autoridade (Mitos)',
+    titulo:'5 Mitos da Naturalização Brasileira',
+    texto:'5 MITOS sobre a Naturalização Brasileira (e a verdade) 👇\n\n❌ "É impossível se naturalizar"\n✅ Com os documentos certos, é totalmente viável.\n\n❌ "Demora mais de 10 anos"\n✅ Com 4 anos de residência permanente você já pode solicitar.\n\n❌ "Precisa falar português fluente"\n✅ Nível intermediário já é aceito na entrevista.\n\n❌ "É muito caro e complicado"\n✅ Com um especialista, você evita erros que custam muito mais.\n\n❌ "Posso fazer tudo sozinho"\n✅ Pode. Mas um erro pode atrasar seu processo em meses.\n\nTire suas dúvidas gratuitamente com nossa equipe.\n👉 Link na bio.',
+    hashtags:'#NaturalizaçãoBrasileira #DireitosMigratórios #ImigraçãoBrasil #WBAssessoria #VisaBrasil #CidadaniaBrasileira #EstrangeiroNoBrasil #MitosDaImigração'
+  },
+  { id:6, categoria:'impulsionamento', catLabel:'Anúncio Pago', plataforma:'facebook', platLabel:'Facebook / Meta Ads', gatilho:'CTA Direto',
+    titulo:'Ad: Naturalização Brasileira',
+    texto:'🇧🇷 VOCÊ TEM DIREITO À NATURALIZAÇÃO BRASILEIRA?\n\nSe você mora no Brasil há mais de 4 anos, a resposta provavelmente é: SIM.\n\nA WB Assessoria Migratória é especialista em:\n✅ Naturalização Brasileira\n✅ Autorização de Residência\n✅ Regularização para Atletas Estrangeiros\n\nNão perca mais tempo vivendo na incerteza.\n\n📞 CONSULTA GRATUITA — Clique abaixo e fale com um especialista agora.',
+    hashtags:'#NaturalizaçãoBrasileira #ImigraçãoBrasil #AutorizaçãoResidência #WBAssessoria'
+  },
+  { id:7, categoria:'residencia', catLabel:'Autorização de Residência', plataforma:'linkedin', platLabel:'LinkedIn', gatilho:'Autoridade / Técnico',
+    titulo:'O Processo de Autorização de Residência',
+    texto:'A Autorização de Residência para estrangeiros no Brasil envolve etapas que muitos desconhecem.\n\nDe acordo com a Lei de Migração (nº 13.445/2017), o processo padrão inclui:\n\n1️⃣ Autorização prévia do Ministério da Justiça (15 a 45 dias)\n2️⃣ Emissão do VITEM V (se o estrangeiro estiver fora do Brasil)\n3️⃣ Entrada no território brasileiro\n4️⃣ Registro na Polícia Federal e emissão do RNM\n5️⃣ Para atletas: registro complementar obrigatório na CBF\n\nCada etapa tem documentos específicos, prazos e taxas. Um erro pode resultar em indeferimento ou atraso significativo.\n\nNa WB Assessoria Migratória, acompanhamos todo esse processo para que nossos clientes foquem no que realmente importa.\n\n📩 Saiba mais — consulta gratuita: [link na bio]',
+    hashtags:'#DireitoMigratório #AutorizaçãoDeResidência #ImigraçãoBrasil #WBAssessoria #RegularizaçãoBrasil #LeiDeMigração #AtletaEstrangeiro'
+  },
+  { id:8, categoria:'educativo', catLabel:'Educativo', plataforma:'instagram', platLabel:'Instagram Feed', gatilho:'Especificidade / Prazo',
+    titulo:'Prazos da Naturalização Brasileira',
+    texto:'Quanto tempo demora para se tornar cidadão brasileiro?\n\nA resposta depende do seu perfil:\n\n📋 Regra geral: 4 anos de residência permanente\n\nExceções que REDUZEM o prazo:\n✅ 1 ano: casado(a) com brasileiro(a)\n✅ 1 ano: filho(a) brasileiro(a) reconhecido\n✅ 1 ano: serviços relevantes prestados ao Brasil\n✅ 3 anos: origem de países de língua portuguesa\n\n⚠️ Importante: O prazo começa a contar a partir do visto PERMANENTE — não da chegada ao Brasil.\n\nNão sabe se você já se qualifica?\n📲 Fale com nossa equipe gratuitamente. Link na bio.',
+    hashtags:'#NaturalizaçãoBrasileira #CidadaniaBrasileira #ImigraçãoBrasil #DireitoMigratório #WBAssessoria #VisaPermanente #RegularizaçãoBrasil'
+  },
+  { id:9, categoria:'urgencia', catLabel:'Urgência', plataforma:'reels', platLabel:'Reels / Stories', gatilho:'Gancho + Urgência',
+    titulo:'Reels: Você Sabia?',
+    texto:'POV: Você descobriu que já pode pedir a naturalização brasileira 🇧🇷\n\nSe você mora no Brasil há 4 anos ou mais, pode ter direito à cidadania — e provavelmente ainda não sabe.\n\nNaturalização = passaporte brasileiro + trabalho sem restrições + segurança jurídica total.\n\nA WB Assessoria cuida de tudo.\n\n👇 Comenta "QUERO" que eu te mando o checklist gratuito dos documentos necessários!',
+    hashtags:'#NaturalizaçãoBrasileira #ImigraçãoBrasil #CidadaniaBrasileira #WBAssessoria #BrasileiroPorEscolha #Reels #POV'
+  },
+  { id:10, categoria:'impulsionamento', catLabel:'Anúncio Pago', plataforma:'facebook', platLabel:'Facebook / Meta Ads', gatilho:'Dor + Solução',
+    titulo:'Ad: Atleta Estrangeiro no Brasil',
+    texto:'⚽ ATLETA ESTRANGEIRO: Você está jogando no Brasil de forma legal?\n\nSem a Autorização de Residência:\n❌ Registro na CBF bloqueado\n❌ Impossibilidade de atuar oficialmente\n❌ Risco de multa e deportação\n\nA WB Assessoria Migratória regulariza atletas em todo o Brasil.\n\nMais de [X] atletas regularizados. Processo em até 45 dias.\n\n📞 Fale agora com um especialista — clique abaixo!',
+    hashtags:'#AtletaEstrangeiro #CBF #ImigraçãoEsportiva #WBAssessoria #AutorizaçãoResidência'
+  }
+];
+
+const MKT_WPP = [
+  { icon:'👋', titulo:'Primeiro Contato (Após Lead)',
+    texto:'Olá, [Nome]! 👋\n\nAqui é [Seu Nome] da WB Assessoria Migratória.\n\nVi que você tem interesse em regularizar sua situação no Brasil. Que ótima decisão — você está no lugar certo!\n\nPara entender como posso te ajudar da melhor forma, me conta rapidinho:\n\n1️⃣ Há quanto tempo você está no Brasil?\n2️⃣ Qual documento você já tem? (RNM, visto temporário, nenhum?)\n3️⃣ Qual é seu objetivo? (Naturalização ou Autorização de Residência?)\n\nCom essas informações, consigo te dar uma análise gratuita do seu caso em minutos. 🎯'
+  },
+  { icon:'🔁', titulo:'Follow-up (Sem Resposta em 48h)',
+    texto:'Oi [Nome], tudo bem? 😊\n\nSei que a vida é corrida e às vezes a gente adia decisões importantes.\n\nMas deixa eu te contar uma coisa: cada dia que passa sem regularizar sua situação é um risco real — multas que chegam a R$10.000, restrições para trabalhar, insegurança jurídica...\n\nA boa notícia? Com a documentação certa, resolvemos isso em poucos meses.\n\nQuando tiver uns 10 minutinhos, bora conversar? A consulta é totalmente gratuita e sem compromisso. 😊'
+  },
+  { icon:'📄', titulo:'Proposta de Fechamento',
+    texto:'[Nome], depois de analisar seu caso tenho boas notícias:\n\nVocê está apto(a) para a [Naturalização Brasileira / Autorização de Residência]. ✅\n\nO processo com a WB Assessoria é:\n✅ Completo — cuidamos de A a Z, zero burocracia pra você\n✅ Transparente — você acompanha cada etapa em tempo real\n✅ Comprovado — centenas de processos aprovados\n\nO investimento para o seu processo é de R$ [VALOR].\n\nPara garantir sua vaga na agenda deste mês, preciso da sua confirmação ainda essa semana.\n\nPosso te enviar o contrato para análise agora? 📄'
+  },
+  { icon:'💡', titulo:'Objeção: "Está caro"',
+    texto:'[Nome], entendo sua preocupação com o investimento.\n\nMas vou te dar uma perspectiva importante:\n\nTentar resolver sozinho pode custar muito mais:\n→ Documentos refeitos por erro: R$300-800\n→ Processo indeferido e reiniciado: +6 meses perdidos\n→ Trabalhar ilegalmente: multa de até R$10.000\n→ Pior cenário: deportação\n\nNosso serviço não é um custo. É um investimento na sua segurança e tranquilidade — com resultado garantido por especialistas.\n\nPosso te apresentar as opções de pagamento disponíveis? 😊'
+  },
+  { icon:'⚠️', titulo:'Urgência: Documento Vencendo',
+    texto:'⚠️ [Nome], preciso te alertar sobre algo urgente.\n\nOs antecedentes criminais têm validade de apenas 90 dias para o processo de regularização.\n\nSe você está coletando documentos por conta própria, existe um risco real de que alguns já estejam vencidos quando for dar entrada — o que significa: processo indeferido e recomeçar do zero.\n\nCom a WB Assessoria, controlamos todos os prazos para você. Nenhum documento vence antes da hora.\n\nVamos começar o quanto antes? Cada dia faz diferença. 📅'
+  },
+  { icon:'🔥', titulo:'Reativação (Lead Frio)',
+    texto:'Oi [Nome]! Tudo bem por aí?\n\nMe lembro que você demonstrou interesse em regularizar sua situação no Brasil há algum tempo.\n\nQueria aproveitar para te contar: temos vagas abertas para processos iniciados este mês, o que significa prazo de conclusão mais rápido.\n\nSua situação ainda é a mesma? Ainda faz sentido conversar?\n\nQualquer coisa, estarei por aqui. 😊'
+  }
+];
+
+const MKT_HASHTAGS = [
+  { icone:'🇧🇷', titulo:'Naturalização Brasileira', desc:'Para posts sobre cidadania',
+    tags:'#NaturalizaçãoBrasileira #CidadaniaBrasileira #BrasileiroPorEscolha #PassaporteBrasileiro #NacionalizaçãoBrasil #DireitosMigratórios #VisaPermanenteBrasil #CidadãoBrasileiro #NaturalizarNoBrasil'
+  },
+  { icone:'📋', titulo:'Autorização de Residência', desc:'Para posts sobre residência e RNM',
+    tags:'#AutorizaçãoDeResidência #RNM #RegistroNacional #PoliciaFederal #VisaBrasil #VistoBrasileiro #ImigraçãoBrasil #ResidênciaBrasil #LeiDeMigração #VITEMV'
+  },
+  { icone:'✈️', titulo:'Imigração Geral', desc:'Pack amplo de imigração',
+    tags:'#ImigraçãoBrasil #EstrangeiroNoBrasil #VidaNoExterior #ImmigrationBrazil #ExpatBrasil #RegularizaçãoBrasil #ImigraBrasil #VivaNoBrasil #EstrangeiroFeliz #BrasilParaTodos'
+  },
+  { icone:'⚽', titulo:'Atletas Estrangeiros', desc:'Para posts de atletas e clubes',
+    tags:'#AtletaEstrangeiro #CBF #FutebolBrasileiro #JogadorEstrangeiro #ImigraçãoEsportiva #RegistroCBF #AutorizaçãoAtleta #TransferênciaInternacional #FutebolNoBrasil #AtletaNoBrasil'
+  },
+  { icone:'⭐', titulo:'WB Assessoria (Marca)', desc:'Tags de marca — use em todos os posts',
+    tags:'#WBAssessoria #WBAssessoriaMigratória #AssessoriaMigratória #EspecialistaMigração #ConsultoriaMigratória #DireitoMigratório #RegularizaçãoJá #Migração'
+  },
+  { icone:'📣', titulo:'Call-to-Action', desc:'Tags para engajamento',
+    tags:'#ConsultaGratuita #FaleConosco #SaibaMais #RegularizeAgora #NãoDeixeParaDepois #EntreEmContato #LinknaBio #AgendeSuaConsulta #PrimeiroPassoJá'
+  },
+  { icone:'🚀', titulo:'Pack Completo (40+ tags)', desc:'Máximo alcance — todas as categorias',
+    tags:'#NaturalizaçãoBrasileira #CidadaniaBrasileira #ImigraçãoBrasil #EstrangeiroNoBrasil #AutorizaçãoDeResidência #RNM #WBAssessoria #RegularizaçãoBrasil #DireitosMigratórios #VisaBrasil #BrasileiroPorEscolha #PassaporteBrasileiro #AtletaEstrangeiro #CBF #FutebolBrasileiro #LeiDeMigração #ExpatBrasil #PoliciaFederal #VistoBrasileiro #ConsultaGratuita #MigrarParaOBrasil #VidaNoBrasil #ImigraBrasil #DireitoMigratório #AssessoriaMigratória #EspecialistaMigração #RegularizeAgora #NãoDeixeParaDepois #LinknaBio #BrasilParaTodos #CidadãoBrasileiro #RegistroCBF #JogadorEstrangeiro #ImigraçãoEsportiva #VITEMV #NacionalizaçãoBrasil #SegurançaJurídica #AutorizaçãoAtleta'
+  }
+];
+
+const MKT_ESTRATEGIAS = [
+  { icone:'📊', titulo:'Pilares de Conteúdo', itens:[
+    { sub:'40% — Educativo', desc:'Explique o processo, desminta mitos, compartilhe informações sobre a lei. Posiciona você como a maior autoridade do nicho.' },
+    { sub:'30% — Prova Social', desc:'Cases de sucesso, resultados de clientes, números reais. Reduz objeções e constrói confiança de forma orgânica.' },
+    { sub:'20% — Bastidores', desc:'Sua equipe trabalhando, documentos aprovados, momentos do processo. Humaniza a marca e gera conexão emocional.' },
+    { sub:'10% — Oferta Direta', desc:'Posts de venda com CTA claro. Use urgência e escassez reais. O público já te conhece — hora de converter.' }
+  ]},
+  { icone:'⏰', titulo:'Melhores Horários para Postar', itens:[
+    { sub:'Instagram Feed', desc:'Terça a quinta: 11h–13h e 19h–21h. Maior engajamento com imigrantes após o trabalho.' },
+    { sub:'LinkedIn', desc:'Terça a quinta: 8h–9h ou 12h–13h. Foco em clubes, agentes e profissionais de RH.' },
+    { sub:'Reels / Stories', desc:'Quinta e sexta à noite têm pico de alcance. Conteúdo curto e rápido funciona muito bem.' },
+    { sub:'WhatsApp (follow-up)', desc:'Evite segundas-feiras. Melhor janela: terça a quinta, 10h–12h ou 16h–18h.' }
+  ]},
+  { icone:'🧠', titulo:'Gatilhos Mentais — Guia Prático', itens:[
+    { sub:'Urgência + Medo (topo do funil)', desc:'"Cada dia irregular é um risco real: multas de R$10.000, deportação, perda do emprego." — Mais eficaz para atrair novos públicos.' },
+    { sub:'Autoridade (meio do funil)', desc:'Cite artigos de lei, use dados reais: "Lei nº 13.445/2017", "45 dias de prazo", "R$168,13 de taxa". Números específicos convertem muito mais que genéricos.' },
+    { sub:'Prova Social (meio do funil)', desc:'"Mais de 300 clientes regularizados" — Sempre com número específico. Depoimentos reais, mesmo curtos, valem ouro.' },
+    { sub:'Escassez Real (fundo do funil)', desc:'"Nossa agenda para este mês está 80% preenchida." — Só use se for verdade. Falsa escassez destrói credibilidade.' },
+    { sub:'Reciprocidade (qualquer etapa)', desc:'Ofereça algo grátis: checklist de documentos, consulta de 15 min, guia do processo. Quem recebe tende a retribuir.' }
+  ]},
+  { icone:'🎯', titulo:'Segmentação para Meta Ads', itens:[
+    { sub:'Público Principal', desc:'Localização: Brasil. Idiomas: Espanhol, Inglês, Francês, Árabe (não Português — filtra nativos). Idade: 22–45.' },
+    { sub:'Interesses', desc:'"Imigração", "cidadania", "futebol internacional", "trabalhar no exterior", "FIFA", países de origem dos seus clientes (Argentina, Colômbia, Venezuela, etc.).' },
+    { sub:'Comportamento', desc:'"Residentes recentes", "usuários de múltiplos países", "expats". Estes são usuários que o Facebook identifica como imigrantes.' },
+    { sub:'Remarketing (3–5x mais conversão)', desc:'Visitantes do site + landing page de leads. Instale o Meta Pixel. Essa audiência já te conhece e converte muito mais barato.' },
+    { sub:'Lookalike Audience', desc:'Com 100+ leads capturados, crie um público semelhante. O Meta encontra pessoas com perfil similar aos seus melhores clientes.' }
+  ]},
+  { icone:'💰', titulo:'Investimento em Anúncios — Guia', itens:[
+    { sub:'Início: R$500–800/mês', desc:'Foque em 1–2 campanhas de geração de leads. Teste 3–4 criativos diferentes. Analise a cada 15 dias e pause o que não converte.' },
+    { sub:'Crescimento: R$1.500–3.000/mês', desc:'Separe 70% para conversão (leads), 30% para topo de funil (alcance). Adicione remarketing após ter 100+ visitantes.' },
+    { sub:'Meta de Custo por Lead', desc:'Objetivo: R$15–50 por lead qualificado. Se passar de R$80, revise o criativo ou a segmentação imediatamente.' },
+    { sub:'Cálculo de ROI', desc:'Ticket médio de R$2.000 + fechar 1 a cada 20–30 leads = ROI positivo com R$600 em ads. Com a conversão certa, cada R$1 retorna R$3–8.' }
+  ]}
+];
+
+async function mktCallGemini(apiKey, prompt) {
+  const res = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: MKT_SYSTEM_PROMPT }] },
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.85, maxOutputTokens: 2048 }
+      })
+    }
+  );
+  if (!res.ok) throw new Error('Gemini error: ' + res.status);
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta.';
+}
+
+function mktTab(t) {
+  _mktTab = t;
+  ['templates','ia','whatsapp','hashtags','estrategias'].forEach(function(id) {
+    var btn = document.getElementById('mkt-tab-' + id);
+    var panel = document.getElementById('mkt-panel-' + id);
+    if (btn) {
+      if (id === t) { btn.style.background = 'var(--gold)'; btn.style.color = '#000'; btn.style.fontWeight = '700'; }
+      else { btn.style.background = 'transparent'; btn.style.color = 'var(--text2)'; btn.style.fontWeight = '500'; }
+    }
+    if (panel) panel.style.display = id === t ? 'block' : 'none';
+  });
+}
+
+function mktToggle(id) {
+  var body = document.getElementById('mkt-body-' + id);
+  var arrow = document.getElementById('mkt-arrow-' + id);
+  if (!body) return;
+  var isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
+}
+
+function mktCopy(text, btnId) {
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById(btnId);
+    if (!btn) return;
+    var orig = btn.textContent;
+    btn.textContent = '✓ Copiado!';
+    btn.style.background = 'rgba(34,197,94,0.15)';
+    btn.style.color = 'var(--green)';
+    btn.style.borderColor = 'rgba(34,197,94,0.3)';
+    setTimeout(function() {
+      btn.textContent = orig;
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 2000);
+  });
+}
+
+async function mktGenerate() {
+  var key = localStorage.getItem('wb_gemini_key') || '';
+  if (!key) {
+    key = window.prompt('Digite sua API Key do Gemini (salva localmente para uso futuro):');
+    if (!key || !key.trim()) return;
+    key = key.trim();
+    localStorage.setItem('wb_gemini_key', key);
+  }
+  var tipo = document.getElementById('mkt-tipo')?.value || 'naturalizacao';
+  var plat = document.getElementById('mkt-plat')?.value || 'instagram_feed';
+  var obj  = document.getElementById('mkt-obj')?.value  || 'conversao';
+  var gat  = document.getElementById('mkt-gat')?.value  || 'urgencia';
+  var tom  = document.getElementById('mkt-tom')?.value  || 'profissional_empatico';
+  var det  = document.getElementById('mkt-det')?.value  || '';
+  var tipoL = {naturalizacao:'Naturalização Brasileira',residencia:'Autorização de Residência',atletaNoBrasil:'Regularização de Atleta Estrangeiro',ambos:'Naturalização e Autorização de Residência'};
+  var platL = {instagram_feed:'Instagram Feed',instagram_reels:'Instagram Reels/Stories',linkedin:'LinkedIn',facebook_ads:'Facebook/Meta Ads',whatsapp:'WhatsApp (prospecção)'};
+  var objL  = {conversao:'Conversão direta (fechar consulta/contrato)',conscientizacao:'Conscientização (educar o público)',prova_social:'Prova Social (mostrar resultados)',autoridade:'Autoridade (posicionamento técnico)'};
+  var gatL  = {urgencia:'Urgência + Medo',transformacao:'Transformação (antes/depois emocional)',autoridade:'Autoridade + Especificidade',prova_social:'Prova Social (números e depoimentos)',escassez:'Escassez (vagas limitadas)',reciprocidade:'Reciprocidade (oferta gratuita)',simplificacao:'Simplificação (nós cuidamos de tudo)'};
+  var tomL  = {profissional_empatico:'Profissional e empático',direto:'Direto e persuasivo',inspiracional:'Inspiracional e emocional',tecnico:'Técnico e formal',conversacional:'Conversacional e próximo'};
+  var userPrompt = 'Crie um post de marketing de ALTA CONVERSÃO para a WB Assessoria Migratória:\n\nSERVIÇO FOCO: ' + (tipoL[tipo]||tipo) + '\nPLATAFORMA: ' + (platL[plat]||plat) + '\nOBJETIVO: ' + (objL[obj]||obj) + '\nGATILHO MENTAL PRINCIPAL: ' + (gatL[gat]||gat) + '\nTOM: ' + (tomL[tom]||tom) + (det ? '\nDETALHES ADICIONAIS: ' + det : '') + '\n\nEntregue EXATAMENTE neste formato:\n\n**POST:**\n[texto completo do post, pronto para publicar]\n\n**HASHTAGS:**\n[lista de hashtags relevantes]\n\n**SUGESTÃO DE ARTE/VISUAL:**\n[descrição concisa do visual ideal]\n\n**POR QUE ESTE POST CONVERTE:**\n[2-3 linhas explicando a estratégia]';
+  var btn = document.getElementById('mkt-gen-btn');
+  var output = document.getElementById('mkt-gen-output');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Gerando post...'; }
+  if (output) output.style.display = 'none';
+  try {
+    var result = await mktCallGemini(key, userPrompt);
+    if (output) {
+      output.style.display = 'block';
+      document.getElementById('mkt-gen-text').textContent = result;
+    }
+    showToast('✅ Post gerado com sucesso!', 'success');
+  } catch(e) {
+    showToast('Erro ao gerar: ' + e.message, 'error');
+    if (e.message.includes('400') || e.message.includes('401')) {
+      localStorage.removeItem('wb_gemini_key');
+      showToast('API Key inválida. Será solicitada novamente.', 'error');
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨ Gerar Post com IA'; }
+  }
+}
+
+function renderMarketing() {
+  setTimeout(function() { mktTab(_mktTab); }, 0);
+  var catStyle = {
+    naturalizacao:   'background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.25)',
+    residencia:      'background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.25)',
+    prova_social:    'background:rgba(167,139,250,0.1);color:#a78bfa;border:1px solid rgba(167,139,250,0.25)',
+    educativo:       'background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.25)',
+    impulsionamento: 'background:rgba(248,113,113,0.1);color:#f87171;border:1px solid rgba(248,113,113,0.25)',
+    urgencia:        'background:rgba(251,146,60,0.1);color:#fb923c;border:1px solid rgba(251,146,60,0.25)'
+  };
+  var platStyle = {
+    instagram: 'background:rgba(236,72,153,0.1);color:#f472b6',
+    linkedin:  'background:rgba(14,165,233,0.1);color:#38bdf8',
+    facebook:  'background:rgba(99,102,241,0.1);color:#818cf8',
+    reels:     'background:rgba(168,85,247,0.1);color:#c084fc'
+  };
+  var btnBase = 'background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:0.72rem;color:var(--text2);font-family:inherit';
+  var tplHTML = MKT_TEMPLATES.map(function(t, i) {
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">' +
+      '<div onclick="mktToggle(\'t' + i + '\')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">' +
+        '<div style="min-width:0">' +
+          '<div style="font-weight:600;font-size:0.85rem;margin-bottom:6px">' + t.titulo + '</div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+            '<span style="font-size:0.68rem;padding:2px 8px;border-radius:20px;font-weight:600;' + (catStyle[t.categoria]||'') + '">' + t.catLabel + '</span>' +
+            '<span style="font-size:0.68rem;padding:2px 8px;border-radius:20px;font-weight:600;' + (platStyle[t.plataforma]||'') + '">' + t.platLabel + '</span>' +
+            '<span style="font-size:0.68rem;color:var(--text3)">⚡ ' + t.gatilho + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<span id="mkt-arrow-t' + i + '" style="color:var(--text3);font-size:0.7rem;margin-left:8px;flex-shrink:0">▼</span>' +
+      '</div>' +
+      '<div id="mkt-body-t' + i + '" style="display:none;border-top:1px solid var(--border);padding:16px">' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+            '<span style="font-size:0.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Post / Legenda</span>' +
+            '<button id="mkt-cp-pt' + i + '" onclick="mktCopy(document.getElementById(\'mkt-pre-t' + i + '\').textContent,\'mkt-cp-pt' + i + '\')" style="' + btnBase + '">📋 Copiar Post</button>' +
+          '</div>' +
+          '<pre id="mkt-pre-t' + i + '" style="font-family:inherit;font-size:0.8rem;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;white-space:pre-wrap;line-height:1.6;margin:0">' + t.texto + '</pre>' +
+        '</div>' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+            '<span style="font-size:0.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Hashtags</span>' +
+            '<button id="mkt-cp-ht' + i + '" onclick="mktCopy(document.getElementById(\'mkt-hash-t' + i + '\').textContent,\'mkt-cp-ht' + i + '\')" style="' + btnBase + '">📋 Copiar Hashtags</button>' +
+          '</div>' +
+          '<div id="mkt-hash-t' + i + '" style="font-size:0.78rem;color:#4ade80;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;line-height:1.8">' + t.hashtags + '</div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end">' +
+          '<button id="mkt-cp-all' + i + '" onclick="mktCopy(document.getElementById(\'mkt-pre-t' + i + '\').textContent+\'\\n\\n\'+document.getElementById(\'mkt-hash-t' + i + '\').textContent,\'mkt-cp-all' + i + '\')" style="background:var(--gold2);border:1px solid rgba(201,168,76,0.3);border-radius:7px;padding:6px 14px;cursor:pointer;font-size:0.78rem;color:var(--gold);font-family:inherit;font-weight:600">📋 Copiar Tudo</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  var wppHTML = MKT_WPP.map(function(w, i) {
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">' +
+      '<div onclick="mktToggle(\'w' + i + '\')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">' +
+        '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:1.2rem">' + w.icon + '</span><span style="font-weight:600;font-size:0.85rem">' + w.titulo + '</span></div>' +
+        '<span id="mkt-arrow-w' + i + '" style="color:var(--text3);font-size:0.7rem">▼</span>' +
+      '</div>' +
+      '<div id="mkt-body-w' + i + '" style="display:none;border-top:1px solid var(--border);padding:16px">' +
+        '<pre id="mkt-pre-w' + i + '" style="font-family:inherit;font-size:0.8rem;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;white-space:pre-wrap;line-height:1.6;margin:0 0 12px 0">' + w.texto + '</pre>' +
+        '<div style="display:flex;justify-content:flex-end">' +
+          '<button id="mkt-cp-wpp' + i + '" onclick="mktCopy(document.getElementById(\'mkt-pre-w' + i + '\').textContent,\'mkt-cp-wpp' + i + '\')" style="background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.25);border-radius:7px;padding:6px 14px;cursor:pointer;font-size:0.78rem;color:#22c55e;font-family:inherit;font-weight:600">📋 Copiar Mensagem</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  var htHTML = MKT_HASHTAGS.map(function(h, i) {
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px">' +
+      '<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:1.1rem">' + h.icone + '</span><span style="font-weight:600;font-size:0.85rem">' + h.titulo + '</span></div>' +
+      '<div style="font-size:0.72rem;color:var(--text3)">' + h.desc + '</div></div>' +
+      '<div id="mkt-ht' + i + '" style="font-size:0.75rem;color:#4ade80;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;line-height:1.8">' + h.tags + '</div>' +
+      '<button id="mkt-cp-htpack' + i + '" onclick="mktCopy(document.getElementById(\'mkt-ht' + i + '\').textContent,\'mkt-cp-htpack' + i + '\')" style="' + btnBase + '">📋 Copiar Pack</button>' +
+    '</div>';
+  }).join('');
+  var estratHTML = MKT_ESTRATEGIAS.map(function(e, i) {
+    var itensHTML = e.itens.map(function(item) {
+      return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px">' +
+        '<div style="font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:4px">' + item.sub + '</div>' +
+        '<div style="font-size:0.8rem;color:var(--text2);line-height:1.6">' + item.desc + '</div>' +
+      '</div>';
+    }).join('');
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">' +
+      '<div onclick="mktToggle(\'e' + i + '\')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'\'">' +
+        '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:1.1rem">' + e.icone + '</span><span style="font-weight:600;font-size:0.85rem">' + e.titulo + '</span></div>' +
+        '<span id="mkt-arrow-e' + i + '" style="color:var(--text3);font-size:0.7rem">▼</span>' +
+      '</div>' +
+      '<div id="mkt-body-e' + i + '" style="display:none;border-top:1px solid var(--border);padding:16px">' + itensHTML + '</div>' +
+    '</div>';
+  }).join('');
+  return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">' +
+    '<div><h2 style="margin:0">🚀 Marketing Studio</h2>' +
+    '<p style="margin:4px 0 0;font-size:0.78rem;color:var(--text3)">Sistema de marketing de alto nível para Naturalização Brasileira e Autorização de Residência</p></div>' +
+    '<div style="background:var(--gold2);border:1px solid rgba(201,168,76,0.25);border-radius:20px;padding:6px 14px;font-size:0.72rem;color:var(--gold);font-weight:600">⭐ Estratégias para fechar contratos</div>' +
+  '</div>' +
+  '<div style="display:flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:20px;flex-wrap:wrap">' +
+    '<button id="mkt-tab-templates"   onclick="mktTab(\'templates\')"   style="flex:1;padding:8px 10px;border-radius:7px;border:none;cursor:pointer;font-size:0.75rem;font-weight:600;font-family:inherit;min-width:80px;transition:all 0.15s">📋 Templates</button>' +
+    '<button id="mkt-tab-ia"          onclick="mktTab(\'ia\')"          style="flex:1;padding:8px 10px;border-radius:7px;border:none;cursor:pointer;font-size:0.75rem;font-weight:600;font-family:inherit;min-width:80px;transition:all 0.15s">✨ Criador IA</button>' +
+    '<button id="mkt-tab-whatsapp"    onclick="mktTab(\'whatsapp\')"    style="flex:1;padding:8px 10px;border-radius:7px;border:none;cursor:pointer;font-size:0.75rem;font-weight:600;font-family:inherit;min-width:80px;transition:all 0.15s">💬 WhatsApp</button>' +
+    '<button id="mkt-tab-hashtags"    onclick="mktTab(\'hashtags\')"    style="flex:1;padding:8px 10px;border-radius:7px;border:none;cursor:pointer;font-size:0.75rem;font-weight:600;font-family:inherit;min-width:80px;transition:all 0.15s">🔖 Hashtags</button>' +
+    '<button id="mkt-tab-estrategias" onclick="mktTab(\'estrategias\')" style="flex:1;padding:8px 10px;border-radius:7px;border:none;cursor:pointer;font-size:0.75rem;font-weight:600;font-family:inherit;min-width:80px;transition:all 0.15s">🧠 Estratégias</button>' +
+  '</div>' +
+  '<div id="mkt-panel-templates">' +
+    '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.78rem;color:var(--text3)">ℹ️ Templates profissionais prontos para usar. Personalize com seus números reais antes de publicar.</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' + tplHTML + '</div>' +
+  '</div>' +
+  '<div id="mkt-panel-ia" style="display:none">' +
+    '<div style="background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:10px;padding:14px 16px;margin-bottom:16px">' +
+      '<div style="font-weight:700;font-size:0.85rem;color:var(--gold);margin-bottom:4px">✨ Criador de Posts com IA — Nível Apple</div>' +
+      '<div style="font-size:0.78rem;color:var(--text3)">Configure os parâmetros e deixe o Gemini criar um post de alta conversão. A API Key é solicitada uma vez e salva localmente.</div>' +
+    '</div>' +
+    '<div class="panel"><div class="panel-body">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">' +
+        '<div class="form-group"><label>Serviço em Foco</label><select id="mkt-tipo" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:0.82rem"><option value="naturalizacao">Naturalização Brasileira</option><option value="residencia">Autorização de Residência</option><option value="atletaNoBrasil">Regularização de Atleta</option><option value="ambos">Ambos os Serviços</option></select></div>' +
+        '<div class="form-group"><label>Plataforma</label><select id="mkt-plat" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:0.82rem"><option value="instagram_feed">Instagram Feed</option><option value="instagram_reels">Reels / Stories</option><option value="linkedin">LinkedIn</option><option value="facebook_ads">Facebook / Meta Ads</option><option value="whatsapp">WhatsApp</option></select></div>' +
+        '<div class="form-group"><label>Objetivo do Post</label><select id="mkt-obj" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:0.82rem"><option value="conversao">Conversão — fechar contrato</option><option value="conscientizacao">Conscientização — educar</option><option value="prova_social">Prova Social — resultados</option><option value="autoridade">Autoridade — posicionamento</option></select></div>' +
+        '<div class="form-group"><label>Gatilho Mental Principal</label><select id="mkt-gat" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:0.82rem"><option value="urgencia">Urgência + Medo</option><option value="transformacao">Transformação (antes/depois)</option><option value="autoridade">Autoridade + Especificidade</option><option value="prova_social">Prova Social (números)</option><option value="escassez">Escassez (vagas limitadas)</option><option value="reciprocidade">Reciprocidade (oferta gratuita)</option><option value="simplificacao">Simplificação (cuidamos de tudo)</option></select></div>' +
+        '<div class="form-group"><label>Tom da Mensagem</label><select id="mkt-tom" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:0.82rem"><option value="profissional_empatico">Profissional e Empático</option><option value="direto">Direto e Persuasivo</option><option value="inspiracional">Inspiracional e Emocional</option><option value="tecnico">Técnico e Formal</option><option value="conversacional">Conversacional e Próximo</option></select></div>' +
+      '</div>' +
+      '<div class="form-group" style="margin-bottom:16px"><label>Detalhes Adicionais (opcional)</label><textarea id="mkt-det" rows="3" placeholder="Ex: Especialidade em atletas de futebol, atendemos toda a América Latina, 200+ casos aprovados este ano..." style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:inherit;font-size:0.82rem;resize:none"></textarea></div>' +
+      '<button id="mkt-gen-btn" onclick="mktGenerate()" class="btn btn-gold" style="width:100%;padding:12px">✨ Gerar Post com IA</button>' +
+    '</div></div>' +
+    '<div id="mkt-gen-output" style="display:none;margin-top:16px">' +
+      '<div class="panel"><div class="panel-header" style="background:rgba(201,168,76,0.05);border-bottom:1px solid var(--border)">' +
+        '<span class="panel-title" style="color:var(--gold)">✅ Post Gerado com IA</span>' +
+        '<div style="display:flex;gap:8px"><button id="mkt-cp-gen" onclick="mktCopy(document.getElementById(\'mkt-gen-text\').textContent,\'mkt-cp-gen\')" class="btn btn-outline btn-sm">📋 Copiar Tudo</button><button onclick="mktGenerate()" class="btn btn-outline btn-sm">🔄 Regerar</button></div>' +
+      '</div><div class="panel-body"><pre id="mkt-gen-text" style="font-family:inherit;font-size:0.82rem;color:var(--text2);white-space:pre-wrap;line-height:1.7;margin:0"></pre></div></div>' +
+    '</div>' +
+  '</div>' +
+  '<div id="mkt-panel-whatsapp" style="display:none">' +
+    '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.78rem;color:var(--text3)">ℹ️ Mensagens para cada etapa do funil de vendas. Personalize os campos [entre colchetes] antes de enviar.</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' + wppHTML + '</div>' +
+  '</div>' +
+  '<div id="mkt-panel-hashtags" style="display:none">' +
+    '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.78rem;color:var(--text3)">ℹ️ Use 15–30 hashtags por post no Instagram para alcance máximo. Combine packs por tema.</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' + htHTML + '</div>' +
+  '</div>' +
+  '<div id="mkt-panel-estrategias" style="display:none">' +
+    '<div style="background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:10px;padding:14px 16px;margin-bottom:16px">' +
+      '<div style="font-weight:700;font-size:0.85rem;color:var(--gold);margin-bottom:2px">🚀 Guia Estratégico de Marketing</div>' +
+      '<div style="font-size:0.78rem;color:var(--text3)">Estratégias validadas para maximizar leads e fechar contratos no nicho de assessoria migratória.</div>' +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' + estratHTML + '</div>' +
+  '</div>';
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
