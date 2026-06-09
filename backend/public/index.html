@@ -6442,7 +6442,7 @@ async function mktGerarArte() {
   var servico = document.getElementById('mkt-arte-servico')?.value || 'naturalizacao';
   var estilo  = document.getElementById('mkt-arte-estilo')?.value  || 'moderno';
   var texto   = (document.getElementById('mkt-arte-texto')?.value  || '').slice(0, 60);
-  var dimMap  = { '1:1':{w:1080,h:1080}, '9:16':{w:1080,h:1920}, '16:9':{w:1920,h:1080} };
+  var dimMap  = { '1:1':{w:768,h:768}, '9:16':{w:576,h:1024}, '16:9':{w:1024,h:576} };
   var dim     = dimMap[tipo] || dimMap['1:1'];
   var btn      = document.getElementById('mkt-arte-btn');
   var preview  = document.getElementById('mkt-arte-preview');
@@ -6462,7 +6462,7 @@ async function mktGerarArte() {
   if (promptEl) promptEl.textContent = prompt;
   var seed = Math.floor(Math.random() * 999999);
   var url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) +
-    '?width=' + dim.w + '&height=' + dim.h + '&seed=' + seed + '&nologo=true&model=flux';
+    '?width=' + dim.w + '&height=' + dim.h + '&seed=' + seed + '&nologo=true&model=flux-schnell';
   try {
     var controller = new AbortController();
     var timer = setTimeout(function() { controller.abort(); }, 90000);
