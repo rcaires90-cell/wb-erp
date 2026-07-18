@@ -31,7 +31,6 @@ function detectarCategoria(descricao) {
 // ── GET /api/financeiro/lancamentos ─────────────────────────────────────────
 // ?mes=2026-04&conta=&categoria=&conciliado=
 router.get('/lancamentos', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     let sql = 'SELECT * FROM lancamentos_bancarios WHERE 1=1';
     const params = [];
@@ -75,7 +74,6 @@ router.get('/lancamentos', async (req, res) => {
 // ── POST /api/financeiro/lancamentos ────────────────────────────────────────
 // Lança um ou múltiplos registros (array ou objeto único)
 router.post('/lancamentos', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const lista = Array.isArray(req.body) ? req.body : [req.body];
 
@@ -116,7 +114,6 @@ router.post('/lancamentos', async (req, res) => {
 
 // ── PATCH /api/financeiro/lancamentos/:id ───────────────────────────────────
 router.patch('/lancamentos/:id', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const id = parseInt(req.params.id);
     const { data, descricao, valor, tipo, categoria, conta, conciliado, obs } = req.body;
@@ -143,7 +140,6 @@ router.patch('/lancamentos/:id', async (req, res) => {
 
 // ── DELETE /api/financeiro/lancamentos/:id ───────────────────────────────────
 router.delete('/lancamentos/:id', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const id = parseInt(req.params.id);
     const [r] = await db.query('DELETE FROM lancamentos_bancarios WHERE id = ?', [id]);
@@ -158,7 +154,6 @@ router.delete('/lancamentos/:id', async (req, res) => {
 // ── GET /api/financeiro/resumo ───────────────────────────────────────────────
 // Resumo por categoria do mês
 router.get('/resumo', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const mes = req.query.mes || new Date().toISOString().slice(0, 7);
 
@@ -201,7 +196,6 @@ router.get('/resumo', async (req, res) => {
 // ── POST /api/financeiro/importar-extrato ────────────────────────────────────
 // Recebe texto do extrato bancário e faz o parse automático
 router.post('/importar-extrato', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const { texto, conta } = req.body;
     if (!texto) return res.status(400).json({ erro: 'Texto do extrato é obrigatório' });
@@ -281,13 +275,69 @@ router.post('/importar-extrato', async (req, res) => {
   }
 });
 
+// ── POST /api/financeiro/conciliar-automatico ─────────────────────────────────
+// Casa lançamentos bancários (crédito, não conciliados) com parcelas em aberto
+// por valor (±R$1) e data de vencimento (±10 dias). Só dá baixa automática
+// quando há exatamente um candidato — caso contrário retorna pra revisão manual.
+router.post('/conciliar-automatico', async (req, res) => {
+  try {
+    const [lancamentos] = await db.query(
+      `SELECT * FROM lancamentos_bancarios WHERE tipo = 'credito' AND conciliado = 0 AND parcela_id IS NULL`
+    );
+
+    let conciliados = 0;
+    const provaveis = [];
+
+    for (const l of lancamentos) {
+      const [candidatos] = await db.query(
+        `SELECT p.*, c.nome AS cliente_nome
+         FROM parcelas p
+         JOIN clientes c ON c.id = p.cliente_id
+         WHERE p.paga = 0
+           AND ABS(p.valor - ?) <= 1
+           AND ABS(DATEDIFF(p.vencimento, ?)) <= 10`,
+        [l.valor, l.data]
+      );
+
+      if (candidatos.length === 1) {
+        const p = candidatos[0];
+        await db.query('UPDATE parcelas SET paga = 1, data_pgto = ? WHERE id = ?', [l.data, p.id]);
+        await db.query('UPDATE lancamentos_bancarios SET conciliado = 1, parcela_id = ? WHERE id = ?', [p.id, l.id]);
+        conciliados++;
+      } else if (candidatos.length > 1) {
+        provaveis.push({ lancamento: l, candidatos });
+      }
+    }
+
+    res.json({ ok: true, conciliados, revisar: provaveis, total_analisados: lancamentos.length });
+  } catch (e) {
+    console.error('[financeiro POST /conciliar-automatico]', e);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ── POST /api/financeiro/conciliar-manual ─────────────────────────────────────
+// Confirma manualmente o casamento de um lançamento com uma parcela específica
+// (usado na revisão dos "prováveis" quando havia mais de um candidato)
+router.post('/conciliar-manual', async (req, res) => {
+  try {
+    const { lancamento_id, parcela_id } = req.body;
+    if (!lancamento_id || !parcela_id) return res.status(400).json({ erro: 'lancamento_id e parcela_id são obrigatórios' });
+    const [[l]] = await db.query('SELECT data FROM lancamentos_bancarios WHERE id = ?', [lancamento_id]);
+    if (!l) return res.status(404).json({ erro: 'Lançamento não encontrado' });
+    await db.query('UPDATE parcelas SET paga = 1, data_pgto = ? WHERE id = ?', [l.data, parcela_id]);
+    await db.query('UPDATE lancamentos_bancarios SET conciliado = 1, parcela_id = ? WHERE id = ?', [parcela_id, lancamento_id]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
 
 // ════════════════════════════════════════════════════════════════
 // DESPESAS
 // ════════════════════════════════════════════════════════════════
 
 router.get('/despesas', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     let sql = 'SELECT * FROM despesas WHERE 1=1';
     const params = [];
@@ -299,7 +349,6 @@ router.get('/despesas', async (req, res) => {
 });
 
 router.post('/despesas', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const { data, categoria, descricao, valor, forma_pgto, obs } = req.body;
     if (!data || !descricao || valor === undefined) return res.status(400).json({ erro: 'data, descricao e valor obrigatórios' });
@@ -313,7 +362,6 @@ router.post('/despesas', async (req, res) => {
 });
 
 router.delete('/despesas/:id', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const [r] = await db.query('DELETE FROM despesas WHERE id=?', [parseInt(req.params.id)]);
     if (!r.affectedRows) return res.status(404).json({ erro: 'Não encontrado' });
@@ -326,7 +374,6 @@ router.delete('/despesas/:id', async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 
 router.get('/prolabore', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     let sql = 'SELECT * FROM prolabore WHERE 1=1';
     const params = [];
@@ -338,7 +385,6 @@ router.get('/prolabore', async (req, res) => {
 });
 
 router.post('/prolabore', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const { mes, nome, cargo, valor, data_pgto, obs } = req.body;
     if (!mes || !nome || valor === undefined) return res.status(400).json({ erro: 'mes, nome e valor obrigatórios' });
@@ -352,7 +398,6 @@ router.post('/prolabore', async (req, res) => {
 });
 
 router.delete('/prolabore/:id', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const [r] = await db.query('DELETE FROM prolabore WHERE id=?', [parseInt(req.params.id)]);
     if (!r.affectedRows) return res.status(404).json({ erro: 'Não encontrado' });
@@ -365,7 +410,6 @@ router.delete('/prolabore/:id', async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 
 router.get('/notas/:clienteId', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const [rows] = await db.query(
       'SELECT * FROM notas_clientes WHERE cliente_id=? ORDER BY created_at DESC',
@@ -376,7 +420,6 @@ router.get('/notas/:clienteId', async (req, res) => {
 });
 
 router.post('/notas', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const { cliente_id, texto } = req.body;
     if (!cliente_id || !texto) return res.status(400).json({ erro: 'cliente_id e texto obrigatórios' });
@@ -390,7 +433,6 @@ router.post('/notas', async (req, res) => {
 });
 
 router.delete('/notas/:id', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     await db.query('DELETE FROM notas_clientes WHERE id=?', [parseInt(req.params.id)]);
     res.json({ ok: true });
@@ -402,7 +444,6 @@ router.delete('/notas/:id', async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 
 router.get('/relatorio-mensal', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const mes = req.query.mes || new Date().toISOString().slice(0, 7);
 

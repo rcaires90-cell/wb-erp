@@ -39,6 +39,9 @@ desktop.ini
 # ── Upload temporário ─────────────────────────────
 uploads/tmp/
 
+# ── Backups (dados reais de clientes) ─────────────
+backups/
+
 # ── Scripts de importação única (dados sensíveis) ─
 # Estes arquivos contêm dados reais de clientes e senhas — nunca commitar!
 reimportar_clientes_reais.js

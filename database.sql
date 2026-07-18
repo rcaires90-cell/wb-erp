@@ -27,8 +27,6 @@ CREATE TABLE IF NOT EXISTS clientes (
   data_cadastro   VARCHAR(20),
   protocolo       VARCHAR(100),
   prioridade      VARCHAR(20) DEFAULT 'normal',
-  portal_login    VARCHAR(200),
-  portal_senha    VARCHAR(300),
   drive_folder_id VARCHAR(200),
   drive_folder_url TEXT,
   foto            TEXT,
@@ -188,29 +186,6 @@ CREATE TABLE IF NOT EXISTS notas_clientes (
   cliente_id INT NOT NULL,
   texto      TEXT NOT NULL,
   autor      VARCHAR(200),
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_cliente (cliente_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- ── MENSAGENS PORTAL ──────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS mensagens_portal (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  cliente_id INT NOT NULL,
-  remetente  VARCHAR(20) NOT NULL,
-  texto      TEXT NOT NULL,
-  lida       TINYINT(1) DEFAULT 0,
-  criado_em  DATETIME DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_cliente (cliente_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- ── DOCUMENTOS PORTAL ─────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS documentos_portal (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  cliente_id INT NOT NULL,
-  nome       VARCHAR(300),
-  tipo       VARCHAR(100),
-  url        TEXT,
-  status     VARCHAR(50) DEFAULT 'enviado',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_cliente (cliente_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

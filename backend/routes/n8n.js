@@ -15,7 +15,6 @@ const AGENTES_PERMITIDOS = new Set([
 
 // ── POST /api/n8n/:agente ─────────────────────────
 router.post('/:agente', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
 
   const N8N_BASE = process.env.N8N_BASE;
   if (!N8N_BASE) return res.status(503).json({ erro: 'N8N não configurado' });

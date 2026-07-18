@@ -14,7 +14,6 @@ function fmtData(v) {
 // ── POST /api/notificar/agendamentos ─────────────────────────────────────────
 // Envia lembrete ao cliente (amanhã) + resumo do dia para a equipe
 router.post('/agendamentos', auth, async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const hoje   = new Date();
     const amanha = new Date(hoje); amanha.setDate(amanha.getDate() + 1);
@@ -60,8 +59,7 @@ router.post('/agendamentos', auth, async (req, res) => {
               ${ag.obs ? `<div style="margin-top:4px;color:#666;font-size:0.9rem">${ag.obs}</div>` : ''}
             </div>
             <p>Por favor, lembre-se de trazer seus documentos, se necessário.</p>
-            <p>Qualquer dúvida, entre em contato pelo WhatsApp.</p>
-            <a href="${PORTAL_URL}?portal=cliente" style="display:inline-block;margin-top:12px;padding:12px 24px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Acessar Portal</a>
+            <p>Qualquer dúvida, entre em contato pelo WhatsApp: <a href="https://wa.me/5511914258886" style="color:#c9a84c">(11) 91425-8886</a></p>
             <p style="margin-top:20px;color:#999;font-size:0.8rem">Equipe WB Assessoria Migratória 🇧🇷</p>
           </div>`
         );
@@ -113,7 +111,6 @@ router.post('/agendamentos', auth, async (req, res) => {
 // ── POST /api/notificar/parcelas ──────────────────────────────────────────────
 // Envia lembrete de parcelas vencendo nos próximos 3 dias
 router.post('/parcelas', auth, async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const [parcelas] = await db.query(`
       SELECT p.id, p.descricao, p.valor, p.vencimento,
@@ -147,7 +144,6 @@ router.post('/parcelas', auth, async (req, res) => {
               <div style="font-size:0.85rem;color:#666;margin-top:4px">Vencimento: ${dtFmt}</div>
             </div>
             <p><b>Chave PIX:</b> wbassessoria.contato@gmail.com</p>
-            <a href="${PORTAL_URL}?portal=cliente" style="display:inline-block;margin-top:12px;padding:12px 24px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Acessar Portal</a>
           </div>`
         );
         enviados++;
@@ -162,7 +158,6 @@ router.post('/parcelas', auth, async (req, res) => {
 // ── POST /api/notificar/cobranca ──────────────────────────────────────────────
 // Envia e-mail de cobrança para um cliente inadimplente específico
 router.post('/cobranca', auth, async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const { cliente_id, total, dias_atraso, qtd_parcelas } = req.body;
     const [[c]] = await db.query('SELECT nome, email FROM clientes WHERE id = ?', [cliente_id]);
@@ -185,8 +180,7 @@ router.post('/cobranca', auth, async (req, res) => {
         <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:12px;margin-bottom:14px;font-weight:700;font-size:1rem;color:#c9a84c">
           wbassessoria.contato@gmail.com
         </div>
-        <p>Após o pagamento, entre em contato para confirmar a baixa ou acesse seu portal:</p>
-        <a href="${PORTAL_URL}?portal=cliente" style="display:inline-block;margin-top:4px;padding:12px 24px;background:#c9a84c;color:#fff;border-radius:6px;text-decoration:none;font-weight:bold">Acessar Portal</a>
+        <p>Após o pagamento, entre em contato pelo WhatsApp para confirmar a baixa: <a href="https://wa.me/5511914258886" style="color:#c9a84c">(11) 91425-8886</a></p>
         <p style="margin-top:20px;color:#999;font-size:0.8rem">Equipe WB Assessoria Migratória 🇧🇷</p>
       </div>`
     );
@@ -200,7 +194,6 @@ router.post('/cobranca', auth, async (req, res) => {
 // ── POST /api/notificar/tudo ──────────────────────────────────────────────────
 // Dispara todas as notificações de uma vez (usado pelo cron do Railway)
 router.post('/tudo', auth, async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const [r1, r2] = await Promise.allSettled([
       fetch(`${PORTAL_URL}/api/notificar/agendamentos`, { method:'POST', headers:{ 'Authorization': req.headers.authorization, 'Content-Type':'application/json' } }),

@@ -56,8 +56,19 @@ async function runMigrations() {
     "ALTER TABLE leads ADD COLUMN IF NOT EXISTS responsavel   VARCHAR(200) DEFAULT NULL",
     "ALTER TABLE leads ADD COLUMN IF NOT EXISTS valor_estimado DECIMAL(10,2) DEFAULT 0",
     "ALTER TABLE leads ADD COLUMN IF NOT EXISTS criado_por    VARCHAR(200) DEFAULT NULL",
+    "ALTER TABLE lancamentos_bancarios ADD COLUMN IF NOT EXISTS parcela_id INT DEFAULT NULL",
   ];
   for (const sql of alterCols) {
+    try { await db.query(sql); } catch(e) { console.warn('[migration] skipped:', e.message.slice(0,80)); }
+  }
+  // Remoção do Portal do Cliente — roda uma vez, idempotente (IF EXISTS)
+  const dropPortal = [
+    "DROP TABLE IF EXISTS mensagens_portal",
+    "DROP TABLE IF EXISTS documentos_portal",
+    "ALTER TABLE clientes DROP COLUMN IF EXISTS portal_login",
+    "ALTER TABLE clientes DROP COLUMN IF EXISTS portal_senha",
+  ];
+  for (const sql of dropPortal) {
     try { await db.query(sql); } catch(e) { console.warn('[migration] skipped:', e.message.slice(0,80)); }
   }
   const createTables = [
@@ -75,25 +86,6 @@ async function runMigrations() {
       cliente_id INT NOT NULL,
       texto      TEXT NOT NULL,
       autor      VARCHAR(200),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_cliente (cliente_id)
-    )`,
-    `CREATE TABLE IF NOT EXISTS mensagens_portal (
-      id         INT AUTO_INCREMENT PRIMARY KEY,
-      cliente_id INT NOT NULL,
-      remetente  VARCHAR(20) NOT NULL,
-      texto      TEXT NOT NULL,
-      lida       TINYINT(1) DEFAULT 0,
-      criado_em  DATETIME DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_cliente (cliente_id)
-    )`,
-    `CREATE TABLE IF NOT EXISTS documentos_portal (
-      id         INT AUTO_INCREMENT PRIMARY KEY,
-      cliente_id INT NOT NULL,
-      nome       VARCHAR(300),
-      tipo       VARCHAR(100),
-      url        TEXT,
-      status     VARCHAR(50) DEFAULT 'enviado',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_cliente (cliente_id)
     )`,
@@ -165,9 +157,81 @@ async function runMigrations() {
       INDEX idx_cliente (cliente_id),
       UNIQUE KEY uq_cliente_pk (cliente_id, classPK(100))
     )`,
+    `CREATE TABLE IF NOT EXISTS config_sistema (
+      chave      VARCHAR(50) PRIMARY KEY,
+      valor      VARCHAR(500),
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS fase_prazos (
+      fase_id       VARCHAR(50) PRIMARY KEY,
+      servico_grupo VARCHAR(20) NOT NULL,
+      prazo_dias    INT NOT NULL DEFAULT 30,
+      updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS tarefas_cliente (
+      id          INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_id  INT NOT NULL,
+      fase_id     VARCHAR(50),
+      descricao   VARCHAR(300) NOT NULL,
+      prazo_data  DATE,
+      concluida   TINYINT(1) DEFAULT 0,
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_cliente (cliente_id),
+      INDEX idx_prazo (prazo_data)
+    )`,
+    `CREATE TABLE IF NOT EXISTS modelos_documentos (
+      id             INT AUTO_INCREMENT PRIMARY KEY,
+      nome           VARCHAR(200) NOT NULL,
+      tipo           VARCHAR(50) DEFAULT 'outro',
+      conteudo_html  LONGTEXT NOT NULL,
+      ativo          TINYINT(1) DEFAULT 1,
+      created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS documentos_cliente (
+      id          INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_id  INT NOT NULL,
+      modelo_id   INT,
+      nome        VARCHAR(300) NOT NULL,
+      pdf_base64  LONGTEXT NOT NULL,
+      gerado_em   DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_cliente (cliente_id)
+    )`,
   ];
   for (const sql of createTables) {
     try { await db.query(sql); } catch(e) { console.warn('[migration] table:', e.message.slice(0,80)); }
+  }
+  // Seed de configurações padrão (não sobrescreve se já existir)
+  try {
+    await db.query(
+      "INSERT IGNORE INTO config_sistema (chave, valor) VALUES ('dias_cliente_parado', '50')"
+    );
+  } catch(e) { console.warn('[migration] seed config_sistema:', e.message.slice(0,80)); }
+  // Seed dos prazos padrão por fase (acertados com o cliente; editáveis depois em Configurações)
+  const prazosSeed = [
+    ['pre_protocolo',       'naturalizacao', 15],
+    ['pf_anexo',            'naturalizacao', 15],
+    ['pf_analise',          'naturalizacao', 180],
+    ['pf_biometria',        'naturalizacao', 30],
+    ['mjsp_analise',        'naturalizacao', 60],
+    ['dou_publicado',       'naturalizacao', 30],
+    ['requerimento',        'residencia',    15],
+    ['agendamento_pf',      'residencia',    30],
+    ['rnm_emissao',         'residencia',    45],
+    ['elegibilidade',       'visto_eua',     15],
+    ['ds160',               'visto_eua',     15],
+    ['pagamento_taxas_eua', 'visto_eua',     15],
+    ['agendamento_consulado','visto_eua',    15],
+    ['entrevista_consulado','visto_eua',     30],
+    ['visto_emitido',       'visto_eua',     15],
+  ];
+  for (const [fase_id, servico_grupo, prazo_dias] of prazosSeed) {
+    try {
+      await db.query(
+        'INSERT IGNORE INTO fase_prazos (fase_id, servico_grupo, prazo_dias) VALUES (?,?,?)',
+        [fase_id, servico_grupo, prazo_dias]
+      );
+    } catch(e) { console.warn('[migration] seed fase_prazos:', e.message.slice(0,80)); }
   }
   console.log('✅ Migrations OK');
 }
@@ -222,11 +286,13 @@ app.use('/api/robo',        require('./routes/robo'));
 app.use('/api/leads',       require('./routes/leads'));
 app.use('/api/exportar',    require('./routes/exportar'));
 app.use('/api/metas',       require('./routes/metas'));
-app.use('/api/portal',      require('./routes/portal'));
 app.use('/api/notificar',   require('./routes/notificar'));
 app.use('/api/dou',           require('./routes/dou'));
 app.use('/api/comunicacoes',  require('./routes/comunicacoes'));
 app.use('/api/ocr-documento', require('./routes/ocr-documento'));
+app.use('/api/config',        require('./routes/config'));
+app.use('/api/tarefas',       require('./routes/tarefas'));
+app.use('/api/documentos-cliente', require('./routes/documentos-cliente'));
 
 // ── HEALTH CHECK ──────────────────────────────────
 app.get('/api/health', (_req, res) => {
@@ -245,10 +311,6 @@ app.use((req, res, next) => {
   // atendimento.wbassessoriamigratoria.com.br → landing page de leads
   if (host.startsWith('atendimento.')) {
     return res.sendFile(path.join(__dirname, 'public/leads.html'));
-  }
-  // portal.wbassessoriamigratoria.com.br → força tela do cliente
-  if (host.startsWith('portal.') && req.path === '/' && !req.query.portal) {
-    return res.redirect('/?portal=cliente');
   }
   next();
 });
@@ -336,6 +398,129 @@ async function verificarAntecedenteCron() {
     console.log(`[cron/antecedente] E-mail enviado para ${EQUIPE_EMAIL} com ${clientes.length} cliente(s).`);
   } catch (e) {
     console.error('[cron/antecedente] Erro:', e.message);
+  }
+}
+
+async function verificarClientesParadosCron() {
+  console.log('[cron/parados] Verificando clientes sem movimentação de fase...');
+  try {
+    const { sendEmail } = require('./lib/email');
+    const EQUIPE_EMAIL = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
+
+    const [[cfg]] = await db.query("SELECT valor FROM config_sistema WHERE chave = 'dias_cliente_parado'");
+    const limiar = parseInt(cfg?.valor) || 50;
+
+    const [clientes] = await db.query(`
+      SELECT c.id, c.nome, c.servico, c.processo_fase, c.responsavel,
+             DATEDIFF(CURDATE(), COALESCE(hf.ultima_mudanca, c.processo_data_inicio, c.created_at)) AS dias_parado
+      FROM clientes c
+      LEFT JOIN (
+        SELECT cliente_id, MAX(created_at) AS ultima_mudanca
+        FROM historico_fases
+        WHERE fase_id != 'status_change'
+        GROUP BY cliente_id
+      ) hf ON hf.cliente_id = c.id
+      WHERE c.arquivado = 0
+        AND c.status NOT IN ('Concluído', 'Cancelado')
+      HAVING dias_parado >= ?
+      ORDER BY dias_parado DESC
+    `, [limiar]);
+
+    if (!clientes.length) {
+      console.log(`[cron/parados] Nenhum cliente parado há mais de ${limiar} dias.`);
+      return;
+    }
+
+    const linhas = clientes.map(c => `<tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:700">${c.nome}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee">${c.servico || '—'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee">${c.processo_fase || '—'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee">${c.responsavel || '—'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:700;color:#e53e3e">${c.dias_parado} dia(s)</td>
+    </tr>`).join('');
+
+    await sendEmail(
+      EQUIPE_EMAIL,
+      `⏳ Clientes parados — ${clientes.length} processo(s) sem movimentação`,
+      `<div style="font-family:Arial,sans-serif;max-width:700px;padding:24px;background:#f9f9f9;border-radius:8px">
+        <h2 style="color:#c9a84c">WB Assessoria Migratória</h2>
+        <p>Os seguintes clientes estão há mais de <b>${limiar} dias</b> sem mudança de fase no processo:</p>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #ddd;border-radius:6px;overflow:hidden">
+          <thead><tr style="background:#c9a84c;color:#fff">
+            <th style="padding:10px 12px;text-align:left">Cliente</th>
+            <th style="padding:10px 12px;text-align:left">Serviço</th>
+            <th style="padding:10px 12px;text-align:left">Fase Atual</th>
+            <th style="padding:10px 12px;text-align:left">Responsável</th>
+            <th style="padding:10px 12px;text-align:left">Parado há</th>
+          </tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+        <p style="margin-top:16px;color:#666;font-size:0.9rem">Acesse o sistema para verificar o andamento desses processos.</p>
+      </div>`
+    );
+    console.log(`[cron/parados] E-mail enviado para ${EQUIPE_EMAIL} com ${clientes.length} cliente(s).`);
+  } catch (e) {
+    console.error('[cron/parados] Erro:', e.message);
+  }
+}
+
+async function verificarParcelasAlertaCron() {
+  console.log('[cron/parcelas-alerta] Verificando parcelas a vencer/atrasadas...');
+  try {
+    const { sendEmail } = require('./lib/email');
+    const EQUIPE_EMAIL = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
+
+    const [rows] = await db.query(`
+      SELECT p.descricao, p.valor, p.vencimento, c.nome AS cliente_nome,
+             DATEDIFF(p.vencimento, CURDATE()) AS dias_para_vencer
+      FROM parcelas p
+      JOIN clientes c ON c.id = p.cliente_id
+      WHERE p.paga = 0
+        AND c.arquivado = 0
+        AND p.vencimento <= DATE_ADD(CURDATE(), INTERVAL 5 DAY)
+      ORDER BY p.vencimento ASC
+    `);
+
+    if (!rows.length) {
+      console.log('[cron/parcelas-alerta] Nenhuma parcela a vencer/atrasada.');
+      return;
+    }
+
+    const fmtVal = v => `R$ ${(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+    const linhas = rows.map(p => {
+      const atrasada = p.dias_para_vencer < 0;
+      const txt = atrasada ? `Atrasada há ${Math.abs(p.dias_para_vencer)}d` : p.dias_para_vencer === 0 ? 'Vence hoje' : `Vence em ${p.dias_para_vencer}d`;
+      const cor = atrasada ? '#e53e3e' : p.dias_para_vencer <= 1 ? '#e53e3e' : '#d97706';
+      return `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:700">${p.cliente_nome}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee">${p.descricao || 'Parcela'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee">${fmtVal(p.valor)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:700;color:${cor}">${txt}</td>
+      </tr>`;
+    }).join('');
+
+    const atrasadas = rows.filter(r => r.dias_para_vencer < 0).length;
+    await sendEmail(
+      EQUIPE_EMAIL,
+      `💰 Parcelas a vencer/atrasadas — ${rows.length} parcela(s)${atrasadas ? `, ${atrasadas} atrasada(s)` : ''}`,
+      `<div style="font-family:Arial,sans-serif;max-width:650px;padding:24px;background:#f9f9f9;border-radius:8px">
+        <h2 style="color:#c9a84c">WB Assessoria Migratória</h2>
+        <p>Resumo interno de parcelas vencendo nos próximos 5 dias ou já atrasadas:</p>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #ddd;border-radius:6px;overflow:hidden">
+          <thead><tr style="background:#c9a84c;color:#fff">
+            <th style="padding:10px 12px;text-align:left">Cliente</th>
+            <th style="padding:10px 12px;text-align:left">Descrição</th>
+            <th style="padding:10px 12px;text-align:left">Valor</th>
+            <th style="padding:10px 12px;text-align:left">Situação</th>
+          </tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+        <p style="margin-top:16px;color:#666;font-size:0.9rem">Este é um alerta interno — não é enviado ao cliente.</p>
+      </div>`
+    );
+    console.log(`[cron/parcelas-alerta] E-mail enviado para ${EQUIPE_EMAIL} com ${rows.length} parcela(s).`);
+  } catch (e) {
+    console.error('[cron/parcelas-alerta] Erro:', e.message);
   }
 }
 
@@ -449,6 +634,8 @@ async function backupSemanalCron() {
 async function cronDiario() {
   await verificarAntecedenteCron();
   await verificarDocumentosVencendoCron();
+  await verificarClientesParadosCron();
+  await verificarParcelasAlertaCron();
   await lembreteAgendamentoCron();
 
   // Verificação do DOU: chama o endpoint interno

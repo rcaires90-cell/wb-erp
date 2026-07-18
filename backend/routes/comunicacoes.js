@@ -19,8 +19,6 @@ router.get('/', async (req, res) => {
   try {
     const cid = parseInt(req.query.cliente_id);
     if (isNaN(cid)) return res.status(400).json({ erro: 'cliente_id obrigatório' });
-    if (req.user.role === 'cliente' && req.user.clienteId !== cid)
-      return res.status(403).json({ erro: 'Acesso negado' });
     const [rows] = await db.query(
       'SELECT * FROM comunicacoes WHERE cliente_id = ? ORDER BY created_at DESC',
       [cid]
@@ -31,7 +29,6 @@ router.get('/', async (req, res) => {
 
 // POST /api/comunicacoes
 router.post('/', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const { cliente_id, tipo, texto } = req.body;
     if (!cliente_id || !texto?.trim())
@@ -48,7 +45,6 @@ router.post('/', async (req, res) => {
 
 // DELETE /api/comunicacoes/:id
 router.delete('/:id', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ erro: 'ID inválido' });

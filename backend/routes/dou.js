@@ -121,7 +121,6 @@ function linkDOU(hit) {
 // ── GET /api/dou/verificar?data=DD-MM-YYYY&historico=1 ───────────────────────
 // data ausente ou historico=1 → busca todo o histórico desde 2020
 router.get('/verificar', auth, async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const historico = req.query.historico === '1';
     const data      = historico ? null : (req.query.data || new Date().toLocaleDateString('pt-BR').replace(/\//g, '-'));
@@ -218,7 +217,6 @@ router.get('/verificar', auth, async (req, res) => {
 // ── GET /api/dou/historico ────────────────────────────────────────────────────
 // Lista todos os alertas já registrados
 router.get('/historico', auth, async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const [rows] = await db.query(`
       SELECT a.*, c.nome AS cliente_nome, c.servico
@@ -235,7 +233,6 @@ router.get('/historico', auth, async (req, res) => {
 
 // ── DELETE /api/dou/historico/:id ─────────────────────────────────────────────
 router.delete('/historico/:id', auth, async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     await db.query('DELETE FROM alertas_dou WHERE id=?', [parseInt(req.params.id)]);
     res.json({ ok: true });

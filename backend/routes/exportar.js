@@ -100,7 +100,7 @@ router.get('/backup.json', async (req, res) => {
   if (req.user.role !== 'ceo') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const tabelas = ['clientes','parcelas','agendamentos','despesas','prolabore',
-                     'leads','mensagens_portal','documentos_portal','metas_mensais'];
+                     'leads','metas_mensais'];
     const backup = { gerado_em: new Date().toISOString(), tabelas: {} };
     for (const t of tabelas) {
       try {

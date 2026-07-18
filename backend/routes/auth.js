@@ -15,120 +15,44 @@ const loginLimiter = rateLimit({
 // ── POST /api/auth/login ──────────────────────────
 router.post('/login', loginLimiter, async (req, res) => {
   try {
-    const { email, senha, tipo } = req.body;
+    const { email, senha } = req.body;
 
-    if (!email || !senha || !tipo) {
-      return res.status(400).json({ erro: 'email, senha e tipo são obrigatórios' });
-    }
-    if (!['staff', 'cliente'].includes(tipo)) {
-      return res.status(400).json({ erro: 'tipo deve ser "staff" ou "cliente"' });
+    if (!email || !senha) {
+      return res.status(400).json({ erro: 'email e senha são obrigatórios' });
     }
 
-    // ── LOGIN STAFF ──────────────────────────────
-    if (tipo === 'staff') {
-      const [rows] = await db.query(
-        'SELECT * FROM users WHERE email = ? AND ativo = 1 LIMIT 1',
-        [email.toLowerCase().trim()]
-      );
+    const [rows] = await db.query(
+      'SELECT * FROM users WHERE email = ? AND ativo = 1 LIMIT 1',
+      [email.toLowerCase().trim()]
+    );
 
-      // Mesma mensagem para usuário não encontrado e senha errada (evita enumeração)
-      if (!rows.length) {
-        return res.status(401).json({ erro: 'Credenciais inválidas' });
-      }
-
-      const user = rows[0];
-      const ok = await bcrypt.compare(senha, user.senha_hash);
-      if (!ok) return res.status(401).json({ erro: 'Credenciais inválidas' });
-
-      const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role, nome: user.nome },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES || '8h' }
-      );
-
-      return res.json({
-        ok: true,
-        token,
-        user: {
-          id:     user.id,
-          nome:   user.nome,
-          email:  user.email,
-          role:   user.role,
-          cargo:  user.cargo,
-          avatar: user.avatar,
-        },
-      });
+    // Mesma mensagem para usuário não encontrado e senha errada (evita enumeração)
+    if (!rows.length) {
+      return res.status(401).json({ erro: 'Credenciais inválidas' });
     }
 
-    // ── LOGIN CLIENTE ─────────────────────────────
-    if (tipo === 'cliente') {
-      // Login pelo CPF (normaliza removendo pontos e traço)
-      const cpfNorm = email.trim().replace(/\D/g, '');
-      if (!cpfNorm) return res.status(401).json({ erro: 'Dados incorretos' });
+    const user = rows[0];
+    const ok = await bcrypt.compare(senha, user.senha_hash);
+    if (!ok) return res.status(401).json({ erro: 'Credenciais inválidas' });
 
-      const [rows] = await db.query(
-        `SELECT id, nome, email, tel, servico, status, cpf, portal_senha
-         FROM clientes
-         WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = ? AND arquivado = 0
-         LIMIT 1`,
-        [cpfNorm]
-      );
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role, nome: user.nome },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES || '8h' }
+    );
 
-      if (!rows.length) {
-        return res.status(401).json({ erro: 'Dados incorretos' });
-      }
-
-      const cli = rows[0];
-
-      // Senha universal (PORTAL_SENHA_GLOBAL no env) — se configurada, aplica a todos
-      const senhaGlobal = process.env.PORTAL_SENHA_GLOBAL;
-      let senhaOk = false;
-
-      if (senhaGlobal) {
-        senhaOk = senha === senhaGlobal;
-      } else if (cli.portal_senha) {
-        // Fallback: senha individual cadastrada no cliente
-        if (cli.portal_senha.startsWith('$2')) {
-          senhaOk = await bcrypt.compare(senha, cli.portal_senha);
-        } else {
-          senhaOk = senha === cli.portal_senha;
-          if (senhaOk) {
-            const novoHash = await bcrypt.hash(senha, 10);
-            await db.query('UPDATE clientes SET portal_senha = ? WHERE id = ?', [novoHash, cli.id]);
-          }
-        }
-      }
-
-      if (!senhaOk) return res.status(401).json({ erro: 'Dados incorretos' });
-
-      const token = jwt.sign(
-        { id: cli.id, email: cli.email, role: 'cliente', nome: cli.nome, clienteId: cli.id },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES || '8h' }
-      );
-
-      const avatar = cli.nome
-        .split(' ')
-        .filter(Boolean)
-        .map(w => w[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase();
-
-      return res.json({
-        ok: true,
-        token,
-        user: {
-          id:        cli.id,
-          nome:      cli.nome,
-          email:     cli.email,
-          role:      'cliente',
-          cargo:     'Cliente',
-          avatar,
-          clienteId: cli.id,
-        },
-      });
-    }
+    return res.json({
+      ok: true,
+      token,
+      user: {
+        id:     user.id,
+        nome:   user.nome,
+        email:  user.email,
+        role:   user.role,
+        cargo:  user.cargo,
+        avatar: user.avatar,
+      },
+    });
   } catch (err) {
     console.error('[auth POST /login]', err);
     res.status(500).json({ erro: 'Erro ao autenticar' });

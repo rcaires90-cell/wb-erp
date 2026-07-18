@@ -19,10 +19,7 @@ router.get('/', async (req, res) => {
       WHERE 1=1`;
     const params = [];
 
-    if (req.user.role === 'cliente') {
-      sql += ' AND p.cliente_id = ?';
-      params.push(req.user.clienteId);
-    } else if (req.query.cliente_id) {
+    if (req.query.cliente_id) {
       sql += ' AND p.cliente_id = ?';
       params.push(parseInt(req.query.cliente_id));
     }
@@ -55,10 +52,6 @@ router.get('/:id', async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ erro: 'Parcela não encontrada' });
 
-    if (req.user.role === 'cliente' && rows[0].cliente_id !== req.user.clienteId) {
-      return res.status(403).json({ erro: 'Acesso negado' });
-    }
-
     res.json(rows[0]);
   } catch (e) {
     console.error('[parcelas GET/:id]', e);
@@ -68,7 +61,6 @@ router.get('/:id', async (req, res) => {
 
 // ── POST /api/parcelas ────────────────────────────
 router.post('/', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const { cliente_id, descricao, valor, vencimento, forma_pgto, obs, paga, data_pgto } = req.body;
 
@@ -101,7 +93,6 @@ router.post('/', async (req, res) => {
 
 // ── PATCH /api/parcelas/:id ───────────────────────
 router.patch('/:id', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ erro: 'ID inválido' });
@@ -132,7 +123,6 @@ router.patch('/:id', async (req, res) => {
 
 // ── DELETE /api/parcelas/:id ──────────────────────
 router.delete('/:id', async (req, res) => {
-  if (req.user.role === 'cliente') return res.status(403).json({ erro: 'Acesso negado' });
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ erro: 'ID inválido' });
