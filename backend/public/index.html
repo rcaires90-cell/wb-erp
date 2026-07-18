@@ -1718,7 +1718,7 @@ let loginRole   = 'ceo';
 // Estado persistente de UI
 let _activeTab    = 'tab-processo'; // aba ativa no modal do cliente
 let _activeTabCid = null;           // id do cliente que estava aberto
-let _cliFilter    = { busca: '', status: '', servico: '' }; // filtros da lista de clientes
+let _cliFilter    = { busca: '', status: '', servico: '', grupo: '' }; // filtros da lista de clientes
 let _finTab       = 'parcelas'; // aba ativa do Financeiro
 
 // Prevent double submit
@@ -2033,7 +2033,7 @@ function renderPage(page) {
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = `<div class="empty"><div class="icon">🔧</div><h3>Em breve</h3></div>`;
   // Restaura filtros da lista de clientes
-  if (page === 'clientes' && (_cliFilter.busca || _cliFilter.status || _cliFilter.servico)) {
+  if (page === 'clientes' && (_cliFilter.busca || _cliFilter.status || _cliFilter.servico || _cliFilter.grupo)) {
     const b = document.getElementById('cli-busca');
     const s = document.getElementById('cli-status');
     const sv = document.getElementById('cli-servico');
@@ -2087,6 +2087,15 @@ function getFases(servico) {
   if (s.includes('E.U.A') || s.includes('EUA') || s.includes('Turismo')) return FASES_VISTO_EUA;
   return FASES_NATURALIZACAO;
 }
+
+// Agrupa o serviço em uma das 3 categorias grandes (usado nas abas da tela de Clientes)
+function getGrupoServico(servico) {
+  const s = servico || '';
+  if (s.includes('CPLP') || s.includes('Reagrupamento')) return 'residencia';
+  if (s.includes('E.U.A') || s.includes('EUA') || s.includes('Turismo')) return 'visto_eua';
+  return 'naturalizacao';
+}
+const GRUPO_LABELS = { naturalizacao: 'Naturalização', residencia: 'RNM (Familiar)', visto_eua: 'Vistos' };
 
 const DOCS_NATURALIZACAO_OBR = [
   { id:'doc_rnm',              label:'RNM / RNE',                            icon:'🪪' },
@@ -2408,16 +2417,8 @@ function diasRestantesProcesso(c) {
 }
 
 function renderDashboard() {
-  const total   = (clientes||[]).length;
-  const ativos  = (clientes||[]).filter(c => c.status === 'Em andamento').length;
-  const conc    = (clientes||[]).filter(c => c.status === 'Concluído').length;
-  const pago    = (parcelas||[]).filter(p => p.paga).reduce((s,p) => s + (parseFloat(p.valor)||0), 0);
-  const pendente= (parcelas||[]).filter(p => !p.paga).reduce((s,p) => s + (parseFloat(p.valor)||0), 0);
   const hoje    = new Date().toISOString().split('T')[0];
   const agHoje  = (agendamentos||[]).filter(a => a.data === hoje);
-  const venc3   = (parcelas||[]).filter(p => !p.paga && p.vencimento && new Date(p.vencimento) <= new Date(Date.now() + 3*864e5));
-  const mesAtual = new Date().toISOString().slice(0,7);
-  const contratosmes = (clientes||[]).filter(c => (c.data_cadastro||'').slice(6,10)+'-'+(c.data_cadastro||'').slice(3,5) === mesAtual || (c.created_at||'').slice(0,7) === mesAtual).length;
 
   // Antecedentes vencendo em até 30 dias ou já vencidos
   // Ignora clientes que já passaram da fase de Análise da PF (documento não é mais exigido)
@@ -2452,19 +2453,18 @@ function renderDashboard() {
   });
   docsVencendo.sort((a,b) => a.dias - b.dias);
 
-  setTimeout(() => carregarMetasDashboard(pago, contratosmes), 50);
-  setTimeout(() => carregarLeadsCardDashboard(), 80);
-  setTimeout(() => carregarClientesParadosDashboard(), 65);
-  setTimeout(() => carregarParcelasAlertaDashboard(), 75);
-  setTimeout(() => carregarTarefasAtrasadasDashboard(), 85);
+  setTimeout(() => carregarClientesParadosDashboard(), 50);
+  setTimeout(() => carregarTarefasAtrasadasDashboard(), 60);
 
   return `
-    ${venc3.length ? `
-      <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
-        <span style="font-size:1.2rem">⚠️</span>
-        <div style="flex:1;font-size:0.82rem;color:var(--orange)">${venc3.length} parcela(s) vencem em até 3 dias</div>
-        <button class="btn btn-outline btn-sm" onclick="navigateTo('financeiro')">Ver →</button>
-      </div>` : ''}
+    <h2 style="margin-bottom:20px">Dashboard</h2>
+
+    <div class="stat-card" style="max-width:260px;margin-bottom:20px">
+      <div class="stat-label">Agenda Hoje</div>
+      <div class="stat-value">${agHoje.length}</div>
+      <div class="stat-sub">${agHoje.length ? agHoje[0].hora + ' · ' + agHoje[0].tipo : 'Nenhum agendamento'}</div>
+    </div>
+
     ${antecedentesAlerta.length ? `
       <div style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
@@ -2496,272 +2496,34 @@ function renderDashboard() {
         </div>
       </div>` : ''}
 
-    <div id="dash-parcelas-alerta-widget"></div>
     <div id="dash-parados-widget"></div>
-    <div id="dash-tarefas-widget"></div>
-
-    <div class="stat-grid">
-      <div class="stat-card">
-        <div class="stat-label">Total Clientes</div>
-        <div class="stat-value">${total}</div>
-        <div class="stat-sub">${ativos} em andamento</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Concluídos</div>
-        <div class="stat-value">${conc}</div>
-        <div class="stat-sub">${total ? Math.round(conc/total*100) : 0}% de sucesso</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Recebido</div>
-        <div class="stat-value" style="font-size:1.3rem;color:var(--green)">R$ ${(pago/1000).toFixed(1)}k</div>
-        <div class="stat-sub" style="color:var(--orange)">+R$ ${(pendente/1000).toFixed(1)}k pendente</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Agenda Hoje</div>
-        <div class="stat-value">${agHoje.length}</div>
-        <div class="stat-sub">${agHoje.length ? agHoje[0].hora + ' · ' + agHoje[0].tipo : 'Nenhum agendamento'}</div>
-      </div>
-      <div class="stat-card" id="dash-leads-card" style="cursor:pointer" onclick="navigateTo('leads')">
-        <div class="stat-label">Leads Novos</div>
-        <div class="stat-value" id="dash-leads-val" style="color:var(--gold)">…</div>
-        <div class="stat-sub" id="dash-leads-sub">carregando</div>
-      </div>
-    </div>
-
-    <div id="dash-leads-alerta" style="margin-bottom:12px"></div>
-    <div id="metas-dashboard-widget" style="margin-bottom:20px"></div>
-    <div id="dash-leads-mini" style="margin-bottom:20px"></div>
-
-    <!-- Breakdown por serviço -->
-    <div class="panel" style="margin-bottom:20px">
-      <div class="panel-header"><span class="panel-title">📊 Clientes por Serviço</span></div>
-      <div style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px">
-        ${SERVICOS.map(s => {
-          const n = (clientes||[]).filter(c => c.servico === s).length;
-          if (!n) return '';
-          const pct2 = total ? Math.round(n/total*100) : 0;
-          return `
-          <div onclick="document.getElementById('cli-servico')&&(document.getElementById('cli-servico').value='${s}',navigateTo('clientes'))"
-            style="cursor:pointer;flex:1;min-width:150px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;transition:border-color 0.2s"
-            onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
-            <div style="font-size:0.72rem;color:var(--text3);margin-bottom:4px">${servicoBadge(s)}</div>
-            <div style="font-size:1.4rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--text)">${n}</div>
-            <div style="font-size:0.68rem;color:var(--text3)">${pct2}% do total</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>
-
-    <!-- Clientes por País -->
-    ${(() => {
-      const porPais = {};
-      (clientes||[]).filter(c => !c.arquivado).forEach(c => {
-        const p = (c.pais||'').trim() || 'Não informado';
-        porPais[p] = (porPais[p]||0) + 1;
-      });
-      const paises = Object.entries(porPais).sort((a,b) => b[1]-a[1]).slice(0,15);
-      if (!paises.length) return '';
-      const maxN = paises[0][1];
-      const FLAGS = {
-        'brasil':'🇧🇷','colômbia':'🇨🇴','colombia':'🇨🇴','venezuela':'🇻🇪','haiti':'🇭🇹',
-        'peru':'🇵🇪','bolívia':'🇧🇴','bolivia':'🇧🇴','angola':'🇦🇴','portugal':'🇵🇹',
-        'argentina':'🇦🇷','chile':'🇨🇱','uruguai':'🇺🇾','paraguai':'🇵🇾','equador':'🇪🇨',
-        'cuba':'🇨🇺','méxico':'🇲🇽','mexico':'🇲🇽','senegal':'🇸🇳','gana':'🇬🇭',
-        'nigéria':'🇳🇬','nigeria':'🇳🇬','china':'🇨🇳','índia':'🇮🇳','india':'🇮🇳',
-        'filipinas':'🇵🇭','bangladesh':'🇧🇩','paquistão':'🇵🇰','paquistao':'🇵🇰',
-        'rússia':'🇷🇺','russia':'🇷🇺','ucrânia':'🇺🇦','ucrania':'🇺🇦',
-        'república dominicana':'🇩🇴','republica dominicana':'🇩🇴','costa rica':'🇨🇷',
-        'el salvador':'🇸🇻','guatemala':'🇬🇹','honduras':'🇭🇳','nicarágua':'🇳🇮',
-        'panamá':'🇵🇦','panama':'🇵🇦','guiné-bissau':'🇬🇼','moçambique':'🇲🇿',
-        'mozambique':'🇲🇿','cabo verde':'🇨🇻','são tomé e príncipe':'🇸🇹',
-        'estados unidos':'🇺🇸','eua':'🇺🇸','canadá':'🇨🇦','canada':'🇨🇦',
-        'reino unido':'🇬🇧','espanha':'🇪🇸','itália':'🇮🇹','italia':'🇮🇹',
-        'alemanha':'🇩🇪','france':'🇫🇷','franca':'🇫🇷','japão':'🇯🇵','japao':'🇯🇵',
-        'coreia do sul':'🇰🇷','turquia':'🇹🇷','marrocos':'🇲🇦','egito':'🇪🇬',
-      };
-      const flag = n => FLAGS[n.toLowerCase()] || '🌐';
-      return `
-      <div class="panel" style="margin-bottom:20px">
-        <div class="panel-header"><span class="panel-title">🌍 Clientes por País</span><span style="font-size:0.72rem;color:var(--text3)">${Object.keys(porPais).length} países</span></div>
-        <div style="padding:12px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
-          ${paises.map(([nome, n]) => {
-            const w = Math.max(6, Math.round(n/maxN*100));
-            return `
-            <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px">
-              <span style="font-size:1.25rem;flex-shrink:0">${flag(nome)}</span>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:0.78rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
-                <div style="margin-top:4px;height:4px;background:var(--bg4);border-radius:2px">
-                  <div style="width:${w}%;height:100%;background:var(--gold);border-radius:2px;opacity:0.75"></div>
-                </div>
-              </div>
-              <div style="font-size:0.88rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--text);flex-shrink:0">${n}</div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-    })()}
-
-    ${(() => {
-      const hoje = new Date();
-      const mesHoje = hoje.getMonth() + 1;
-      const diaHoje = hoje.getDate();
-      const aniversariantes = (clientes||[]).filter(c => {
-        if (!c.data_nascimento) return false;
-        const d = new Date(c.data_nascimento);
-        return (d.getMonth() + 1) === mesHoje;
-      }).sort((a, b) => {
-        const da = new Date(a.data_nascimento).getDate();
-        const db2 = new Date(b.data_nascimento).getDate();
-        return da - db2;
-      });
-      if (!aniversariantes.length) return '';
-      return `
-      <div class="panel" style="margin-bottom:20px;border-color:rgba(201,168,76,0.3)">
-        <div class="panel-header"><span class="panel-title">🎂 Aniversariantes do Mês</span></div>
-        <div style="padding:4px 16px 12px;display:flex;flex-wrap:wrap;gap:8px">
-          ${aniversariantes.map(c => {
-            const dia = new Date(c.data_nascimento).getDate();
-            const eHoje = dia === diaHoje;
-            const anos = hoje.getFullYear() - new Date(c.data_nascimento).getFullYear();
-            return `<div onclick="openCliente(${c.id})" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 12px;background:${eHoje?'rgba(201,168,76,0.12)':'var(--bg3)'};border:1px solid ${eHoje?'var(--gold)':'var(--border)'};border-radius:8px;transition:border-color 0.2s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='${eHoje?'var(--gold)':'var(--border)'}'">
-              <div style="font-size:1.1rem">${eHoje?'🎉':'🎂'}</div>
-              <div>
-                <div style="font-size:0.82rem;font-weight:600;color:var(--text)">${c.nome.split(' ')[0]}</div>
-                <div style="font-size:0.7rem;color:${eHoje?'var(--gold)':'var(--text3)'}">${String(dia).padStart(2,'0')}/${String(mesHoje).padStart(2,'0')}${eHoje?' · Hoje!':''} · ${anos} anos</div>
-              </div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-    })()}
-
-    ${(() => {
-      const byResp = {};
-      const mesAtual = new Date().toISOString().slice(0,7);
-      (clientes||[]).forEach(c => {
-        const r = c.responsavel || 'Não definido';
-        if (!byResp[r]) byResp[r] = { total:0, andamento:0, concluido:0, valor:0, novosMes:0 };
-        byResp[r].total++;
-        if (c.status === 'Em andamento') byResp[r].andamento++;
-        if (c.status === 'Concluído') byResp[r].concluido++;
-        byResp[r].valor += parseFloat(c.valor)||0;
-        if ((c.created_at||'').slice(0,7) === mesAtual || (c.data_cadastro||'').slice(6,10)+'-'+(c.data_cadastro||'').slice(3,5) === mesAtual) byResp[r].novosMes++;
-      });
-      const entries = Object.entries(byResp).sort((a,b)=>b[1].total-a[1].total);
-      if (!entries.length) return '';
-      return `
-      <div class="panel" style="margin-bottom:20px">
-        <div class="panel-header"><span class="panel-title">👥 Produtividade por Responsável</span></div>
-        <div style="padding:8px 0">
-          ${entries.map(([resp, d]) => `
-            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
-              <div class="client-av" style="width:32px;height:32px;font-size:0.65rem;flex-shrink:0">${resp.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-weight:700;font-size:0.85rem;color:var(--text)">${resp}</div>
-                <div style="font-size:0.7rem;color:var(--text3);margin-top:2px">${d.andamento} em andamento · ${d.concluido} concluídos · ${d.novosMes} novos este mês</div>
-              </div>
-              <div style="text-align:right;flex-shrink:0">
-                <div style="font-size:0.78rem;font-weight:700;color:var(--text)">${d.total} cliente${d.total!==1?'s':''}</div>
-                <div style="font-size:0.7rem;color:var(--text3)">R$ ${(d.valor/1000).toFixed(1)}k carteira</div>
-              </div>
-            </div>`).join('')}
-        </div>
-      </div>`;
-    })()}
-
-    ${(() => {
-      const hoje90 = new Date(); hoje90.setHours(0,0,0,0);
-      const d30 = new Date(hoje90.getTime() + 30*864e5);
-      const d60 = new Date(hoje90.getTime() + 60*864e5);
-      const d90 = new Date(hoje90.getTime() + 90*864e5);
-      const pendentes90 = (parcelas||[]).filter(p => !p.paga && p.vencimento);
-      const b1 = pendentes90.filter(p => { const d=new Date(String(p.vencimento).slice(0,10)+'T12:00'); return d>=hoje90 && d<=d30; });
-      const b2 = pendentes90.filter(p => { const d=new Date(String(p.vencimento).slice(0,10)+'T12:00'); return d>d30 && d<=d60; });
-      const b3 = pendentes90.filter(p => { const d=new Date(String(p.vencimento).slice(0,10)+'T12:00'); return d>d60 && d<=d90; });
-      const s1 = b1.reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
-      const s2 = b2.reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
-      const s3 = b3.reduce((s,p) => s+(parseFloat(p.valor)||0), 0);
-      const tot = s1+s2+s3;
-      if (!tot) return '';
-      const fmtR = v => `R$ ${v.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
-      const bw = v => tot > 0 ? Math.max(4,Math.round(v/tot*100)) : 0;
-      return `
-      <div class="panel" style="margin-bottom:20px">
-        <div class="panel-header">
-          <span class="panel-title">📈 Previsão de Receita — 90 dias</span>
-          <span style="font-size:0.72rem;color:var(--text3)">Total: ${fmtR(tot)}</span>
-        </div>
-        <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
-            <div style="font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Próximos 30 dias</div>
-            <div style="font-size:1.1rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--green)">${fmtR(s1)}</div>
-            <div style="font-size:0.7rem;color:var(--text3);margin-top:3px">${b1.length} parcela${b1.length!==1?'s':''}</div>
-            <div style="margin-top:8px;height:4px;background:var(--bg4);border-radius:2px"><div style="width:${bw(s1)}%;height:100%;background:var(--green);border-radius:2px;opacity:0.7"></div></div>
-          </div>
-          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
-            <div style="font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">31 a 60 dias</div>
-            <div style="font-size:1.1rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--gold)">${fmtR(s2)}</div>
-            <div style="font-size:0.7rem;color:var(--text3);margin-top:3px">${b2.length} parcela${b2.length!==1?'s':''}</div>
-            <div style="margin-top:8px;height:4px;background:var(--bg4);border-radius:2px"><div style="width:${bw(s2)}%;height:100%;background:var(--gold);border-radius:2px;opacity:0.7"></div></div>
-          </div>
-          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px">
-            <div style="font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">61 a 90 dias</div>
-            <div style="font-size:1.1rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--text2)">${fmtR(s3)}</div>
-            <div style="font-size:0.7rem;color:var(--text3);margin-top:3px">${b3.length} parcela${b3.length!==1?'s':''}</div>
-            <div style="margin-top:8px;height:4px;background:var(--bg4);border-radius:2px"><div style="width:${bw(s3)}%;height:100%;background:rgba(148,163,184,0.5);border-radius:2px"></div></div>
-          </div>
-        </div>
-      </div>`;
-    })()}
-
-    <div class="grid-2">
-      <div class="panel">
-        <div class="panel-header"><span class="panel-title">Clientes Recentes</span><button class="btn btn-ghost btn-sm" onclick="navigateTo('clientes')">Ver todos →</button></div>
-        <div>
-          ${clientes.slice(0,5).map(c => `
-            <div class="client-row" onclick="openCliente(${c.id})">
-              <div class="client-av">${c.foto ? `<img src="${c.foto}">` : c.nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}</div>
-              <div class="client-info">
-                <div class="client-name">${c.nome}</div>
-                <div class="client-sub">${c.servico || '—'}</div>
-              </div>
-              ${statusBadge(c.status)}
-            </div>`).join('')}
-          ${!clientes.length ? '<div class="empty" style="padding:24px"><p>Nenhum cliente cadastrado</p></div>' : ''}
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-header"><span class="panel-title">Parcelas Próximas</span><button class="btn btn-ghost btn-sm" onclick="navigateTo('financeiro')">Ver todas →</button></div>
-        <div>
-          ${parcelas.filter(p=>!p.paga&&p.vencimento).sort((a,b)=>a.vencimento>b.vencimento?1:-1).slice(0,5).map(p => {
-            const c = clientes.find(x=>x.id===p.cliente_id);
-            const diff = Math.ceil((parseDate(p.vencimento)-new Date())/(864e5));
-            const cor = diff < 0 ? 'var(--red)' : diff <= 3 ? 'var(--orange)' : 'var(--text2)';
-            return `
-              <div class="client-row" onclick="openCliente(${p.cliente_id})">
-                <div class="client-info">
-                  <div class="client-name">${c?.nome || '—'}</div>
-                  <div class="client-sub">${p.descricao || 'Parcela'}</div>
-                </div>
-                <div style="text-align:right;flex-shrink:0">
-                  <div style="font-size:0.82rem;font-weight:600;font-family:'Geist Mono',monospace;color:var(--text)">R$ ${(parseFloat(p.valor)||0).toLocaleString('pt-BR')}</div>
-                  <div style="font-size:0.7rem;color:${cor}">${diff < 0 ? `${Math.abs(diff)}d atraso` : diff === 0 ? 'Hoje' : `${diff}d`}</div>
-                </div>
-              </div>`;
-          }).join('')}
-          ${!parcelas.filter(p=>!p.paga).length ? '<div class="empty" style="padding:24px"><p>Nenhuma parcela pendente</p></div>' : ''}
-        </div>
-      </div>
-    </div>`;
+    <div id="dash-tarefas-widget"></div>`;
 }
 
 // ══════════════════════════════════
 // CLIENTES
 // ══════════════════════════════════
 function renderClientes() {
+  const grupoAtivo = _cliFilter.grupo || '';
+  const gruposTab = [
+    { id: '', label: 'Todos' },
+    { id: 'naturalizacao', label: 'Naturalização' },
+    { id: 'residencia', label: 'RNM (Familiar)' },
+    { id: 'visto_eua', label: 'Vistos' },
+  ];
   return `
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      ${gruposTab.map(g => {
+        const n = g.id ? (clientes||[]).filter(c => !c.arquivado && getGrupoServico(c.servico) === g.id).length : (clientes||[]).filter(c => !c.arquivado).length;
+        const ativo = grupoAtivo === g.id;
+        return `<button onclick="setGrupoCliente('${g.id}')"
+          style="padding:7px 14px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.8rem;font-weight:600;transition:all 0.15s;
+            ${ativo ? 'background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-glow)' : 'background:var(--bg3);color:var(--text2);border:1px solid var(--border)'}">
+          ${g.label} <span style="opacity:0.7">(${n})</span>
+        </button>`;
+      }).join('')}
+    </div>
+
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
       <input type="text" id="cli-busca" placeholder="Nome, CPF, RNM, telefone, protocolo..." oninput="filtrarClientes(this.value)"
         style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:0.82rem;outline:none;font-family:'Syne',sans-serif">
@@ -2858,14 +2620,22 @@ function tabelaClientes(lista) {
     </table>`;
 }
 
+function setGrupoCliente(grupo) {
+  _cliFilter.grupo = grupo;
+  document.getElementById('main-content').innerHTML = renderClientes();
+  filtrarClientes();
+}
+
 function filtrarClientes(q) {
   const busca   = (typeof q === 'string' ? q : document.getElementById('cli-busca')?.value || '').toLowerCase();
   const status  = document.getElementById('cli-status')?.value  || '';
   const servico = document.getElementById('cli-servico')?.value || '';
   const dataIni = document.getElementById('cli-data-ini')?.value || '';
   const dataFim = document.getElementById('cli-data-fim')?.value || '';
-  _cliFilter = { busca: document.getElementById('cli-busca')?.value || '', status, servico };
+  const grupo   = _cliFilter.grupo || '';
+  _cliFilter = { busca: document.getElementById('cli-busca')?.value || '', status, servico, grupo };
   let lista = clientes.filter(c => {
+    if (grupo   && getGrupoServico(c.servico) !== grupo) return false;
     if (status  && c.status  !== status)  return false;
     if (servico && c.servico !== servico) return false;
     if (busca && !(
