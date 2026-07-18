@@ -1,10 +1,19 @@
-const puppeteer = require('puppeteer');
+// Puppeteer recente é distribuído como ESM — require() direto quebra em
+// runtimes mais antigos (ex: Node 18 do Railway) com ERR_REQUIRE_ESM.
+// import() dinâmico funciona em qualquer versão do Node, ESM ou CJS.
+let puppeteerModulePromise = null;
+function loadPuppeteer() {
+  if (!puppeteerModulePromise) {
+    puppeteerModulePromise = import('puppeteer').then(m => m.default || m);
+  }
+  return puppeteerModulePromise;
+}
 
-// Em produção (Railway/Nixpacks) usamos o Chromium do sistema (pacote Nix,
-// já vem com as libs certas) em vez do binário que o Puppeteer baixaria
-// sozinho — evita problemas de build (extração) e libs faltando em runtime.
-// Em dev local, se não achar nada no PATH, cai no Chromium baixado pelo
-// próprio Puppeteer (comportamento padrão).
+// Em produção (Railway/Nixpacks) usamos o Chromium do sistema (instalado
+// via apt, já com as libs certas) em vez do binário que o Puppeteer
+// baixaria sozinho — evita problemas de build (extração) e libs faltando
+// em runtime. Em dev local, se não achar nada no PATH, cai no Chromium
+// baixado pelo próprio Puppeteer (comportamento padrão).
 function resolveExecutablePath() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
   try {
@@ -20,11 +29,11 @@ function resolveExecutablePath() {
 let browserPromise = null;
 function getBrowser() {
   if (!browserPromise) {
-    browserPromise = puppeteer.launch({
+    browserPromise = loadPuppeteer().then(puppeteer => puppeteer.launch({
       headless: true,
       executablePath: resolveExecutablePath(),
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    }));
   }
   return browserPromise;
 }
