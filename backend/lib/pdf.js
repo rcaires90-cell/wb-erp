@@ -1,10 +1,28 @@
 const puppeteer = require('puppeteer');
 
+// Em produção (Railway/Nixpacks) usamos o Chromium do sistema (pacote Nix,
+// já vem com as libs certas) em vez do binário que o Puppeteer baixaria
+// sozinho — evita problemas de build (extração) e libs faltando em runtime.
+// Em dev local, se não achar nada no PATH, cai no Chromium baixado pelo
+// próprio Puppeteer (comportamento padrão).
+function resolveExecutablePath() {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
+  try {
+    const { execSync } = require('child_process');
+    const out = execSync('which chromium || which chromium-browser || which google-chrome', { shell: '/bin/sh' })
+      .toString().trim().split('\n')[0];
+    return out || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 let browserPromise = null;
 function getBrowser() {
   if (!browserPromise) {
     browserPromise = puppeteer.launch({
       headless: true,
+      executablePath: resolveExecutablePath(),
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
   }
