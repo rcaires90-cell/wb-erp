@@ -6,71 +6,89 @@ const path      = require('path');
 const cron      = require('node-cron');
 const db        = require('./db');
 
+// "ADD/DROP COLUMN IF [NOT] EXISTS" é sintaxe do MariaDB — MySQL real (o que
+// roda em produção) não suporta e falha com erro de sintaxe silenciosamente
+// (capturado pelo catch). Por isso checamos INFORMATION_SCHEMA antes.
+async function columnExists(table, column) {
+  const [[row]] = await db.query(
+    'SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+    [table, column]
+  );
+  return row.c > 0;
+}
+async function addColumnIfNotExists(table, column, definition) {
+  try {
+    if (await columnExists(table, column)) return;
+    await db.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  } catch (e) { console.warn('[migration] skipped:', e.message.slice(0, 80)); }
+}
+async function dropColumnIfExists(table, column) {
+  try {
+    if (!(await columnExists(table, column))) return;
+    await db.query(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+  } catch (e) { console.warn('[migration] skipped:', e.message.slice(0, 80)); }
+}
+
 async function runMigrations() {
   const alterCols = [
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS processo_fase        VARCHAR(100)  DEFAULT NULL",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS processo_protocolo   VARCHAR(200)  DEFAULT NULL",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS processo_data_inicio DATE          DEFAULT NULL",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS proficiencia_status  VARCHAR(50)   DEFAULT 'pendente'",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS proficiencia_obs     TEXT          DEFAULT NULL",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gov_login            VARCHAR(200)  DEFAULT NULL",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gov_senha            VARCHAR(200)  DEFAULT NULL",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_rnm              TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_cpf              TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_comprovante_end  TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_passaporte       TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_comprovante_4anos TINYINT(1)   DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_antecedente      TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_antecedente_val  DATE          DEFAULT NULL",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_lingua           TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_prova_presencial TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_senha_gov        TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_cert_nascimento  TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_cert_casamento   TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_carteira_trabalho TINYINT(1)   DEFAULT 0",
+    ['clientes', 'processo_fase',          "VARCHAR(100)  DEFAULT NULL"],
+    ['clientes', 'processo_protocolo',     "VARCHAR(200)  DEFAULT NULL"],
+    ['clientes', 'processo_data_inicio',   "DATE          DEFAULT NULL"],
+    ['clientes', 'proficiencia_status',    "VARCHAR(50)   DEFAULT 'pendente'"],
+    ['clientes', 'proficiencia_obs',       "TEXT          DEFAULT NULL"],
+    ['clientes', 'gov_login',              "VARCHAR(200)  DEFAULT NULL"],
+    ['clientes', 'gov_senha',              "VARCHAR(200)  DEFAULT NULL"],
+    ['clientes', 'doc_rnm',                "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_cpf',                "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_comprovante_end',    "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_passaporte',         "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_comprovante_4anos',  "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_antecedente',        "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_antecedente_val',    "DATE          DEFAULT NULL"],
+    ['clientes', 'doc_lingua',             "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_prova_presencial',   "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_senha_gov',          "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_cert_nascimento',    "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_cert_casamento',     "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_carteira_trabalho',  "TINYINT(1)    DEFAULT 0"],
     // Autorização de Residência (CPLP / Reagrupamento)
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_requerimento     TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_agendamento_pf   TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_taxas_gov        TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_biometria        TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_rnm_req          TINYINT(1)    DEFAULT 0",
+    ['clientes', 'doc_requerimento',       "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_agendamento_pf',     "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_taxas_gov',          "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_biometria',          "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_rnm_req',            "TINYINT(1)    DEFAULT 0"],
     // Visto de Turismo (E.U.A)
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_ds160            TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_foto_americana   TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_taxa_mrv         TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_comprovante_renda TINYINT(1)   DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_extrato_bancario TINYINT(1)    DEFAULT 0",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_vinculo_brasil   TINYINT(1)    DEFAULT 0",
+    ['clientes', 'doc_ds160',              "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_foto_americana',     "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_taxa_mrv',           "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_comprovante_renda',  "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_extrato_bancario',   "TINYINT(1)    DEFAULT 0"],
+    ['clientes', 'doc_vinculo_brasil',     "TINYINT(1)    DEFAULT 0"],
     // Aniversariantes
-    "ALTER TABLE clientes ADD COLUMN data_nascimento DATE DEFAULT NULL",
+    ['clientes', 'data_nascimento',        "DATE DEFAULT NULL"],
     // Validade de documentos extras
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_passaporte_val   DATE          DEFAULT NULL",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_rnm_val          DATE          DEFAULT NULL",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS doc_visto_val        DATE          DEFAULT NULL",
-    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS data_validade_ar     DATE          DEFAULT NULL",
-    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS pais          VARCHAR(100) DEFAULT NULL",
-    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS rnm_tipo      VARCHAR(50)  DEFAULT NULL",
-    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS tempo_no_pais VARCHAR(50)  DEFAULT NULL",
-    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS cidade        VARCHAR(100) DEFAULT NULL",
-    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS estado        VARCHAR(10)  DEFAULT NULL",
-    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS responsavel   VARCHAR(200) DEFAULT NULL",
-    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS valor_estimado DECIMAL(10,2) DEFAULT 0",
-    "ALTER TABLE leads ADD COLUMN IF NOT EXISTS criado_por    VARCHAR(200) DEFAULT NULL",
-    "ALTER TABLE lancamentos_bancarios ADD COLUMN IF NOT EXISTS parcela_id INT DEFAULT NULL",
+    ['clientes', 'doc_passaporte_val',     "DATE          DEFAULT NULL"],
+    ['clientes', 'doc_rnm_val',            "DATE          DEFAULT NULL"],
+    ['clientes', 'doc_visto_val',          "DATE          DEFAULT NULL"],
+    ['clientes', 'data_validade_ar',       "DATE          DEFAULT NULL"],
+    ['leads', 'pais',           "VARCHAR(100) DEFAULT NULL"],
+    ['leads', 'rnm_tipo',       "VARCHAR(50)  DEFAULT NULL"],
+    ['leads', 'tempo_no_pais',  "VARCHAR(50)  DEFAULT NULL"],
+    ['leads', 'cidade',         "VARCHAR(100) DEFAULT NULL"],
+    ['leads', 'estado',         "VARCHAR(10)  DEFAULT NULL"],
+    ['leads', 'responsavel',    "VARCHAR(200) DEFAULT NULL"],
+    ['leads', 'valor_estimado', "DECIMAL(10,2) DEFAULT 0"],
+    ['leads', 'criado_por',     "VARCHAR(200) DEFAULT NULL"],
+    ['lancamentos_bancarios', 'parcela_id', "INT DEFAULT NULL"],
   ];
-  for (const sql of alterCols) {
-    try { await db.query(sql); } catch(e) { console.warn('[migration] skipped:', e.message.slice(0,80)); }
+  for (const [table, column, definition] of alterCols) {
+    await addColumnIfNotExists(table, column, definition);
   }
-  // Remoção do Portal do Cliente — roda uma vez, idempotente (IF EXISTS)
-  const dropPortal = [
-    "DROP TABLE IF EXISTS mensagens_portal",
-    "DROP TABLE IF EXISTS documentos_portal",
-    "ALTER TABLE clientes DROP COLUMN IF EXISTS portal_login",
-    "ALTER TABLE clientes DROP COLUMN IF EXISTS portal_senha",
-  ];
-  for (const sql of dropPortal) {
-    try { await db.query(sql); } catch(e) { console.warn('[migration] skipped:', e.message.slice(0,80)); }
-  }
+  // Remoção do Portal do Cliente — roda uma vez, idempotente
+  try { await db.query("DROP TABLE IF EXISTS mensagens_portal"); } catch (e) { console.warn('[migration] skipped:', e.message.slice(0, 80)); }
+  try { await db.query("DROP TABLE IF EXISTS documentos_portal"); } catch (e) { console.warn('[migration] skipped:', e.message.slice(0, 80)); }
+  await dropColumnIfExists('clientes', 'portal_login');
+  await dropColumnIfExists('clientes', 'portal_senha');
   const createTables = [
     `CREATE TABLE IF NOT EXISTS historico_fases (
       id           INT AUTO_INCREMENT PRIMARY KEY,
