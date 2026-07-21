@@ -12,6 +12,8 @@
 <title>WB Assessoria Migratória</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <style>
 
 /* ── RESET & BASE ── */
@@ -2097,6 +2099,73 @@ function getGrupoServico(servico) {
 }
 const GRUPO_LABELS = { naturalizacao: 'Naturalização', residencia: 'RNM (Familiar)', visto_eua: 'Vistos' };
 
+// ── Normalização de país (junta "Brasil"/"BRASIL"/"brasil" etc.) + coordenadas pro mapa ──
+function normalizarPais(nome) {
+  let s = (nome || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const ALIASES_PAIS = {
+    'eua': 'estados unidos', 'usa': 'estados unidos', 'e.u.a': 'estados unidos',
+    'estados unidos da america': 'estados unidos', 'us': 'estados unidos',
+    'mozambique': 'mocambique',
+    'rep. dominicana': 'republica dominicana', 'dominicana': 'republica dominicana',
+  };
+  return ALIASES_PAIS[s] || s;
+}
+const PAIS_INFO = {
+  'brasil':                { label: 'Brasil', flag: '🇧🇷', lat: -15.7939, lng: -47.8828 },
+  'colombia':               { label: 'Colômbia', flag: '🇨🇴', lat: 4.7110, lng: -74.0721 },
+  'venezuela':              { label: 'Venezuela', flag: '🇻🇪', lat: 10.4806, lng: -66.9036 },
+  'haiti':                  { label: 'Haiti', flag: '🇭🇹', lat: 18.5944, lng: -72.3074 },
+  'peru':                   { label: 'Peru', flag: '🇵🇪', lat: -12.0464, lng: -77.0428 },
+  'bolivia':                { label: 'Bolívia', flag: '🇧🇴', lat: -16.5000, lng: -68.1500 },
+  'angola':                 { label: 'Angola', flag: '🇦🇴', lat: -8.8390, lng: 13.2894 },
+  'portugal':               { label: 'Portugal', flag: '🇵🇹', lat: 38.7223, lng: -9.1393 },
+  'argentina':              { label: 'Argentina', flag: '🇦🇷', lat: -34.6037, lng: -58.3816 },
+  'chile':                  { label: 'Chile', flag: '🇨🇱', lat: -33.4489, lng: -70.6693 },
+  'uruguai':                { label: 'Uruguai', flag: '🇺🇾', lat: -34.9011, lng: -56.1645 },
+  'paraguai':               { label: 'Paraguai', flag: '🇵🇾', lat: -25.2637, lng: -57.5759 },
+  'equador':                { label: 'Equador', flag: '🇪🇨', lat: -0.1807, lng: -78.4678 },
+  'cuba':                   { label: 'Cuba', flag: '🇨🇺', lat: 23.1136, lng: -82.3666 },
+  'mexico':                 { label: 'México', flag: '🇲🇽', lat: 19.4326, lng: -99.1332 },
+  'senegal':                { label: 'Senegal', flag: '🇸🇳', lat: 14.7167, lng: -17.4677 },
+  'gana':                   { label: 'Gana', flag: '🇬🇭', lat: 5.6037, lng: -0.1870 },
+  'nigeria':                { label: 'Nigéria', flag: '🇳🇬', lat: 9.0765, lng: 7.3986 },
+  'china':                  { label: 'China', flag: '🇨🇳', lat: 39.9042, lng: 116.4074 },
+  'india':                  { label: 'Índia', flag: '🇮🇳', lat: 28.6139, lng: 77.2090 },
+  'filipinas':              { label: 'Filipinas', flag: '🇵🇭', lat: 14.5995, lng: 120.9842 },
+  'bangladesh':             { label: 'Bangladesh', flag: '🇧🇩', lat: 23.8103, lng: 90.4125 },
+  'paquistao':              { label: 'Paquistão', flag: '🇵🇰', lat: 33.6844, lng: 73.0479 },
+  'russia':                 { label: 'Rússia', flag: '🇷🇺', lat: 55.7558, lng: 37.6173 },
+  'ucrania':                { label: 'Ucrânia', flag: '🇺🇦', lat: 50.4501, lng: 30.5234 },
+  'republica dominicana':   { label: 'República Dominicana', flag: '🇩🇴', lat: 18.4861, lng: -69.9312 },
+  'costa rica':             { label: 'Costa Rica', flag: '🇨🇷', lat: 9.9281, lng: -84.0907 },
+  'el salvador':            { label: 'El Salvador', flag: '🇸🇻', lat: 13.6929, lng: -89.2182 },
+  'guatemala':              { label: 'Guatemala', flag: '🇬🇹', lat: 14.6349, lng: -90.5069 },
+  'honduras':               { label: 'Honduras', flag: '🇭🇳', lat: 14.0723, lng: -87.1921 },
+  'nicaragua':              { label: 'Nicarágua', flag: '🇳🇮', lat: 12.1150, lng: -86.2362 },
+  'panama':                 { label: 'Panamá', flag: '🇵🇦', lat: 8.9824, lng: -79.5199 },
+  'guine-bissau':           { label: 'Guiné-Bissau', flag: '🇬🇼', lat: 11.8636, lng: -15.5977 },
+  'mocambique':             { label: 'Moçambique', flag: '🇲🇿', lat: -25.9692, lng: 32.5732 },
+  'cabo verde':             { label: 'Cabo Verde', flag: '🇨🇻', lat: 14.9330, lng: -23.5133 },
+  'sao tome e principe':    { label: 'São Tomé e Príncipe', flag: '🇸🇹', lat: 0.3365, lng: 6.7273 },
+  'estados unidos':         { label: 'Estados Unidos', flag: '🇺🇸', lat: 38.9072, lng: -77.0369 },
+  'canada':                 { label: 'Canadá', flag: '🇨🇦', lat: 45.4215, lng: -75.6972 },
+  'reino unido':            { label: 'Reino Unido', flag: '🇬🇧', lat: 51.5074, lng: -0.1278 },
+  'espanha':                { label: 'Espanha', flag: '🇪🇸', lat: 40.4168, lng: -3.7038 },
+  'italia':                 { label: 'Itália', flag: '🇮🇹', lat: 41.9028, lng: 12.4964 },
+  'alemanha':               { label: 'Alemanha', flag: '🇩🇪', lat: 52.5200, lng: 13.4050 },
+  'franca':                 { label: 'França', flag: '🇫🇷', lat: 48.8566, lng: 2.3522 },
+  'france':                 { label: 'França', flag: '🇫🇷', lat: 48.8566, lng: 2.3522 },
+  'japao':                  { label: 'Japão', flag: '🇯🇵', lat: 35.6762, lng: 139.6503 },
+  'coreia do sul':          { label: 'Coreia do Sul', flag: '🇰🇷', lat: 37.5665, lng: 126.9780 },
+  'turquia':                { label: 'Turquia', flag: '🇹🇷', lat: 39.9334, lng: 32.8597 },
+  'marrocos':               { label: 'Marrocos', flag: '🇲🇦', lat: 34.0209, lng: -6.8416 },
+  'egito':                  { label: 'Egito', flag: '🇪🇬', lat: 30.0444, lng: 31.2357 },
+};
+function getPaisInfo(nome) {
+  const key = normalizarPais(nome);
+  return PAIS_INFO[key] || null;
+}
+
 const DOCS_NATURALIZACAO_OBR = [
   { id:'doc_rnm',              label:'RNM / RNE',                            icon:'🪪' },
   { id:'doc_cpf',              label:'CPF',                                  icon:'📄' },
@@ -2455,6 +2524,7 @@ function renderDashboard() {
 
   setTimeout(() => carregarClientesParadosDashboard(), 50);
   setTimeout(() => carregarTarefasAtrasadasDashboard(), 60);
+  setTimeout(() => renderizarMapaClientes(), 80);
 
   return `
     <h2 style="margin-bottom:20px">Dashboard</h2>
@@ -2497,7 +2567,57 @@ function renderDashboard() {
       </div>` : ''}
 
     <div id="dash-parados-widget"></div>
-    <div id="dash-tarefas-widget"></div>`;
+    <div id="dash-tarefas-widget"></div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="panel-header"><span class="panel-title">🗺️ Clientes pelo Mundo</span></div>
+      <div id="mapa-clientes-mundi" style="height:380px;background:#0a0a0a"></div>
+    </div>`;
+}
+
+let _mapaClientesInstance = null;
+function renderizarMapaClientes() {
+  const el = document.getElementById('mapa-clientes-mundi');
+  if (!el || typeof L === 'undefined') return;
+
+  if (_mapaClientesInstance) { _mapaClientesInstance.remove(); _mapaClientesInstance = null; }
+
+  const contagem = {};
+  (clientes||[]).filter(c => !c.arquivado).forEach(c => {
+    const info = getPaisInfo(c.pais);
+    if (!info) return;
+    const key = info.label;
+    contagem[key] = contagem[key] || { ...info, total: 0 };
+    contagem[key].total++;
+  });
+  const pontos = Object.values(contagem);
+
+  const map = L.map(el, { scrollWheelZoom: false, worldCopyJump: true }).setView([-10, -50], 3);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri',
+    maxZoom: 18,
+  }).addTo(map);
+
+  const maxTotal = Math.max(1, ...pontos.map(p => p.total));
+  pontos.forEach(p => {
+    const raio = 8 + (p.total / maxTotal) * 22;
+    L.circleMarker([p.lat, p.lng], {
+      radius: raio,
+      color: '#c9a84c',
+      weight: 2,
+      fillColor: '#c9a84c',
+      fillOpacity: 0.45,
+    }).addTo(map)
+      .bindPopup(`<b>${p.flag} ${p.label}</b><br>${p.total} cliente${p.total !== 1 ? 's' : ''}`)
+      .on('click', function() { this.openPopup(); });
+  });
+
+  if (pontos.length) {
+    const bounds = L.latLngBounds(pontos.map(p => [p.lat, p.lng]));
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 5 });
+  }
+
+  _mapaClientesInstance = map;
 }
 
 // ══════════════════════════════════
