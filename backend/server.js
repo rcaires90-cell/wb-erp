@@ -256,6 +256,10 @@ async function runMigrations() {
 
 const app = express();
 
+// Railway roda o app atrás de um proxy reverso (1 hop) — sem isso o
+// express-rate-limit não confia no X-Forwarded-For e não identifica IPs corretamente.
+app.set('trust proxy', 1);
+
 // ── LOGGING DE REQUISIÇÕES ────────────────────────
 app.use((req, res, next) => {
   const inicio = Date.now();
@@ -369,7 +373,6 @@ async function verificarAntecedenteCron() {
       FROM clientes
       WHERE arquivado = 0
         AND doc_antecedente_val IS NOT NULL
-        AND doc_antecedente_val != ''
         AND doc_antecedente_val <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
         AND (processo_fase IS NULL OR processo_fase NOT IN (
           'pf_analise', 'pf_biometria', 'mjsp_analise', 'dou_publicado', 'concluido'
