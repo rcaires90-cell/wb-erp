@@ -227,6 +227,19 @@ h3{font-size:0.9rem;font-weight:600}
   #global-search{display:none}
 }
 
+/* ── MAPA MUNDI (Leaflet) ── */
+.wb-map{border-radius:var(--radius-lg);overflow:hidden;cursor:default!important}
+.wb-map .leaflet-marker-icon,.wb-map .leaflet-interactive{cursor:pointer!important}
+.wb-map-marker{filter:drop-shadow(0 0 5px rgba(201,168,76,0.85))}
+.wb-map-halo{filter:blur(2px);animation:wbMapPulse 2.6s ease-in-out infinite}
+@keyframes wbMapPulse{0%,100%{opacity:0.55}50%{opacity:1}}
+.wb-map .leaflet-popup-content-wrapper{background:#151515;color:var(--text);border:1px solid var(--gold-glow);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+.wb-map .leaflet-popup-content{margin:10px 14px;font-family:'Syne',sans-serif;font-size:0.82rem}
+.wb-map .leaflet-popup-tip{background:#151515;border:1px solid var(--gold-glow);border-top:none;border-left:none}
+.wb-map .leaflet-popup-close-button{color:var(--text3)!important}
+.wb-map .leaflet-control-attribution{background:rgba(0,0,0,0.5)!important;color:var(--text3)!important;font-size:0.62rem!important}
+.wb-map .leaflet-control-attribution a{color:var(--text2)!important}
+
 /* ── DRIVE ── */
 .drive-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color 0.15s;text-decoration:none}
 .drive-item:hover{border-color:var(--border2)}
@@ -2571,7 +2584,7 @@ function renderDashboard() {
 
     <div class="panel" style="margin-top:12px">
       <div class="panel-header"><span class="panel-title">🗺️ Clientes pelo Mundo</span></div>
-      <div id="mapa-clientes-mundi" style="height:380px;background:#0a0a0a"></div>
+      <div id="mapa-clientes-mundi" class="wb-map" style="height:420px;background:#0a0a0a"></div>
     </div>`;
 }
 
@@ -2592,21 +2605,45 @@ function renderizarMapaClientes() {
   });
   const pontos = Object.values(contagem);
 
-  const map = L.map(el, { scrollWheelZoom: false, worldCopyJump: true }).setView([-10, -50], 3);
+  // Mapa estático: sem arrastar/zoom por scroll/duplo-clique — só as bolhas são clicáveis
+  const map = L.map(el, {
+    zoomControl: false,
+    dragging: false,
+    scrollWheelZoom: false,
+    doubleClickZoom: false,
+    boxZoom: false,
+    keyboard: false,
+    touchZoom: false,
+    tap: false,
+    attributionControl: false,
+    worldCopyJump: true,
+  }).setView([-10, -50], 3);
+
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution: 'Tiles &copy; Esri',
     maxZoom: 18,
   }).addTo(map);
+  L.control.attribution({ position: 'bottomright', prefix: false }).addAttribution('Tiles &copy; Esri').addTo(map);
 
   const maxTotal = Math.max(1, ...pontos.map(p => p.total));
   pontos.forEach(p => {
-    const raio = 8 + (p.total / maxTotal) * 22;
+    const raio = 9 + (p.total / maxTotal) * 20;
+    // Halo externo — dá o efeito de brilho/glow por trás da bolha principal
+    L.circleMarker([p.lat, p.lng], {
+      radius: raio + 8,
+      className: 'wb-map-halo',
+      stroke: false,
+      fillColor: '#c9a84c',
+      fillOpacity: 0.15,
+      interactive: false,
+    }).addTo(map);
+    // Bolha principal
     L.circleMarker([p.lat, p.lng], {
       radius: raio,
-      color: '#c9a84c',
-      weight: 2,
+      className: 'wb-map-marker',
+      color: '#fff8e6',
+      weight: 1.5,
       fillColor: '#c9a84c',
-      fillOpacity: 0.45,
+      fillOpacity: 0.75,
     }).addTo(map)
       .bindPopup(`<b>${p.flag} ${p.label}</b><br>${p.total} cliente${p.total !== 1 ? 's' : ''}`)
       .on('click', function() { this.openPopup(); });
@@ -2614,7 +2651,7 @@ function renderizarMapaClientes() {
 
   if (pontos.length) {
     const bounds = L.latLngBounds(pontos.map(p => [p.lat, p.lng]));
-    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 5 });
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 4 });
   }
 
   _mapaClientesInstance = map;
