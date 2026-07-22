@@ -14,6 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM" crossorigin="anonymous"></script>
 <style>
 
 /* ── RESET & BASE ── */
@@ -239,6 +240,21 @@ h3{font-size:0.9rem;font-weight:600}
 .wb-map .leaflet-popup-close-button{color:var(--text3)!important}
 .wb-map .leaflet-control-attribution{background:rgba(0,0,0,0.5)!important;color:var(--text3)!important;font-size:0.62rem!important}
 .wb-map .leaflet-control-attribution a{color:var(--text2)!important}
+
+/* ── KANBAN DE CLIENTES ── */
+.kanban-board{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
+.kanban-col{flex:0 0 260px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);display:flex;flex-direction:column;max-height:70vh}
+.kanban-col-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.kanban-col-title{font-size:0.78rem;font-weight:700;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kanban-col-count{font-size:0.68rem;font-weight:700;color:var(--gold);background:var(--gold-dim);border:1px solid var(--gold-glow);border-radius:10px;padding:1px 8px}
+.kanban-cards{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:60px}
+.kanban-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:grab;transition:border-color 0.15s}
+.kanban-card:hover{border-color:var(--gold)}
+.kanban-card .kc-nome{font-size:0.82rem;font-weight:600;color:var(--text)}
+.kanban-card .kc-sub{font-size:0.68rem;color:var(--text3);margin-top:2px}
+.kanban-ghost{opacity:0.35}
+.kanban-drag{cursor:grabbing}
+.kanban-col-empty{padding:16px;text-align:center;color:var(--text3);font-size:0.72rem}
 
 /* ── DRIVE ── */
 .drive-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color 0.15s;text-decoration:none}
@@ -2633,6 +2649,14 @@ function renderizarMapaClientes() {
 // ══════════════════════════════════
 // CLIENTES
 // ══════════════════════════════════
+let _cliViewMode = 'lista'; // 'lista' | 'kanban'
+
+function setViewModeCliente(modo) {
+  _cliViewMode = modo;
+  document.getElementById('main-content').innerHTML = renderClientes();
+  filtrarClientes();
+}
+
 function renderClientes() {
   const grupoAtivo = _cliFilter.grupo || '';
   const gruposTab = [
@@ -2642,16 +2666,24 @@ function renderClientes() {
     { id: 'visto_eua', label: 'Vistos' },
   ];
   return `
-    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-      ${gruposTab.map(g => {
-        const n = g.id ? (clientes||[]).filter(c => !c.arquivado && getGrupoServico(c.servico) === g.id).length : (clientes||[]).filter(c => !c.arquivado).length;
-        const ativo = grupoAtivo === g.id;
-        return `<button onclick="setGrupoCliente('${g.id}')"
-          style="padding:7px 14px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.8rem;font-weight:600;transition:all 0.15s;
-            ${ativo ? 'background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-glow)' : 'background:var(--bg3);color:var(--text2);border:1px solid var(--border)'}">
-          ${g.label} <span style="opacity:0.7">(${n})</span>
-        </button>`;
-      }).join('')}
+    <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${gruposTab.map(g => {
+          const n = g.id ? (clientes||[]).filter(c => !c.arquivado && getGrupoServico(c.servico) === g.id).length : (clientes||[]).filter(c => !c.arquivado).length;
+          const ativo = grupoAtivo === g.id;
+          return `<button onclick="setGrupoCliente('${g.id}')"
+            style="padding:7px 14px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.8rem;font-weight:600;transition:all 0.15s;
+              ${ativo ? 'background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold-glow)' : 'background:var(--bg3);color:var(--text2);border:1px solid var(--border)'}">
+            ${g.label} <span style="opacity:0.7">(${n})</span>
+          </button>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:4px;margin-left:auto;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:3px">
+        <button onclick="setViewModeCliente('lista')" style="padding:6px 12px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;font-size:0.76rem;font-weight:600;transition:all 0.15s;
+          ${_cliViewMode==='lista' ? 'background:var(--gold-dim);color:var(--gold)' : 'background:transparent;color:var(--text3)'}">📋 Lista</button>
+        <button onclick="setViewModeCliente('kanban')" style="padding:6px 12px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;font-size:0.76rem;font-weight:600;transition:all 0.15s;
+          ${_cliViewMode==='kanban' ? 'background:var(--gold-dim);color:var(--gold)' : 'background:transparent;color:var(--text3)'}">🗂️ Kanban</button>
+      </div>
     </div>
 
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
@@ -2677,6 +2709,11 @@ function renderClientes() {
       ${currentRole !== 'colaborador' ? `<button class="btn btn-outline btn-sm" onclick="abrirImportarCSV()">⬆️ Importar CSV</button>` : ''}
     </div>
 
+    ${_cliViewMode === 'kanban' ? (
+      grupoAtivo
+        ? `<div id="clientes-kanban"></div>`
+        : `<div class="empty" style="padding:40px"><div class="icon">🗂️</div><h3>Escolha um grupo de serviço</h3><p>Selecione Naturalização, RNM (Familiar) ou Vistos acima — as fases são diferentes em cada um.</p></div>`
+    ) : `
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title" id="cli-count">Clientes (${clientes.length})</span>
@@ -2684,7 +2721,7 @@ function renderClientes() {
       <div class="tbl-wrap" id="clientes-tabela">
         ${tabelaClientes(clientes)}
       </div>
-    </div>`;
+    </div>`}`;
 }
 
 function tabelaClientes(lista) {
@@ -2785,8 +2822,84 @@ function filtrarClientes(q) {
     }
     return true;
   });
-  document.getElementById('clientes-tabela').innerHTML = tabelaClientes(lista);
-  document.getElementById('cli-count').textContent = `Clientes (${lista.length}${lista.length !== clientes.length ? ' de '+clientes.length : ''})`;
+  if (_cliViewMode === 'kanban') {
+    atualizarKanban(lista);
+  } else {
+    const tabelaEl = document.getElementById('clientes-tabela');
+    const countEl  = document.getElementById('cli-count');
+    if (tabelaEl) tabelaEl.innerHTML = tabelaClientes(lista);
+    if (countEl)  countEl.textContent = `Clientes (${lista.length}${lista.length !== clientes.length ? ' de '+clientes.length : ''})`;
+  }
+}
+
+let _kanbanSortables = [];
+function atualizarKanban(lista) {
+  const wrap = document.getElementById('clientes-kanban');
+  if (!wrap) return; // sem grupo selecionado — mensagem de "escolha um grupo" está no lugar
+
+  _kanbanSortables.forEach(s => { try { s.destroy(); } catch(e) {} });
+  _kanbanSortables = [];
+
+  const grupo = _cliFilter.grupo;
+  const fases = grupo === 'naturalizacao' ? FASES_NATURALIZACAO
+              : grupo === 'residencia'    ? FASES_RESIDENCIA
+              : FASES_VISTO_EUA;
+  const faseInicial = fases[0].id;
+
+  wrap.innerHTML = `<div class="kanban-board">
+    ${fases.map(f => {
+      const cards = lista.filter(c => (c.processo_fase || faseInicial) === f.id);
+      return `
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <span>${f.icon}</span>
+          <span class="kanban-col-title">${f.label}</span>
+          <span class="kanban-col-count">${cards.length}</span>
+        </div>
+        <div class="kanban-cards" data-fase="${f.id}">
+          ${cards.map(c => `
+            <div class="kanban-card" data-cliente-id="${c.id}" onclick="openCliente(${c.id})">
+              <div class="kc-nome">${c.nome}</div>
+              <div class="kc-sub">${c.pais||'—'} · ${c.responsavel||'—'}</div>
+            </div>`).join('') || '<div class="kanban-col-empty">Vazio</div>'}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  if (typeof Sortable === 'undefined') return;
+  fases.forEach(f => {
+    const colEl = wrap.querySelector(`.kanban-cards[data-fase="${f.id}"]`);
+    if (!colEl) return;
+    _kanbanSortables.push(Sortable.create(colEl, {
+      group: 'wb-kanban-clientes',
+      animation: 150,
+      ghostClass: 'kanban-ghost',
+      dragClass: 'kanban-drag',
+      onEnd: (evt) => {
+        if (evt.from === evt.to) return;
+        const clienteId = parseInt(evt.item.dataset.clienteId);
+        const novaFase = evt.to.dataset.fase;
+        moverFaseKanban(clienteId, novaFase);
+      },
+    }));
+  });
+}
+
+async function moverFaseKanban(clienteId, novaFase) {
+  try {
+    await apiFetch('/clientes/' + clienteId, { method:'PATCH', body: JSON.stringify({ processo_fase: novaFase }) });
+    const faseInfo = getFases((clientes||[]).find(x=>x.id===clienteId)?.servico).find(f=>f.id===novaFase);
+    apiFetch('/clientes/' + clienteId + '/historico-fase', {
+      method: 'POST',
+      body: JSON.stringify({ fase_id: novaFase, fase_label: faseInfo?.label || novaFase })
+    }).catch(()=>{});
+    await loadData();
+    showToast('✅ Fase atualizada!', 'success');
+  } catch(e) {
+    showToast('Erro ao mover cliente', 'error');
+  }
+  filtrarClientes();
 }
 
 // ══════════════════════════════════
