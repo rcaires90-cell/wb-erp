@@ -652,11 +652,16 @@ async function backupSemanalCron() {
   } catch (e) { console.error('[cron/backup]', e.message); }
 }
 
-async function cronDiario() {
+// Alertas internos de prazo (antecedente, documentos, cliente parado, parcelas) —
+// rodam 1x por semana a pedido do usuário; agendamento e DOU continuam diários (ver cronDiario).
+async function cronSemanal() {
   await verificarAntecedenteCron();
   await verificarDocumentosVencendoCron();
   await verificarClientesParadosCron();
   await verificarParcelasAlertaCron();
+}
+
+async function cronDiario() {
   await lembreteAgendamentoCron();
 
   // Verificação do DOU: chama o endpoint interno
@@ -786,12 +791,19 @@ app.listen(PORT, async () => {
   console.log(`🌐 CORS     : all origins\n`);
   await runMigrations();
 
-  // Cron diário às 8h de Brasília (11h UTC)
+  // Cron diário às 8h de Brasília (11h UTC) — agendamento + DOU
   cron.schedule('0 11 * * *', () => {
-    console.log('\n⏰ [cron] Rodando rotina diária — DOU + Antecedentes...');
+    console.log('\n⏰ [cron] Rodando rotina diária — DOU + Agendamentos...');
     cronDiario().catch(e => console.error('[cron] Erro geral:', e.message));
   }, { timezone: 'America/Sao_Paulo' });
   console.log('⏰ Cron diário agendado — 08:00 Brasília (11:00 UTC)');
+
+  // Cron semanal segunda às 8h de Brasília (11h UTC) — antecedente, documentos, cliente parado, parcelas
+  cron.schedule('0 11 * * 1', () => {
+    console.log('\n📅 [cron] Rodando rotina semanal — Antecedentes/Documentos/Parados/Parcelas...');
+    cronSemanal().catch(e => console.error('[cron/semanal] Erro geral:', e.message));
+  }, { timezone: 'America/Sao_Paulo' });
+  console.log('📅 Cron semanal agendado — segunda-feira 08:00 Brasília (11:00 UTC)');
 
   // Cron semanal domingo às 9h de Brasília (12h UTC) — backup
   cron.schedule('0 12 * * 0', () => {
