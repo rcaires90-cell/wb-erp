@@ -28,6 +28,30 @@ function detectarCategoria(descricao) {
   return 'Outros';
 }
 
+// Tenta extrair só o nome da pessoa/empresa a partir da descrição crua do
+// extrato (ex: "PIX RECEBIDO JOAO DA SILVA" -> "JOAO DA SILVA"). É um
+// palpite best-effort — fica sempre editável na tela pra Cristiane corrigir.
+const PREFIXOS_EXTRATO = [
+  /^pix\s+(recebido|enviado|transferido)?\s*(de|para)?\s*/i,
+  /^ted\s+(recebid[ao]|enviad[ao])?\s*(de|para)?\s*/i,
+  /^doc\s+(recebid[ao]|enviad[ao])?\s*(de|para)?\s*/i,
+  /^transfer[êe]ncia\s+(recebida|enviada)?\s*(de|para)?\s*/i,
+  /^dep[óo]sito\s*(de)?\s*/i,
+  /^pagamento\s+(de|para)?\s*/i,
+  /^compra\s+(no\s+d[ée]bito|no\s+cr[ée]dito)?\s*(em|-)?\s*/i,
+  /^boleto\s*(pago)?\s*(para)?\s*/i,
+];
+function extrairNomeDescricao(descricao) {
+  let s = (descricao || '').trim();
+  for (const re of PREFIXOS_EXTRATO) {
+    if (re.test(s)) { s = s.replace(re, '').trim(); break; }
+  }
+  // Remove sufixos comuns de identificação bancária (CPF/CNPJ mascarado, código da transação)
+  s = s.replace(/\s*-?\s*\d{3}\.?\*{3}\.?\*{3}-?\d{2}\s*$/, '').trim();
+  s = s.replace(/\s*\d{6,}\s*$/, '').trim();
+  return s || null;
+}
+
 // ── GET /api/financeiro/lancamentos ─────────────────────────────────────────
 // ?mes=2026-04&conta=&categoria=&conciliado=
 router.get('/lancamentos', async (req, res) => {
@@ -79,7 +103,7 @@ router.post('/lancamentos', async (req, res) => {
 
     const inseridos = [];
     for (const item of lista) {
-      const { data, descricao, valor, tipo, categoria, conta, conciliado, obs } = item;
+      const { data, descricao, valor, tipo, categoria, conta, conciliado, obs, nome } = item;
 
       if (!data || !descricao || valor === undefined) {
         return res.status(400).json({ erro: 'data, descricao e valor são obrigatórios' });
@@ -87,8 +111,8 @@ router.post('/lancamentos', async (req, res) => {
 
       const cat = categoria || detectarCategoria(descricao);
       const [r] = await db.query(
-        `INSERT INTO lancamentos_bancarios (data, descricao, valor, tipo, categoria, conta, conciliado, obs, criado_por)
-         VALUES (?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO lancamentos_bancarios (data, descricao, valor, tipo, categoria, conta, conciliado, obs, criado_por, nome)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`,
         [
           data,
           descricao.trim(),
@@ -99,6 +123,7 @@ router.post('/lancamentos', async (req, res) => {
           conciliado ? 1 : 0,
           obs || null,
           req.user.nome,
+          nome || null,
         ]
       );
       const [[novo]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [r.insertId]);
@@ -116,17 +141,17 @@ router.post('/lancamentos', async (req, res) => {
 router.patch('/lancamentos/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { data, descricao, valor, tipo, categoria, conta, conciliado, obs } = req.body;
+    const { data, descricao, valor, tipo, categoria, conta, conciliado, obs, nome } = req.body;
 
     await db.query(
       `UPDATE lancamentos_bancarios
        SET data=COALESCE(?,data), descricao=COALESCE(?,descricao), valor=COALESCE(?,valor),
            tipo=COALESCE(?,tipo), categoria=COALESCE(?,categoria), conta=COALESCE(?,conta),
-           conciliado=COALESCE(?,conciliado), obs=COALESCE(?,obs)
+           conciliado=COALESCE(?,conciliado), obs=COALESCE(?,obs), nome=COALESCE(?,nome)
        WHERE id=?`,
       [data||null, descricao||null, valor!==undefined?parseFloat(valor):null,
        tipo||null, categoria||null, conta||null,
-       conciliado!==undefined?(conciliado?1:0):null, obs||null, id]
+       conciliado!==undefined?(conciliado?1:0):null, obs||null, nome||null, id]
     );
 
     const [[up]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
@@ -147,6 +172,79 @@ router.delete('/lancamentos/:id', async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     console.error('[financeiro DELETE /lancamentos/:id]', e);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ── POST /api/financeiro/lancamentos/:id/classificar ──────────────────────────
+// Cristiane usa isso pra dizer "isso é despesa" / "isso é pró-labore" — cria o
+// registro correspondente em despesas/prolabore a partir do lançamento bancário
+// e marca o lançamento como já classificado (pra não duplicar/reclassificar à toa).
+router.post('/lancamentos/:id/classificar', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { tipo, categoria, forma_pgto, nome_socio, cargo, obs } = req.body;
+    if (!['despesa', 'prolabore'].includes(tipo)) {
+      return res.status(400).json({ erro: "tipo deve ser 'despesa' ou 'prolabore'" });
+    }
+
+    const [[lanc]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
+    if (!lanc) return res.status(404).json({ erro: 'Lançamento não encontrado' });
+    if (lanc.classificado_como) {
+      return res.status(409).json({ erro: `Já classificado como ${lanc.classificado_como}` });
+    }
+
+    let refId;
+    if (tipo === 'despesa') {
+      const [r] = await db.query(
+        `INSERT INTO despesas (data, categoria, descricao, valor, forma_pgto, obs, lancado_por)
+         VALUES (?,?,?,?,?,?,?)`,
+        [lanc.data, categoria || lanc.categoria || 'Outros', lanc.nome || lanc.descricao,
+         lanc.valor, forma_pgto || 'PIX', obs || `Classificado a partir do lançamento #${lanc.id}`, req.user.nome]
+      );
+      refId = r.insertId;
+    } else {
+      const mes = String(lanc.data).slice(0, 7);
+      const [r] = await db.query(
+        `INSERT INTO prolabore (mes, nome, cargo, valor, data_pgto, obs, lancado_por)
+         VALUES (?,?,?,?,?,?,?)`,
+        [mes, nome_socio || lanc.nome || 'Não informado', cargo || null, lanc.valor, lanc.data,
+         obs || `Classificado a partir do lançamento #${lanc.id}`, req.user.nome]
+      );
+      refId = r.insertId;
+    }
+
+    await db.query(
+      'UPDATE lancamentos_bancarios SET classificado_como=?, classificado_ref_id=? WHERE id=?',
+      [tipo, refId, id]
+    );
+    const [[atualizado]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
+    res.json({ ok: true, lancamento: atualizado, ref_id: refId });
+  } catch (e) {
+    console.error('[financeiro POST /lancamentos/:id/classificar]', e);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ── DELETE /api/financeiro/lancamentos/:id/classificar ────────────────────────
+// Desfaz a classificação: apaga o despesa/prolabore criado e limpa o vínculo.
+router.delete('/lancamentos/:id/classificar', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [[lanc]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
+    if (!lanc) return res.status(404).json({ erro: 'Lançamento não encontrado' });
+    if (!lanc.classificado_como) return res.status(400).json({ erro: 'Este lançamento não está classificado' });
+
+    const tabela = lanc.classificado_como === 'despesa' ? 'despesas' : 'prolabore';
+    await db.query(`DELETE FROM ${tabela} WHERE id = ?`, [lanc.classificado_ref_id]);
+    await db.query(
+      'UPDATE lancamentos_bancarios SET classificado_como=NULL, classificado_ref_id=NULL WHERE id=?',
+      [id]
+    );
+    const [[atualizado]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
+    res.json({ ok: true, lancamento: atualizado });
+  } catch (e) {
+    console.error('[financeiro DELETE /lancamentos/:id/classificar]', e);
     res.status(500).json({ erro: e.message });
   }
 });
@@ -242,8 +340,9 @@ router.post('/importar-extrato', async (req, res) => {
       const tipo = valorNum < 0 ? 'debito' : valorStr.startsWith('-') ? 'debito' : 'credito';
       const valor = Math.abs(valorNum);
       const categoria = detectarCategoria(desc);
+      const nome = extrairNomeDescricao(desc);
 
-      lancamentos.push({ data, descricao: desc, valor, tipo, categoria, conta: conta || null });
+      lancamentos.push({ data, descricao: desc, valor, tipo, categoria, conta: conta || null, nome });
     }
 
     if (!lancamentos.length) {
@@ -257,9 +356,9 @@ router.post('/importar-extrato', async (req, res) => {
     const inseridos = [];
     for (const l of lancamentos) {
       const [r] = await db.query(
-        `INSERT INTO lancamentos_bancarios (data, descricao, valor, tipo, categoria, conta, conciliado, criado_por)
-         VALUES (?,?,?,?,?,?,0,?)`,
-        [l.data, l.descricao, l.valor, l.tipo, l.categoria, l.conta, req.user.nome]
+        `INSERT INTO lancamentos_bancarios (data, descricao, valor, tipo, categoria, conta, conciliado, criado_por, nome)
+         VALUES (?,?,?,?,?,?,0,?,?)`,
+        [l.data, l.descricao, l.valor, l.tipo, l.categoria, l.conta, req.user.nome, l.nome]
       );
       inseridos.push({ ...l, id: r.insertId });
     }

@@ -79,7 +79,10 @@ async function runMigrations() {
     ['leads', 'responsavel',    "VARCHAR(200) DEFAULT NULL"],
     ['leads', 'valor_estimado', "DECIMAL(10,2) DEFAULT 0"],
     ['leads', 'criado_por',     "VARCHAR(200) DEFAULT NULL"],
-    ['lancamentos_bancarios', 'parcela_id', "INT DEFAULT NULL"],
+    ['lancamentos_bancarios', 'parcela_id',         "INT DEFAULT NULL"],
+    ['lancamentos_bancarios', 'nome',               "VARCHAR(200) DEFAULT NULL"],
+    ['lancamentos_bancarios', 'classificado_como',  "VARCHAR(20)  DEFAULT NULL"],
+    ['lancamentos_bancarios', 'classificado_ref_id',"INT DEFAULT NULL"],
   ];
   for (const [table, column, definition] of alterCols) {
     await addColumnIfNotExists(table, column, definition);

@@ -14,14 +14,18 @@ const upload = multer({
   },
 });
 
-const PROMPT = `Você é um sistema de OCR especializado em documentos de imigração brasileiros.
-Analise esta imagem (pode ser passaporte, RNM, CRNM, visto, carteira de identidade ou documento similar) e extraia os dados em JSON puro.
+const PROMPT = `Você é um sistema de OCR especializado em documentos de imigração e contratos brasileiros.
+Analise esta imagem — pode ser passaporte, RNM, CRNM, visto, carteira de identidade, OU um contrato de
+prestação de serviços (nesse caso os dados costumam estar na "qualificação das partes", ex: "NOME, nacionalidade,
+portador do CPF nº X, RNM nº Y, residente e domiciliado em Z") — e extraia os dados em JSON puro.
 
 Retorne APENAS um objeto JSON válido, sem texto adicional, markdown ou formatação:
 {
-  "tipo_doc": "passaporte" | "rnm" | "visto" | "identidade" | "outro",
-  "nome": "nome completo como aparece no documento, em maiúsculas normais",
-  "numero_doc": "número exato do documento",
+  "tipo_doc": "passaporte" | "rnm" | "visto" | "identidade" | "contrato" | "outro",
+  "nome": "nome completo da pessoa (do cliente/contratado, não do contratante WB Assessoria), em maiúsculas normais",
+  "numero_doc": "número exato do documento (RNM/passaporte/identidade), se houver",
+  "cpf": "CPF no formato 000.000.000-00, ou null se não houver",
+  "endereco": "endereço completo como aparece no texto (rua, número, bairro, cidade, UF, CEP), ou null se não houver",
   "data_nascimento": "YYYY-MM-DD ou null se ilegível",
   "data_validade": "YYYY-MM-DD ou null se ilegível",
   "nacionalidade": "país de origem por extenso em português, ex: Haiti, Venezuela, Angola",
