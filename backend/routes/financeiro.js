@@ -388,7 +388,10 @@ router.post('/importar-extrato', async (req, res) => {
   }
 });
 
-// Extrai lançamentos de um lote de até 5 páginas (limite da Groq por request)
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Extrai lançamentos de um lote de páginas (1 página por vez — cada página já
+// consome quase todo o limite de tokens/minuto do tier gratuito da Groq)
 async function extrairLancamentosDeLote(client, paginasPng, offset) {
   const content = [{
     type: 'text',
@@ -404,7 +407,7 @@ async function extrairLancamentosDeLote(client, paginasPng, offset) {
     content.push({ type: 'image_url', image_url: { url: 'data:image/png;base64,' + buf.toString('base64') } });
   });
 
-  const completion = await client.chat.completions.create({
+  const chamar = () => client.chat.completions.create({
     model: VISION_MODEL,
     messages: [{ role: 'user', content }],
     response_format: { type: 'json_object' },
@@ -412,6 +415,19 @@ async function extrairLancamentosDeLote(client, paginasPng, offset) {
     temperature: 0,
     max_tokens: 4000,
   });
+
+  let completion;
+  try {
+    completion = await chamar();
+  } catch (e) {
+    // 413/429 = limite de tokens por minuto do tier gratuito da Groq — espera e tenta 1x de novo
+    if (e.status === 413 || e.status === 429) {
+      await sleep(25000);
+      completion = await chamar();
+    } else {
+      throw e;
+    }
+  }
 
   let texto = (completion.choices[0]?.message?.content || '').trim();
   texto = texto.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
@@ -439,12 +455,15 @@ router.post('/importar-extrato-pdf', uploadExtrato.single('extrato'), async (req
       return res.status(422).json({ erro: 'Não foi possível ler as páginas do PDF' });
     }
 
-    const LOTE = 3; // limite de imagens por request do modelo qwen/qwen3.6-27b na Groq
+    // 1 página por request — uma página sozinha já usa quase todo o limite de
+    // tokens/minuto do tier gratuito da Groq (medido: ~3800-4200 tokens/página)
+    const LOTE = 1;
     let extraidos = [];
     for (let i = 0; i < paginas.length; i += LOTE) {
       const lote = paginas.slice(i, i + LOTE);
       const doLote = await extrairLancamentosDeLote(client, lote, i);
       extraidos = extraidos.concat(doLote);
+      if (i + LOTE < paginas.length) await sleep(3000); // espaça as chamadas pra não estourar o TPM
     }
 
     if (!extraidos.length) {
