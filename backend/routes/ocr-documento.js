@@ -24,6 +24,11 @@ Analise esta(s) imagem(ns) — pode ser passaporte, RNM, CRNM, visto, carteira d
 prestação de serviços (nesse caso os dados costumam estar na "qualificação das partes", ex: "NOME, nacionalidade,
 portador do CPF nº X, RNM nº Y, residente e domiciliado em Z") — e extraia os dados.
 
+Se for um contrato, procure também a cláusula de pagamento (geralmente "CLÁUSULA 2 — DO PAGAMENTO" ou similar),
+que costuma trazer o valor total, a forma de pagamento (PIX/Boleto/Cartão/Transferência/Dinheiro) e o
+detalhamento de cada parcela com valor e data de vencimento (ex: "1ª parcela de R$520,00 na data de 26/05/2026").
+Extraia CADA parcela individualmente, na ordem em que aparecem.
+
 Retorne APENAS um objeto JSON válido, sem texto adicional, markdown ou formatação:
 {
   "tipo_doc": "passaporte" | "rnm" | "visto" | "identidade" | "contrato" | "outro",
@@ -34,7 +39,10 @@ Retorne APENAS um objeto JSON válido, sem texto adicional, markdown ou formata�
   "data_nascimento": "YYYY-MM-DD ou null se ilegível",
   "data_validade": "YYYY-MM-DD ou null se ilegível",
   "nacionalidade": "país de origem por extenso em português, ex: Haiti, Venezuela, Angola",
-  "genero": "M" ou "F" ou null
+  "genero": "M" ou "F" ou null,
+  "valor_total": número (ex: 2600.00) com o valor total do contrato, ou null se não for contrato ou não tiver valor,
+  "forma_pagamento": "PIX" | "Boleto" | "Cartão" | "Transferência" | "Dinheiro" | null,
+  "parcelas": [ { "numero": 1, "valor": 520.00, "vencimento": "2026-05-26" } ] — uma entrada por parcela encontrada na cláusula de pagamento, ou [] se não houver parcelamento
 }
 
 Se um campo não estiver visível, ilegível ou não existir no documento, use null.
@@ -64,8 +72,9 @@ router.post('/', upload.single('imagem'), async (req, res) => {
       model: VISION_MODEL,
       messages: [{ role: 'user', content }],
       response_format: { type: 'json_object' },
+      reasoning_effort: 'none',
       temperature: 0,
-      max_tokens: 1024,
+      max_tokens: 2048,
     });
 
     let texto = (completion.choices[0]?.message?.content || '').trim();

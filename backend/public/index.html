@@ -3739,6 +3739,8 @@ async function processarOCR(clienteId, input) {
       d.genero         && { label:'Gênero',            val: d.genero==='M'?'Masculino':'Feminino', campo: null },
     ].filter(Boolean);
 
+    const temParcelas = Array.isArray(d.parcelas) && d.parcelas.length > 0;
+
     box.innerHTML = `
       <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25);border-radius:10px;padding:14px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -3754,6 +3756,18 @@ async function processarOCR(clienteId, input) {
             <span style="color:var(--text3)">${f.label}:</span> <span style="font-weight:600;color:var(--text)">${f.val}</span>
           </div>`).join('')}
         </div>
+        ${temParcelas ? `
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(34,197,94,0.2)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="font-size:0.78rem;font-weight:700;color:var(--gold)">💳 ${d.parcelas.length} parcela(s) encontrada(s) no contrato${d.valor_total ? ' — total R$ ' + Number(d.valor_total).toLocaleString('pt-BR',{minimumFractionDigits:2}) : ''}</div>
+            <button onclick="aplicarParcelasOCR(${clienteId}, this)" class="btn btn-gold btn-sm" style="margin-left:auto;white-space:nowrap">💳 Criar Parcelas no Financeiro</button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${d.parcelas.map(p => `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:0.75rem">
+              <span style="color:var(--text3)">${fmtDt(p.vencimento)}:</span> <span style="font-weight:600;color:var(--text)">R$ ${Number(p.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+            </div>`).join('')}
+          </div>
+        </div>` : ''}
       </div>`;
     window[`_ocrDados_${clienteId}`] = d;
   } catch(e) {
@@ -3795,6 +3809,47 @@ function aplicarDadosOCR(clienteId) {
   showToast('Dados aplicados nos campos — revise e salve', 'success');
 }
 
+async function aplicarParcelasOCR(clienteId, btn) {
+  const d = window[`_ocrDados_${clienteId}`];
+  if (!d || !Array.isArray(d.parcelas) || !d.parcelas.length) return;
+
+  try {
+    await confirmar(
+      `Criar ${d.parcelas.length} parcela(s) no Financeiro deste cliente, conforme lido no contrato?`,
+      'Criar Parcelas', '💳', 'var(--gold)', 'Criar Parcelas'
+    );
+  } catch { return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Criando...'; }
+
+  try {
+    if (d.valor_total) {
+      const c = clientes.find(x => x.id === clienteId);
+      if (c && Math.abs((c.valor || 0) - Number(d.valor_total)) > 0.01) {
+        await apiFetch('/clientes/' + clienteId, { method: 'PATCH', body: JSON.stringify({ valor: Number(d.valor_total) }) });
+      }
+    }
+    for (const p of d.parcelas) {
+      await apiFetch('/parcelas', {
+        method: 'POST',
+        body: JSON.stringify({
+          cliente_id: clienteId,
+          descricao: 'Parcela ' + (p.numero || '') + ' — Contrato',
+          valor: Number(p.valor) || 0,
+          vencimento: p.vencimento || null,
+          forma_pgto: d.forma_pagamento || 'PIX',
+        }),
+      });
+    }
+    await loadData();
+    showToast(`✅ ${d.parcelas.length} parcela(s) criada(s) no Financeiro!`, 'success');
+    if (btn) { btn.textContent = '✓ Parcelas criadas!'; }
+  } catch (e) {
+    showToast('Erro ao criar parcelas: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '💳 Criar Parcelas no Financeiro'; }
+  }
+}
+
 let _ocrNovoClienteDados = null;
 async function processarOCRNovoCliente(input) {
   const file = input?.files?.[0];
@@ -3834,6 +3889,11 @@ async function processarOCRNovoCliente(input) {
       d.nacionalidade && `Nacionalidade: ${d.nacionalidade}`,
     ].filter(Boolean);
 
+    const temParcelas = Array.isArray(d.parcelas) && d.parcelas.length > 0;
+    if (temParcelas) {
+      campos.push(`Valor do contrato: R$ ${Number(d.valor_total || 0).toLocaleString('pt-BR',{minimumFractionDigits:2})} (${d.parcelas.length} parcela(s), ${d.forma_pagamento || 'PIX'})`);
+    }
+
     box.innerHTML = `
       <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25);border-radius:10px;padding:12px">
         <div style="font-weight:700;font-size:0.82rem;color:var(--green);margin-bottom:6px">✓ Documento lido — confira e aplique</div>
@@ -3841,6 +3901,11 @@ async function processarOCRNovoCliente(input) {
           ${campos.map(c => `<div>${c}</div>`).join('') || '<div>Nenhum campo reconhecido nessa imagem.</div>'}
         </div>
         <button onclick="aplicarOCRNovoCliente()" class="btn btn-green btn-sm">⬇️ Aplicar nos campos</button>
+        ${temParcelas ? `
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;font-size:0.75rem;color:var(--text2)">
+          <input type="checkbox" id="nc-ocr-criar-parcelas" checked style="width:15px;height:15px;accent-color:var(--gold);cursor:pointer">
+          Também criar as ${d.parcelas.length} parcela(s) no Financeiro ao cadastrar
+        </label>` : ''}
       </div>`;
   } catch(e) {
     box.innerHTML = `
@@ -3862,6 +3927,7 @@ function aplicarOCRNovoCliente() {
   if (d.tipo_doc === 'rnm' && d.numero_doc) {
     const el = document.getElementById('nc-rnm'); if (el) el.value = d.numero_doc;
   }
+  if (d.valor_total) { const el = document.getElementById('nc-valor'); if (el) el.value = d.valor_total; }
   showToast('Dados aplicados — revise antes de cadastrar', 'success');
 }
 
@@ -3984,7 +4050,7 @@ function abrirNovaParcela(cid) {
         </div>
         <div class="form-group"><label>Forma de Pagamento</label>
           <select id="np-forma">
-            <option>PIX</option><option>Transferência</option>
+            <option>PIX</option><option>Boleto</option><option>Transferência</option>
             <option>Cartão</option><option>Dinheiro</option>
           </select>
         </div>
@@ -5281,10 +5347,29 @@ async function salvarNovoCliente() {
 
   try {
     const novo = await apiFetch('/clientes', { method: 'POST', body: JSON.stringify(data) });
+
+    const criarParcelas = document.getElementById('nc-ocr-criar-parcelas')?.checked;
+    const dOcr = _ocrNovoClienteDados;
+    if (novo?.id && criarParcelas && Array.isArray(dOcr?.parcelas) && dOcr.parcelas.length) {
+      for (const p of dOcr.parcelas) {
+        await apiFetch('/parcelas', {
+          method: 'POST',
+          body: JSON.stringify({
+            cliente_id: novo.id,
+            descricao: 'Parcela ' + (p.numero || '') + ' — Contrato',
+            valor: Number(p.valor) || 0,
+            vencimento: p.vencimento || null,
+            forma_pgto: dOcr.forma_pagamento || 'PIX',
+          }),
+        });
+      }
+    }
+    _ocrNovoClienteDados = null;
+
     await loadData();
     closeModal();
     renderPage('clientes');
-    showToast('✅ Cliente cadastrado!', 'success');
+    showToast('✅ Cliente cadastrado!' + (criarParcelas && dOcr?.parcelas?.length ? ` + ${dOcr.parcelas.length} parcela(s) criada(s)` : ''), 'success');
     if (novo?.id) setTimeout(() => openCliente(novo.id), 300);
   } catch (e) {
     showToast('Erro ao cadastrar: ' + (e.message || 'verifique os dados'), 'error');
@@ -5326,7 +5411,7 @@ function abrirGerarParcelas(cid) {
         <div class="form-group">
           <label>Forma de Pagamento</label>
           <select id="gp-forma">
-            <option>PIX</option><option>Transferência</option><option>Cartão</option><option>Dinheiro</option>
+            <option>PIX</option><option>Boleto</option><option>Transferência</option><option>Cartão</option><option>Dinheiro</option>
           </select>
         </div>
         <div class="form-group">

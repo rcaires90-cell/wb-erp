@@ -408,6 +408,7 @@ async function extrairLancamentosDeLote(client, paginasPng, offset) {
     model: VISION_MODEL,
     messages: [{ role: 'user', content }],
     response_format: { type: 'json_object' },
+    reasoning_effort: 'none',
     temperature: 0,
     max_tokens: 4000,
   });
