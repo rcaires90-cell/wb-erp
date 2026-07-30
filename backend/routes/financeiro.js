@@ -2,9 +2,12 @@ const router     = require('express').Router();
 const db          = require('../db');
 const auth        = require('../middleware/auth');
 const multer       = require('multer');
-const Anthropic     = require('@anthropic-ai/sdk');
+const Groq          = require('groq-sdk');
+const { pdfParaImagensPng } = require('../lib/pdfToImages');
 
 router.use(auth);
+
+const VISION_MODEL = 'qwen/qwen3.6-27b';
 
 const uploadExtrato = multer({
   storage: multer.memoryStorage(),
@@ -385,74 +388,65 @@ router.post('/importar-extrato', async (req, res) => {
   }
 });
 
+// Extrai lançamentos de um lote de até 5 páginas (limite da Groq por request)
+async function extrairLancamentosDeLote(client, paginasPng, offset) {
+  const content = [{
+    type: 'text',
+    text: 'Este é um extrato bancário brasileiro (imagens das páginas de um PDF). Extraia TODOS os lançamentos '
+      + '(movimentações) que aparecem nessas imagens. Para cada lançamento: "data" (YYYY-MM-DD), "descricao" '
+      + '(histórico exatamente como aparece), "valor" (número absoluto, sempre positivo, sem sinal), e "tipo" '
+      + '("credito" para entrada/depósito, "debito" para saída/pagamento/compra). Não inclua saldo inicial, saldo '
+      + 'final ou linhas que não sejam movimentações reais. Retorne todos os lançamentos, mesmo que sejam muitos. '
+      + 'Responda APENAS com um objeto JSON no formato: {"lancamentos": [{"data":"...", "descricao":"...", "valor":0, "tipo":"..."}]}',
+  }];
+  paginasPng.forEach((buf, i) => {
+    content.push({ type: 'text', text: `Página ${offset + i + 1}:` });
+    content.push({ type: 'image_url', image_url: { url: 'data:image/png;base64,' + buf.toString('base64') } });
+  });
+
+  const completion = await client.chat.completions.create({
+    model: VISION_MODEL,
+    messages: [{ role: 'user', content }],
+    response_format: { type: 'json_object' },
+    temperature: 0,
+    max_tokens: 4000,
+  });
+
+  let texto = (completion.choices[0]?.message?.content || '').trim();
+  texto = texto.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+  try {
+    const parsed = JSON.parse(texto);
+    return Array.isArray(parsed.lancamentos) ? parsed.lancamentos : [];
+  } catch {
+    return [];
+  }
+}
+
 // ── POST /api/financeiro/importar-extrato-pdf ─────────────────────────────────
-// Recebe o PDF do extrato bancário, usa Claude pra ler e separar os lançamentos
+// Recebe o PDF do extrato bancário, converte as páginas em imagem e usa a
+// Groq (visão, gratuita) pra ler e separar os lançamentos.
 router.post('/importar-extrato-pdf', uploadExtrato.single('extrato'), async (req, res) => {
   if (!req.file) return res.status(400).json({ erro: 'PDF do extrato é obrigatório' });
-  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ erro: 'ANTHROPIC_API_KEY não configurada' });
+  if (!process.env.GROQ_API_KEY) return res.status(500).json({ erro: 'GROQ_API_KEY não configurada' });
 
   try {
     const conta = req.body.conta || null;
-    const client = new Anthropic();
+    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-    const response = await client.messages.create({
-      model: 'claude-opus-5',
-      max_tokens: 8000,
-      thinking: { type: 'disabled' },
-      output_config: {
-        effort: 'medium',
-        format: {
-          type: 'json_schema',
-          schema: {
-            type: 'object',
-            properties: {
-              lancamentos: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    data: { type: 'string', description: 'Data no formato YYYY-MM-DD' },
-                    descricao: { type: 'string', description: 'Descrição/histórico do lançamento como aparece no extrato' },
-                    valor: { type: 'number', description: 'Valor absoluto (sempre positivo) do lançamento' },
-                    tipo: { type: 'string', enum: ['credito', 'debito'] },
-                  },
-                  required: ['data', 'descricao', 'valor', 'tipo'],
-                  additionalProperties: false,
-                },
-              },
-            },
-            required: ['lancamentos'],
-            additionalProperties: false,
-          },
-        },
-      },
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: req.file.buffer.toString('base64') } },
-          {
-            type: 'text',
-            text: 'Este é um extrato bancário brasileiro em PDF. Extraia TODOS os lançamentos (movimentações) que aparecem nele. '
-              + 'Para cada lançamento: data (YYYY-MM-DD), descrição/histórico exatamente como aparece, valor absoluto (sempre positivo, sem sinal), '
-              + 'e tipo ("credito" para entrada/depósito, "debito" para saída/pagamento/compra). '
-              + 'Não inclua saldo inicial, saldo final ou linhas que não sejam movimentações reais. Retorne todos os lançamentos, mesmo que sejam muitos.',
-          },
-        ],
-      }],
-    });
-
-    if (response.stop_reason === 'refusal') {
-      return res.status(422).json({ erro: 'IA recusou processar este arquivo' });
+    const paginas = await pdfParaImagensPng(req.file.buffer, 20);
+    if (!paginas.length) {
+      return res.status(422).json({ erro: 'Não foi possível ler as páginas do PDF' });
     }
 
-    const textBlock = response.content.find(b => b.type === 'text');
-    let extraidos;
-    try {
-      extraidos = JSON.parse(textBlock?.text || '').lancamentos;
-    } catch {
-      return res.status(422).json({ erro: 'IA não conseguiu extrair os lançamentos do PDF' });
+    const LOTE = 5; // limite de imagens por request da Groq
+    let extraidos = [];
+    for (let i = 0; i < paginas.length; i += LOTE) {
+      const lote = paginas.slice(i, i + LOTE);
+      const doLote = await extrairLancamentosDeLote(client, lote, i);
+      extraidos = extraidos.concat(doLote);
     }
-    if (!Array.isArray(extraidos) || !extraidos.length) {
+
+    if (!extraidos.length) {
       return res.status(422).json({ erro: 'Nenhum lançamento reconhecido nesse PDF' });
     }
 

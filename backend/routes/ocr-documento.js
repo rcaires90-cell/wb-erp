@@ -1,9 +1,12 @@
-const router     = require('express').Router();
-const multer      = require('multer');
-const auth        = require('../middleware/auth');
-const Anthropic    = require('@anthropic-ai/sdk');
+const router          = require('express').Router();
+const multer           = require('multer');
+const auth             = require('../middleware/auth');
+const Groq              = require('groq-sdk');
+const { pdfParaImagensPng } = require('../lib/pdfToImages');
 
 router.use(auth);
+
+const VISION_MODEL = 'qwen/qwen3.6-27b';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -17,9 +20,9 @@ const upload = multer({
 });
 
 const PROMPT = `Você é um sistema de OCR especializado em documentos de imigração e contratos brasileiros.
-Analise este arquivo — pode ser passaporte, RNM, CRNM, visto, carteira de identidade, OU um contrato de
+Analise esta(s) imagem(ns) — pode ser passaporte, RNM, CRNM, visto, carteira de identidade, OU um contrato de
 prestação de serviços (nesse caso os dados costumam estar na "qualificação das partes", ex: "NOME, nacionalidade,
-portador do CPF nº X, RNM nº Y, residente e domiciliado em Z") — e extraia os dados em JSON puro.
+portador do CPF nº X, RNM nº Y, residente e domiciliado em Z") — e extraia os dados.
 
 Retorne APENAS um objeto JSON válido, sem texto adicional, markdown ou formatação:
 {
@@ -39,30 +42,33 @@ Datas devem estar em formato YYYY-MM-DD. Converta formatos DD/MM/YYYY, MM/YY ou 
 
 router.post('/', upload.single('imagem'), async (req, res) => {
   if (!req.file) return res.status(400).json({ erro: 'Arquivo obrigatório (imagem ou PDF)' });
-  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ erro: 'ANTHROPIC_API_KEY não configurada' });
+  if (!process.env.GROQ_API_KEY) return res.status(500).json({ erro: 'GROQ_API_KEY não configurada' });
 
   try {
-    const client = new Anthropic();
+    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
     const isPdf = req.file.mimetype === 'application/pdf';
-    const fileBlock = isPdf
-      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: req.file.buffer.toString('base64') } }
-      : { type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: req.file.buffer.toString('base64') } };
+    const paginas = isPdf
+      ? (await pdfParaImagensPng(req.file.buffer, 3)).map(buf => ({ buf, mime: 'image/png' }))
+      : [{ buf: req.file.buffer, mime: req.file.mimetype }];
 
-    const response = await client.messages.create({
-      model: 'claude-opus-5',
-      max_tokens: 1024,
-      thinking: { type: 'disabled' },
-      output_config: { effort: 'low' },
-      messages: [{ role: 'user', content: [fileBlock, { type: 'text', text: PROMPT }] }],
-    });
-
-    if (response.stop_reason === 'refusal') {
-      return res.status(422).json({ erro: 'IA recusou processar este arquivo' });
+    const content = [{ type: 'text', text: PROMPT }];
+    for (const { buf, mime } of paginas) {
+      content.push({
+        type: 'image_url',
+        image_url: { url: `data:${mime};base64,${buf.toString('base64')}` },
+      });
     }
 
-    const textBlock = response.content.find(b => b.type === 'text');
-    let texto = (textBlock?.text || '').trim();
+    const completion = await client.chat.completions.create({
+      model: VISION_MODEL,
+      messages: [{ role: 'user', content }],
+      response_format: { type: 'json_object' },
+      temperature: 0,
+      max_tokens: 1024,
+    });
+
+    let texto = (completion.choices[0]?.message?.content || '').trim();
     texto = texto.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 
     let dados;
