@@ -439,7 +439,7 @@ router.post('/importar-extrato-pdf', uploadExtrato.single('extrato'), async (req
       return res.status(422).json({ erro: 'Não foi possível ler as páginas do PDF' });
     }
 
-    const LOTE = 5; // limite de imagens por request da Groq
+    const LOTE = 3; // limite de imagens por request do modelo qwen/qwen3.6-27b na Groq
     let extraidos = [];
     for (let i = 0; i < paginas.length; i += LOTE) {
       const lote = paginas.slice(i, i + LOTE);
