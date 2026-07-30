@@ -1,8 +1,19 @@
-const router = require('express').Router();
-const db     = require('../db');
-const auth   = require('../middleware/auth');
+const router     = require('express').Router();
+const db          = require('../db');
+const auth        = require('../middleware/auth');
+const multer       = require('multer');
+const Anthropic     = require('@anthropic-ai/sdk');
 
 router.use(auth);
+
+const uploadExtrato = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: 20 * 1024 * 1024 }, // 20 MB
+  fileFilter: (_, file, cb) => {
+    if (file.mimetype !== 'application/pdf') return cb(new Error('Apenas PDF'));
+    cb(null, true);
+  },
+});
 
 // ── Regras de auto-categorização por palavra-chave ──────────────────────────
 const REGRAS_CATEGORIA = [
@@ -370,6 +381,109 @@ router.post('/importar-extrato', async (req, res) => {
     });
   } catch (e) {
     console.error('[financeiro POST /importar-extrato]', e);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ── POST /api/financeiro/importar-extrato-pdf ─────────────────────────────────
+// Recebe o PDF do extrato bancário, usa Claude pra ler e separar os lançamentos
+router.post('/importar-extrato-pdf', uploadExtrato.single('extrato'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ erro: 'PDF do extrato é obrigatório' });
+  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ erro: 'ANTHROPIC_API_KEY não configurada' });
+
+  try {
+    const conta = req.body.conta || null;
+    const client = new Anthropic();
+
+    const response = await client.messages.create({
+      model: 'claude-opus-5',
+      max_tokens: 8000,
+      thinking: { type: 'disabled' },
+      output_config: {
+        effort: 'medium',
+        format: {
+          type: 'json_schema',
+          schema: {
+            type: 'object',
+            properties: {
+              lancamentos: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    data: { type: 'string', description: 'Data no formato YYYY-MM-DD' },
+                    descricao: { type: 'string', description: 'Descrição/histórico do lançamento como aparece no extrato' },
+                    valor: { type: 'number', description: 'Valor absoluto (sempre positivo) do lançamento' },
+                    tipo: { type: 'string', enum: ['credito', 'debito'] },
+                  },
+                  required: ['data', 'descricao', 'valor', 'tipo'],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ['lancamentos'],
+            additionalProperties: false,
+          },
+        },
+      },
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: req.file.buffer.toString('base64') } },
+          {
+            type: 'text',
+            text: 'Este é um extrato bancário brasileiro em PDF. Extraia TODOS os lançamentos (movimentações) que aparecem nele. '
+              + 'Para cada lançamento: data (YYYY-MM-DD), descrição/histórico exatamente como aparece, valor absoluto (sempre positivo, sem sinal), '
+              + 'e tipo ("credito" para entrada/depósito, "debito" para saída/pagamento/compra). '
+              + 'Não inclua saldo inicial, saldo final ou linhas que não sejam movimentações reais. Retorne todos os lançamentos, mesmo que sejam muitos.',
+          },
+        ],
+      }],
+    });
+
+    if (response.stop_reason === 'refusal') {
+      return res.status(422).json({ erro: 'IA recusou processar este arquivo' });
+    }
+
+    const textBlock = response.content.find(b => b.type === 'text');
+    let extraidos;
+    try {
+      extraidos = JSON.parse(textBlock?.text || '').lancamentos;
+    } catch {
+      return res.status(422).json({ erro: 'IA não conseguiu extrair os lançamentos do PDF' });
+    }
+    if (!Array.isArray(extraidos) || !extraidos.length) {
+      return res.status(422).json({ erro: 'Nenhum lançamento reconhecido nesse PDF' });
+    }
+
+    const inseridos = [];
+    for (const l of extraidos) {
+      const valorNum = Number(l.valor);
+      if (!l.data || !isFinite(valorNum)) continue;
+      const desc = (l.descricao || 'Lançamento importado').trim();
+      const categoria = detectarCategoria(desc);
+      const nome = extrairNomeDescricao(desc);
+      const tipo = l.tipo === 'credito' ? 'credito' : 'debito';
+
+      const [r] = await db.query(
+        `INSERT INTO lancamentos_bancarios (data, descricao, valor, tipo, categoria, conta, conciliado, criado_por, nome)
+         VALUES (?,?,?,?,?,?,0,?,?)`,
+        [l.data, desc, Math.abs(valorNum), tipo, categoria, conta, req.user.nome, nome]
+      );
+      inseridos.push({ id: r.insertId, data: l.data, descricao: desc, valor: Math.abs(valorNum), tipo, categoria, conta, nome });
+    }
+
+    if (!inseridos.length) {
+      return res.status(422).json({ erro: 'Nenhum lançamento válido encontrado no PDF' });
+    }
+
+    res.status(201).json({
+      ok: true,
+      total_importado: inseridos.length,
+      lancamentos: inseridos,
+    });
+  } catch (e) {
+    console.error('[financeiro POST /importar-extrato-pdf]', e);
     res.status(500).json({ erro: e.message });
   }
 });

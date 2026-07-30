@@ -1,21 +1,23 @@
-const router  = require('express').Router();
-const multer  = require('multer');
-const auth    = require('../middleware/auth');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const router     = require('express').Router();
+const multer      = require('multer');
+const auth        = require('../middleware/auth');
+const Anthropic    = require('@anthropic-ai/sdk');
 
 router.use(auth);
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits:  { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  limits:  { fileSize: 15 * 1024 * 1024 }, // 15 MB
   fileFilter: (_, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) return cb(new Error('Apenas imagens'));
+    if (!file.mimetype.startsWith('image/') && file.mimetype !== 'application/pdf') {
+      return cb(new Error('Apenas imagens ou PDF'));
+    }
     cb(null, true);
   },
 });
 
 const PROMPT = `Você é um sistema de OCR especializado em documentos de imigração e contratos brasileiros.
-Analise esta imagem — pode ser passaporte, RNM, CRNM, visto, carteira de identidade, OU um contrato de
+Analise este arquivo — pode ser passaporte, RNM, CRNM, visto, carteira de identidade, OU um contrato de
 prestação de serviços (nesse caso os dados costumam estar na "qualificação das partes", ex: "NOME, nacionalidade,
 portador do CPF nº X, RNM nº Y, residente e domiciliado em Z") — e extraia os dados em JSON puro.
 
@@ -36,24 +38,31 @@ Se um campo não estiver visível, ilegível ou não existir no documento, use n
 Datas devem estar em formato YYYY-MM-DD. Converta formatos DD/MM/YYYY, MM/YY ou similares.`;
 
 router.post('/', upload.single('imagem'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ erro: 'Imagem obrigatória' });
-  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ erro: 'GEMINI_API_KEY não configurada' });
+  if (!req.file) return res.status(400).json({ erro: 'Arquivo obrigatório (imagem ou PDF)' });
+  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ erro: 'ANTHROPIC_API_KEY não configurada' });
 
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const client = new Anthropic();
 
-    const imagePart = {
-      inlineData: {
-        data: req.file.buffer.toString('base64'),
-        mimeType: req.file.mimetype,
-      },
-    };
+    const isPdf = req.file.mimetype === 'application/pdf';
+    const fileBlock = isPdf
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: req.file.buffer.toString('base64') } }
+      : { type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: req.file.buffer.toString('base64') } };
 
-    const result = await model.generateContent([PROMPT, imagePart]);
-    let texto = result.response.text().trim();
+    const response = await client.messages.create({
+      model: 'claude-opus-5',
+      max_tokens: 1024,
+      thinking: { type: 'disabled' },
+      output_config: { effort: 'low' },
+      messages: [{ role: 'user', content: [fileBlock, { type: 'text', text: PROMPT }] }],
+    });
 
-    // Remove markdown fences if present
+    if (response.stop_reason === 'refusal') {
+      return res.status(422).json({ erro: 'IA recusou processar este arquivo' });
+    }
+
+    const textBlock = response.content.find(b => b.type === 'text');
+    let texto = (textBlock?.text || '').trim();
     texto = texto.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 
     let dados;
