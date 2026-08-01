@@ -3728,11 +3728,12 @@ async function processarOCR(clienteId, input) {
       const [y,m,dd] = iso.split('-');
       return `${dd}/${m}/${y}`;
     };
+    const enderecoDisplay = _composeEnderecoOCR(d);
     const campos = [
       d.nome           && { label:'Nome',              val: d.nome,              campo: 'nome' },
       d.cpf            && { label:'CPF',               val: d.cpf,               campo: 'cpf' },
       d.numero_doc     && { label:'Nº Documento',      val: d.numero_doc,        campo: d.tipo_doc==='rnm'?'rnm':null },
-      d.endereco       && { label:'Endereço',          val: d.endereco,          campo: 'endereco' },
+      enderecoDisplay  && { label:'Endereço',          val: enderecoDisplay,     campo: 'endereco' },
       d.nacionalidade  && { label:'Nacionalidade',     val: d.nacionalidade,     campo: 'pais' },
       d.data_nascimento&& { label:'Nascimento',        val: fmtDt(d.data_nascimento), campo: 'nasc', rawDate: d.data_nascimento },
       d.data_validade  && { label:'Validade',          val: fmtDt(d.data_validade),   campo: d.tipo_doc==='rnm'?'val_rnm':'val_pass', rawDate: d.data_validade },
@@ -3782,21 +3783,35 @@ async function processarOCR(clienteId, input) {
 // Aplica o endereço extraído do OCR nos campos separados do formulário
 // (logradouro/número/complemento/bairro/cidade/UF/CEP) em vez de jogar o
 // endereço inteiro dentro de um campo só.
+// Monta o texto de exibição do endereço a partir dos campos SEPARADOS que a
+// IA devolve — nunca a partir de um campo "endereço completo" (evita cair
+// de volta no problema de tudo grudado num campo só).
+function _composeEnderecoOCR(d) {
+  const logr = d.endereco_logradouro || '', num = d.endereco_numero || '', comp = d.endereco_complemento || '';
+  const bairro = d.endereco_bairro || '', cidade = d.endereco_cidade || '', uf = (d.endereco_uf || '').toUpperCase(), cep = d.endereco_cep || '';
+  const partes = [];
+  if (logr) partes.push(num ? logr + ', ' + num : logr);
+  else if (num) partes.push(num);
+  if (comp) partes.push(comp);
+  if (bairro) partes.push(bairro);
+  const cidUF = [cidade, uf].filter(Boolean).join(' - ');
+  if (cidUF) partes.push(cidUF);
+  if (cep) partes.push('CEP ' + cep);
+  return partes.join(', ');
+}
+
+// Aplica o endereço extraído do OCR nos campos separados do formulário
+// (logradouro/número/complemento/bairro/cidade/UF/CEP) — nunca joga o
+// endereço inteiro dentro de um campo só.
 function aplicarEnderecoOCR(d, pfx) {
   const set = (id, val) => { const el = document.getElementById(pfx + '-' + id); if (el && val) el.value = val; };
-  if (d.endereco_logradouro || d.endereco_numero || d.endereco_bairro || d.endereco_cidade || d.endereco_uf || d.endereco_cep) {
-    set('logradouro',   d.endereco_logradouro);
-    set('numero',       d.endereco_numero);
-    set('complemento',  d.endereco_complemento);
-    set('bairro',       d.endereco_bairro);
-    set('cidade',       d.endereco_cidade);
-    set('uf',           d.endereco_uf ? String(d.endereco_uf).toUpperCase() : null);
-    set('cep',          d.endereco_cep);
-  } else if (d.endereco) {
-    // fallback: IA não separou os campos — melhor jogar tudo no logradouro
-    // do que perder o dado
-    set('logradouro', d.endereco);
-  }
+  set('logradouro',   d.endereco_logradouro);
+  set('numero',       d.endereco_numero);
+  set('complemento',  d.endereco_complemento);
+  set('bairro',       d.endereco_bairro);
+  set('cidade',       d.endereco_cidade);
+  set('uf',           d.endereco_uf ? String(d.endereco_uf).toUpperCase() : null);
+  set('cep',          d.endereco_cep);
 }
 
 function aplicarDadosOCR(clienteId) {
@@ -3901,11 +3916,12 @@ async function processarOCRNovoCliente(input) {
     const d = json.dados;
     _ocrNovoClienteDados = d;
 
+    const enderecoDisplay = _composeEnderecoOCR(d);
     const campos = [
       d.nome          && `Nome: ${d.nome}`,
       d.cpf           && `CPF: ${d.cpf}`,
       d.numero_doc    && `Nº Doc: ${d.numero_doc}`,
-      d.endereco      && `Endereço: ${d.endereco}`,
+      enderecoDisplay && `Endereço: ${enderecoDisplay}`,
       d.nacionalidade && `Nacionalidade: ${d.nacionalidade}`,
     ].filter(Boolean);
 

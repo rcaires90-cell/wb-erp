@@ -35,7 +35,6 @@ Retorne APENAS um objeto JSON válido, sem texto adicional, markdown ou formata�
   "nome": "nome completo da pessoa (do cliente/contratado, não do contratante WB Assessoria), em maiúsculas normais",
   "numero_doc": "número exato do documento (RNM/passaporte/identidade), se houver",
   "cpf": "CPF no formato 000.000.000-00, ou null se não houver",
-  "endereco": "endereço completo formatado como aparece no texto (rua, número, bairro, cidade, UF, CEP), ou null se não houver — use só pra exibição",
   "endereco_logradouro": "nome da rua/avenida/alameda SEM o número, ex: 'Rua Tupaciguar', ou null",
   "endereco_numero": "apenas o número do imóvel, ex: '161', ou null",
   "endereco_complemento": "complemento (apto, bloco, casa, sala etc), ou null",
@@ -53,7 +52,10 @@ Retorne APENAS um objeto JSON válido, sem texto adicional, markdown ou formata�
 }
 
 Se um campo não estiver visível, ilegível ou não existir no documento, use null.
-Datas devem estar em formato YYYY-MM-DD. Converta formatos DD/MM/YYYY, MM/YY ou similares.`;
+Datas devem estar em formato YYYY-MM-DD. Converta formatos DD/MM/YYYY, MM/YY ou similares.
+IMPORTANTE: nunca junte o endereço inteiro em um só campo — separe SEMPRE rua, número, complemento, bairro,
+cidade, UF e CEP cada um no seu próprio campo (endereco_logradouro, endereco_numero, etc), mesmo que no
+documento original apareçam juntos numa única linha de texto.`;
 
 // Blindagem: normaliza data para YYYY-MM-DD mesmo se a IA devolver DD/MM/YYYY
 // ou DD-MM-YYYY (evita gravar data inválida por causa de má formatação)
