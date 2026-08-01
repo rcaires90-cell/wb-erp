@@ -288,9 +288,14 @@ app.use(express.json({ limit: '10mb' })); // 10mb para suportar base64 de imagen
 app.use(express.urlencoded({ extended: true }));
 
 // ── RATE LIMITING GERAL ───────────────────────────
+// O front faz polling de sincronização (4 requisições a cada 5s por sessão
+// aberta — ver startRealtime() no index.html), então 500/15min estourava
+// sozinho com só 1-2 pessoas usando o sistema ao mesmo tempo (mesmo IP de
+// escritório), derrubando até o login. 3000/15min dá margem confortável
+// pra isso e ainda barra um pico de abuso real.
 const limiterGeral = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 500,
+  max: 3000,
   standardHeaders: true,
   legacyHeaders:   false,
   message: { erro: 'Muitas requisições. Tente novamente em 15 minutos.' },
