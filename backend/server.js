@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express   = require('express');
 const cors      = require('cors');
-const rateLimit = require('express-rate-limit');
 const path      = require('path');
 const cron      = require('node-cron');
 const db        = require('./db');
@@ -287,20 +286,10 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' })); // 10mb para suportar base64 de imagens
 app.use(express.urlencoded({ extended: true }));
 
-// ── RATE LIMITING GERAL ───────────────────────────
-// O front faz polling de sincronização (4 requisições a cada 5s por sessão
-// aberta — ver startRealtime() no index.html), então 500/15min estourava
-// sozinho com só 1-2 pessoas usando o sistema ao mesmo tempo (mesmo IP de
-// escritório), derrubando até o login. 3000/15min dá margem confortável
-// pra isso e ainda barra um pico de abuso real.
-const limiterGeral = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 3000,
-  standardHeaders: true,
-  legacyHeaders:   false,
-  message: { erro: 'Muitas requisições. Tente novamente em 15 minutos.' },
-});
-app.use('/api/', limiterGeral);
+// Removido o rate limit geral (bloqueava atualizações em massa de dados —
+// polling de sincronização do front + uso normal já passava de qualquer
+// limite razoável). Continua existindo proteção específica contra força
+// bruta de senha em routes/auth.js (loginLimiter, 10 tentativas/15min).
 
 // ── ROTAS ─────────────────────────────────────────
 app.use('/api/auth',         require('./routes/auth'));
