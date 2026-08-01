@@ -3779,6 +3779,26 @@ async function processarOCR(clienteId, input) {
   input.value = '';
 }
 
+// Aplica o endereço extraído do OCR nos campos separados do formulário
+// (logradouro/número/complemento/bairro/cidade/UF/CEP) em vez de jogar o
+// endereço inteiro dentro de um campo só.
+function aplicarEnderecoOCR(d, pfx) {
+  const set = (id, val) => { const el = document.getElementById(pfx + '-' + id); if (el && val) el.value = val; };
+  if (d.endereco_logradouro || d.endereco_numero || d.endereco_bairro || d.endereco_cidade || d.endereco_uf || d.endereco_cep) {
+    set('logradouro',   d.endereco_logradouro);
+    set('numero',       d.endereco_numero);
+    set('complemento',  d.endereco_complemento);
+    set('bairro',       d.endereco_bairro);
+    set('cidade',       d.endereco_cidade);
+    set('uf',           d.endereco_uf ? String(d.endereco_uf).toUpperCase() : null);
+    set('cep',          d.endereco_cep);
+  } else if (d.endereco) {
+    // fallback: IA não separou os campos — melhor jogar tudo no logradouro
+    // do que perder o dado
+    set('logradouro', d.endereco);
+  }
+}
+
 function aplicarDadosOCR(clienteId) {
   const d = window[`_ocrDados_${clienteId}`];
   if (!d) return;
@@ -3787,7 +3807,7 @@ function aplicarDadosOCR(clienteId) {
   if (d.nacionalidade) { const el = document.getElementById('ed-pais'); if (el) el.value = d.nacionalidade; }
   if (d.data_nascimento) { const el = document.getElementById('ed-nascimento'); if (el) el.value = d.data_nascimento; }
   if (d.cpf) { const el = document.getElementById('ed-cpf'); if (el) el.value = d.cpf; }
-  if (d.endereco) { const el = document.getElementById('ed-logradouro'); if (el) el.value = d.endereco; }
+  aplicarEnderecoOCR(d, 'ed');
   if (d.tipo_doc === 'rnm' && d.numero_doc) {
     const el = document.getElementById('ed-rnm'); if (el) el.value = d.numero_doc;
   }
@@ -3923,7 +3943,7 @@ function aplicarOCRNovoCliente() {
   if (d.cpf)            { const el = document.getElementById('nc-cpf');         if (el) el.value = d.cpf; }
   if (d.nacionalidade)  { const el = document.getElementById('nc-pais');        if (el) el.value = d.nacionalidade; }
   if (d.data_nascimento){ const el = document.getElementById('nc-nascimento');  if (el) el.value = d.data_nascimento; }
-  if (d.endereco)       { const el = document.getElementById('nc-logradouro');  if (el) el.value = d.endereco; }
+  aplicarEnderecoOCR(d, 'nc');
   if (d.tipo_doc === 'rnm' && d.numero_doc) {
     const el = document.getElementById('nc-rnm'); if (el) el.value = d.numero_doc;
   }

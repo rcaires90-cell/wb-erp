@@ -35,7 +35,14 @@ Retorne APENAS um objeto JSON válido, sem texto adicional, markdown ou formata�
   "nome": "nome completo da pessoa (do cliente/contratado, não do contratante WB Assessoria), em maiúsculas normais",
   "numero_doc": "número exato do documento (RNM/passaporte/identidade), se houver",
   "cpf": "CPF no formato 000.000.000-00, ou null se não houver",
-  "endereco": "endereço completo como aparece no texto (rua, número, bairro, cidade, UF, CEP), ou null se não houver",
+  "endereco": "endereço completo formatado como aparece no texto (rua, número, bairro, cidade, UF, CEP), ou null se não houver — use só pra exibição",
+  "endereco_logradouro": "nome da rua/avenida/alameda SEM o número, ex: 'Rua Tupaciguar', ou null",
+  "endereco_numero": "apenas o número do imóvel, ex: '161', ou null",
+  "endereco_complemento": "complemento (apto, bloco, casa, sala etc), ou null",
+  "endereco_bairro": "bairro, ou null",
+  "endereco_cidade": "cidade, ou null",
+  "endereco_uf": "sigla do estado com 2 letras maiúsculas, ex: 'SP', ou null",
+  "endereco_cep": "CEP no formato 00000-000, ou null",
   "data_nascimento": "YYYY-MM-DD ou null se ilegível",
   "data_validade": "YYYY-MM-DD ou null se ilegível",
   "nacionalidade": "país de origem por extenso em português, ex: Haiti, Venezuela, Angola",
@@ -47,6 +54,26 @@ Retorne APENAS um objeto JSON válido, sem texto adicional, markdown ou formata�
 
 Se um campo não estiver visível, ilegível ou não existir no documento, use null.
 Datas devem estar em formato YYYY-MM-DD. Converta formatos DD/MM/YYYY, MM/YY ou similares.`;
+
+// Blindagem: normaliza data para YYYY-MM-DD mesmo se a IA devolver DD/MM/YYYY
+// ou DD-MM-YYYY (evita gravar data inválida por causa de má formatação)
+function normalizarData(str) {
+  if (!str || typeof str !== 'string') return str;
+  const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return str;
+  const br = str.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  return str;
+}
+
+function normalizarDatasDados(dados) {
+  if (dados.data_nascimento) dados.data_nascimento = normalizarData(dados.data_nascimento);
+  if (dados.data_validade)   dados.data_validade   = normalizarData(dados.data_validade);
+  if (Array.isArray(dados.parcelas)) {
+    dados.parcelas.forEach(p => { if (p.vencimento) p.vencimento = normalizarData(p.vencimento); });
+  }
+  return dados;
+}
 
 router.post('/', upload.single('imagem'), async (req, res) => {
   if (!req.file) return res.status(400).json({ erro: 'Arquivo obrigatório (imagem ou PDF)' });
@@ -86,6 +113,7 @@ router.post('/', upload.single('imagem'), async (req, res) => {
     } catch {
       return res.status(422).json({ erro: 'IA não conseguiu extrair dados estruturados', raw: texto });
     }
+    dados = normalizarDatasDados(dados);
 
     res.json({ ok: true, dados });
   } catch (e) {
