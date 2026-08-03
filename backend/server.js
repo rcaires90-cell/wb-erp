@@ -82,6 +82,11 @@ async function runMigrations() {
     ['lancamentos_bancarios', 'nome',               "VARCHAR(200) DEFAULT NULL"],
     ['lancamentos_bancarios', 'classificado_como',  "VARCHAR(20)  DEFAULT NULL"],
     ['lancamentos_bancarios', 'classificado_ref_id',"INT DEFAULT NULL"],
+    // Assinatura eletrônica de documentos gerados
+    ['documentos_cliente', 'assinatura_token', "VARCHAR(64)  DEFAULT NULL"],
+    ['documentos_cliente', 'assinado_em',      "DATETIME     DEFAULT NULL"],
+    ['documentos_cliente', 'assinado_nome',    "VARCHAR(200) DEFAULT NULL"],
+    ['documentos_cliente', 'assinado_ip',      "VARCHAR(45)  DEFAULT NULL"],
   ];
   for (const [table, column, definition] of alterCols) {
     await addColumnIfNotExists(table, column, definition);

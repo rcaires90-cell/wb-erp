@@ -3931,13 +3931,15 @@ async function carregarDocumentosGerados(clienteId) {
       return;
     }
     el.innerHTML = lista.map(d => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:8px;margin-bottom:8px;flex-wrap:wrap">
         <span>📄</span>
-        <div style="flex:1">
+        <div style="flex:1;min-width:140px">
           <div style="font-size:0.82rem;font-weight:600">${d.nome}</div>
           <div style="font-size:0.7rem;color:var(--text3)">${new Date(d.gerado_em).toLocaleString('pt-BR')}</div>
+          ${d.assinado_em ? `<div style="font-size:0.7rem;color:var(--green);margin-top:2px">✅ Assinado por ${d.assinado_nome||''} em ${new Date(d.assinado_em).toLocaleString('pt-BR')}</div>` : ''}
         </div>
         <button class="btn btn-outline btn-sm" onclick="baixarDocumentoGerado(${clienteId},${d.id},'${(d.nome||'documento').replace(/'/g,"\\'")}')">⬇️ Baixar</button>
+        ${!d.assinado_em ? `<button class="btn btn-outline btn-sm" onclick="gerarLinkAssinatura(${clienteId},${d.id},this)">🖊️ Link de assinatura</button>` : ''}
       </div>`).join('');
   } catch(e) {
     el.innerHTML = `<div style="color:var(--red);font-size:0.82rem;text-align:center;padding:20px">Erro ao carregar documentos.</div>`;
@@ -3952,6 +3954,19 @@ async function baixarDocumentoGerado(clienteId, docId, nome) {
     link.download = `${nome}.pdf`;
     link.click();
   } catch(e) { showToast('Erro ao baixar documento', 'error'); }
+}
+
+async function gerarLinkAssinatura(clienteId, docId, btn) {
+  try {
+    btn.disabled = true;
+    const r = await apiFetch(`/documentos-cliente/${clienteId}/${docId}/link-assinatura`, { method:'POST' });
+    await navigator.clipboard.writeText(r.url);
+    showToast('🔗 Link de assinatura copiado! Envie para o cliente.', 'success');
+  } catch(e) {
+    showToast('Erro ao gerar link de assinatura', 'error');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function regerarDocumentosCliente(clienteId) {

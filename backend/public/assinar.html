@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WB Assessoria Migratória — Assinatura de Documento</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#030712;color:#fff;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+.hero{background:linear-gradient(180deg,rgba(6,78,59,.5) 0%,#030712 100%);border-bottom:1px solid #1f2937;padding:40px 16px 36px}
+.hero-inner{max-width:680px;margin:0 auto;text-align:center}
+.brand{display:inline-flex;align-items:center;gap:8px;margin-bottom:16px}
+.brand-wb{font-size:28px;font-weight:900;color:#10b981;letter-spacing:-1px}
+.brand-name{font-size:28px;font-weight:700;color:#fff;letter-spacing:-1px}
+h1{font-size:clamp(20px,4vw,26px);font-weight:700;line-height:1.3;color:#fff}
+.sub{margin-top:12px;color:#9ca3af;font-size:15px;max-width:560px;margin-left:auto;margin-right:auto}
+
+.container{max-width:680px;margin:0 auto;padding:32px 16px 64px}
+.card{background:#111827;border:1px solid #1f2937;border-radius:16px;padding:28px;margin-bottom:16px}
+.doc-nome{font-size:16px;font-weight:600;color:#fff;margin-bottom:4px}
+.doc-cliente{font-size:13px;color:#9ca3af;margin-bottom:18px}
+
+.pdf-frame{width:100%;height:60vh;border:1px solid #1f2937;border-radius:10px;background:#fff;margin-bottom:18px}
+.btn-baixar{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#10b981;margin-bottom:18px}
+
+.field{margin-bottom:16px}
+label{display:block;font-size:13px;font-weight:500;color:#d1d5db;margin-bottom:6px}
+label .req{color:#10b981}
+input{width:100%;background:#1f2937;border:1px solid #374151;border-radius:8px;padding:10px 12px;font-size:14px;color:#fff;outline:none;transition:border-color .15s;font-family:inherit}
+input::placeholder{color:#6b7280}
+input:focus{border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.1)}
+input.err{border-color:#ef4444}
+.err-msg{font-size:12px;color:#f87171;margin-top:4px}
+
+.aviso{font-size:12px;color:#6b7280;line-height:1.5;margin-bottom:16px;padding:12px;background:#0b1220;border:1px solid #1f2937;border-radius:8px}
+
+.btn-submit{width:100%;padding:14px;background:#059669;border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s}
+.btn-submit:hover:not(:disabled){background:#10b981}
+.btn-submit:disabled{background:#064e3b;cursor:not-allowed;opacity:.7}
+.alert-err{background:rgba(239,68,68,.1);border:1px solid #991b1b;border-radius:8px;padding:12px;font-size:13px;color:#fca5a5;margin-top:16px}
+
+.success,.ja-assinado{text-align:center;padding:48px 16px}
+.success-icon{width:72px;height:72px;border-radius:50%;background:rgba(16,185,129,.15);display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
+.success h2,.ja-assinado h2{font-size:22px;font-weight:700;color:#fff;margin-bottom:8px}
+.success p,.ja-assinado p{color:#9ca3af;font-size:15px}
+
+.footer{text-align:center;padding:24px 16px;border-top:1px solid #111827}
+.footer p{font-size:13px;color:#4b5563}
+.footer a{color:#059669}
+.spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:60px 16px;color:#9ca3af}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-inner">
+    <div class="brand">
+      <span class="brand-wb">WB</span>
+      <span class="brand-name">Assessoria Migratória</span>
+    </div>
+    <h1>Assinatura de Documento</h1>
+    <p class="sub">Confira o documento abaixo e confirme sua assinatura eletrônica.</p>
+  </div>
+</div>
+
+<div class="container">
+  <div id="ass-loading" class="empty">Carregando documento...</div>
+  <div id="ass-erro" class="empty" style="display:none">
+    <p>Link inválido ou expirado. Confira o link com quem enviou.</p>
+  </div>
+
+  <div id="ass-conteudo" style="display:none">
+    <div class="card">
+      <div class="doc-nome" id="ass-doc-nome"></div>
+      <div class="doc-cliente" id="ass-doc-cliente"></div>
+      <iframe class="pdf-frame" id="ass-pdf-frame"></iframe>
+      <a class="btn-baixar" id="ass-baixar" download>⬇ Baixar PDF</a>
+    </div>
+
+    <div class="card" id="ass-form-card">
+      <div class="field">
+        <label>Nome completo <span class="req">*</span></label>
+        <input type="text" id="ass-nome" placeholder="Digite seu nome completo para confirmar a assinatura">
+        <div class="err-msg" id="err-ass-nome"></div>
+      </div>
+      <div class="aviso">
+        Ao confirmar, você declara estar de acordo com o conteúdo deste documento. Esta é uma assinatura eletrônica simples (registro de nome, data/hora e IP como trilha de auditoria) — não se trata de certificado digital ICP-Brasil.
+      </div>
+      <div id="ass-alert-err" class="alert-err" style="display:none"></div>
+      <button type="button" class="btn-submit" id="ass-btn-submit">Confirmar assinatura</button>
+    </div>
+
+    <div class="card ja-assinado" id="ass-ja-assinado" style="display:none">
+      <h2>✅ Documento já assinado</h2>
+      <p id="ass-ja-assinado-info"></p>
+    </div>
+  </div>
+
+  <div id="ass-success" class="success" style="display:none">
+    <div class="success-icon">
+      <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#10b981" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+      </svg>
+    </div>
+    <h2>Assinatura confirmada!</h2>
+    <p>Obrigado. Sua assinatura foi registrada com sucesso.</p>
+  </div>
+</div>
+
+<div class="footer">
+  <p>WB Assessoria Migratória &nbsp;·&nbsp; <a href="https://wbassessoriamigratoria.com.br">wbassessoriamigratoria.com.br</a></p>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const token = params.get('token') || '';
+
+async function init() {
+  if (!token) {
+    document.getElementById('ass-loading').style.display = 'none';
+    document.getElementById('ass-erro').style.display = 'block';
+    return;
+  }
+  try {
+    const resp = await fetch('/api/documentos-cliente/assinar/' + encodeURIComponent(token));
+    if (!resp.ok) throw new Error('not found');
+    const doc = await resp.json();
+
+    document.getElementById('ass-loading').style.display = 'none';
+    document.getElementById('ass-conteudo').style.display = 'block';
+    document.getElementById('ass-doc-nome').textContent = doc.nome;
+    document.getElementById('ass-doc-cliente').textContent = doc.cliente_nome ? 'Cliente: ' + doc.cliente_nome : '';
+
+    const dataUri = 'data:application/pdf;base64,' + doc.pdf_base64;
+    document.getElementById('ass-pdf-frame').src = dataUri;
+    const linkBaixar = document.getElementById('ass-baixar');
+    linkBaixar.href = dataUri;
+    linkBaixar.download = doc.nome + '.pdf';
+
+    if (doc.assinado) {
+      document.getElementById('ass-form-card').style.display = 'none';
+      document.getElementById('ass-ja-assinado').style.display = 'block';
+      const dt = doc.assinado_em ? new Date(doc.assinado_em).toLocaleString('pt-BR') : '';
+      document.getElementById('ass-ja-assinado-info').textContent =
+        `Assinado por ${doc.assinado_nome || ''} em ${dt}.`;
+      return;
+    }
+
+    document.getElementById('ass-btn-submit').addEventListener('click', async () => {
+      const nome = document.getElementById('ass-nome').value.trim();
+      document.getElementById('err-ass-nome').textContent = '';
+      document.getElementById('ass-nome').classList.remove('err');
+
+      if (!nome) {
+        document.getElementById('err-ass-nome').textContent = 'Digite seu nome completo';
+        document.getElementById('ass-nome').classList.add('err');
+        return;
+      }
+
+      const btn = document.getElementById('ass-btn-submit');
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spin"></div> Confirmando...';
+      document.getElementById('ass-alert-err').style.display = 'none';
+
+      try {
+        const res = await fetch('/api/documentos-cliente/assinar/' + encodeURIComponent(token), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.erro || 'Erro ao assinar');
+        document.getElementById('ass-conteudo').style.display = 'none';
+        document.getElementById('ass-success').style.display = 'block';
+      } catch (err) {
+        const alertEl = document.getElementById('ass-alert-err');
+        alertEl.textContent = err.message || 'Ocorreu um erro ao confirmar a assinatura. Tente novamente.';
+        alertEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Confirmar assinatura';
+      }
+    });
+  } catch (e) {
+    document.getElementById('ass-loading').style.display = 'none';
+    document.getElementById('ass-erro').style.display = 'block';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
