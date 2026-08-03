@@ -319,7 +319,10 @@ router.post('/importar-extrato', async (req, res) => {
     const lancamentos = [];
 
     const reData = /(\d{2})[\/\-](\d{2})[\/\-](\d{2,4})/;
-    const reValor = /([+-]?\s*\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))/;
+    // Aceita valor COM separador de milhar (1.500,00) ou SEM (1500,00) —
+    // captura o sinal, um dígito inicial e tudo até a última vírgula/ponto
+    // seguida de exatamente 2 dígitos (centavos).
+    const reValor = /([+-]?\s*\d[\d.,]*[.,]\d{2})/;
 
     for (const linha of linhas) {
       const mData = linha.match(reData);
@@ -335,10 +338,15 @@ router.post('/importar-extrato', async (req, res) => {
       if (!todosValores.length) continue;
       const valorStr = todosValores[todosValores.length - 1][1].replace(/\s/g, '');
 
-      // Normaliza separadores BR: 1.234,56 → 1234.56
-      const valorNum = parseFloat(
-        valorStr.replace(/\./g, '').replace(',', '.')
-      );
+      // Normaliza BR: separador decimal é a ÚLTIMA vírgula/ponto da string;
+      // tudo antes disso é parte inteira (removendo eventuais separadores
+      // de milhar), com ou sem eles no texto original.
+      const negativo = valorStr.startsWith('-');
+      const semSinal = valorStr.replace(/^[+-]/, '');
+      const posSep = Math.max(semSinal.lastIndexOf(','), semSinal.lastIndexOf('.'));
+      const parteInteira = semSinal.slice(0, posSep).replace(/[.,]/g, '') || '0';
+      const parteDecimal = semSinal.slice(posSep + 1);
+      const valorNum = parseFloat(`${parteInteira}.${parteDecimal}`) * (negativo ? -1 : 1);
       if (isNaN(valorNum)) continue;
 
       // Descrição = linha sem data e sem valor
@@ -351,7 +359,7 @@ router.post('/importar-extrato', async (req, res) => {
 
       if (!desc) desc = 'Lançamento importado';
 
-      const tipo = valorNum < 0 ? 'debito' : valorStr.startsWith('-') ? 'debito' : 'credito';
+      const tipo = valorNum < 0 ? 'debito' : 'credito';
       const valor = Math.abs(valorNum);
       const categoria = detectarCategoria(desc);
       const nome = extrairNomeDescricao(desc);
