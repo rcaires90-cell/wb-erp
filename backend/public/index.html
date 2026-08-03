@@ -2193,24 +2193,24 @@ const TREINAMENTO_INFO = {
   naturalizacao: {
     navPage: 'form-naturalizacao',
     fases: () => FASES_NATURALIZACAO,
-    docsObr: DOCS_NATURALIZACAO_OBR,
-    docsComp: DOCS_NATURALIZACAO_COMP,
+    docsObr: () => DOCS_NATURALIZACAO_OBR,
+    docsComp: () => DOCS_NATURALIZACAO_COMP,
     oQueE: 'Processo pelo qual um estrangeiro que já mora no Brasil se torna cidadão brasileiro, com os mesmos direitos de um brasileiro nato (exceto alguns cargos exclusivos, como Presidente da República).',
     praQuem: 'Estrangeiros que já possuem RNM e residem no Brasil — normalmente 4 anos de residência (prazo reduzido pra 1 ano se casado(a) com brasileiro(a) ou tem filho(a) brasileiro(a)).',
   },
   residencia: {
     navPage: 'form-residencia',
     fases: () => FASES_RESIDENCIA,
-    docsObr: DOCS_RESIDENCIA_OBR,
-    docsComp: [],
+    docsObr: () => DOCS_RESIDENCIA_OBR,
+    docsComp: () => [],
     oQueE: 'Processo pra regularizar a situação migratória de quem AINDA NÃO tem RNM — é o passo anterior à naturalização. Pode ser por CPLP (países de língua portuguesa), reunião familiar ou Mercosul.',
     praQuem: 'Estrangeiros que ainda não têm RNM e precisam de uma base legal (CPLP, vínculo familiar com brasileiro ou Mercosul) pra residir legalmente no Brasil.',
   },
   visto_eua: {
     navPage: 'form-visto-eua',
     fases: () => FASES_VISTO_EUA,
-    docsObr: DOCS_EUA_OBR,
-    docsComp: [],
+    docsObr: () => DOCS_EUA_OBR,
+    docsComp: () => [],
     oQueE: 'Processo de solicitação do visto americano de turismo/negócios (B1/B2) — preparação da documentação, preenchimento do formulário DS-160 e orientação pra entrevista no consulado.',
     praQuem: 'Qualquer pessoa que queira viajar aos Estados Unidos a turismo ou negócios e precise do visto.',
   },
@@ -2270,8 +2270,8 @@ async function carregarTreinamento() {
 
           <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;color:var(--gold);text-transform:uppercase;margin-bottom:10px">Documentos Necessários</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px">
-            ${info.docsObr.map(d => `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:0.75rem">${d.icon} ${d.label}</div>`).join('')}
-            ${info.docsComp.map(d => `<div style="background:var(--bg3);border:1px dashed var(--border2);border-radius:7px;padding:5px 10px;font-size:0.75rem;color:var(--text3)">${d.icon} ${d.label} <span style="font-size:0.65rem">(se aplicável)</span></div>`).join('')}
+            ${info.docsObr().map(d => `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:0.75rem">${d.icon} ${d.label}</div>`).join('')}
+            ${info.docsComp().map(d => `<div style="background:var(--bg3);border:1px dashed var(--border2);border-radius:7px;padding:5px 10px;font-size:0.75rem;color:var(--text3)">${d.icon} ${d.label} <span style="font-size:0.65rem">(se aplicável)</span></div>`).join('')}
           </div>
 
           ${cfg ? `
