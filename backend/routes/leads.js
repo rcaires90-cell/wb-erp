@@ -3,6 +3,10 @@ const db       = require('../db');
 const auth     = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 const { FORMULARIOS_CONFIG } = require('../lib/formularios');
+const { sendEmail } = require('../lib/email');
+
+const EQUIPE_EMAIL = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
+const PORTAL_URL   = 'https://sistema.wbassessoriamigratoria.com.br';
 
 const VALORES_SERVICO = {
   'Naturalização Brasileira':                                       2790,
@@ -137,6 +141,30 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
        VALUES (?, ?, ?, ?, 'Formulário Público', 'novo', ?, ?)`,
       [nomeClean, telClean, emailClean, cfg.servico, obs || null, valor_estimado]
     );
+
+    // Avisa a equipe na hora — antes disso ninguém sabia que um lead novo
+    // chegou até abrir o Pipeline manualmente
+    try {
+      const linhasResp = Object.entries(respostas || {})
+        .filter(([, v]) => v && String(v).trim())
+        .map(([p, r]) => `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#666;font-size:0.85em">${p}</td><td style="padding:6px 10px;border-bottom:1px solid #eee">${String(r).trim()}</td></tr>`)
+        .join('');
+      await sendEmail(
+        EQUIPE_EMAIL,
+        `🆕 Novo lead pelo formulário público — ${cfg.titulo}`,
+        `<div style="font-family:Arial,sans-serif;max-width:600px;padding:24px;background:#f9f9f9;border-radius:8px">
+          <h2 style="color:#c9a84c">WB Assessoria — Novo Lead</h2>
+          <p><b>${nomeClean}</b> preencheu o formulário de <b>${cfg.titulo}</b> agora mesmo.</p>
+          <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:14px;margin:14px 0">
+            <div><b>Telefone:</b> ${telClean || '—'}</div>
+            <div><b>E-mail:</b> ${emailClean || '—'}</div>
+          </div>
+          ${linhasResp ? `<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #ddd">${linhasResp}</table>` : ''}
+          <p style="margin-top:16px"><a href="${PORTAL_URL}" style="background:#c9a84c;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:700">Ver no Pipeline de Leads</a></p>
+          <p style="margin-top:20px;color:#999;font-size:0.8rem">WB Assessoria Migratória — sistema interno</p>
+        </div>`
+      );
+    } catch(e) { console.error('[leads/formulario-publico] erro ao notificar equipe:', e.message); }
 
     res.json({ ok: true });
   } catch(e) {

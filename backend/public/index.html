@@ -7235,6 +7235,40 @@ function renderLeadsTabela(lista) {
   const topOrigens = Object.entries(origens).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const maxOrig = topOrigens[0]?.[1] || 1;
 
+  // Conversão por origem e por serviço — qual canal/serviço realmente converte,
+  // não só qual traz mais volume
+  const convPorChave = (getChave) => {
+    const mapa = {};
+    lista.forEach(l => {
+      const k = getChave(l) || 'Não informado';
+      if (!mapa[k]) mapa[k] = { total: 0, fechados: 0 };
+      mapa[k].total++;
+      if (l.status === 'fechado') mapa[k].fechados++;
+    });
+    return Object.entries(mapa)
+      .map(([chave, d]) => ({ chave, total: d.total, fechados: d.fechados, pct: d.total ? Math.round(d.fechados/d.total*100) : 0 }))
+      .sort((a,b) => b.total - a.total);
+  };
+  const convOrigem  = convPorChave(l => l.origem);
+  const convServico = convPorChave(l => l.servico);
+  const renderConvTabela = (linhas) => linhas.length ? `
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 0;font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Origem/Serviço</th>
+        <th style="text-align:right;padding:6px 0;font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Leads</th>
+        <th style="text-align:right;padding:6px 0;font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Fechados</th>
+        <th style="text-align:right;padding:6px 0;font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Conversão</th>
+      </tr></thead>
+      <tbody>
+        ${linhas.map(l => `<tr>
+          <td style="padding:7px 0;font-size:0.78rem;border-bottom:1px solid var(--border)">${l.chave}</td>
+          <td style="padding:7px 0;font-size:0.78rem;text-align:right;font-family:monospace;border-bottom:1px solid var(--border)">${l.total}</td>
+          <td style="padding:7px 0;font-size:0.78rem;text-align:right;font-family:monospace;color:var(--green);border-bottom:1px solid var(--border)">${l.fechados}</td>
+          <td style="padding:7px 0;font-size:0.78rem;text-align:right;font-family:monospace;font-weight:700;color:${l.pct>=20?'var(--green)':l.pct>0?'var(--orange)':'var(--text3)'};border-bottom:1px solid var(--border)">${l.pct}%</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>` : '<div style="color:var(--text3);font-size:0.8rem;padding:8px 0">Sem dados</div>';
+
   // Opções para filtros
   const origensOpts = [...new Set(lista.map(l=>l.origem).filter(Boolean))];
   const respOpts    = [...new Set(lista.map(l=>l.responsavel).filter(Boolean))];
@@ -7282,6 +7316,16 @@ function renderLeadsTabela(lista) {
             </div>`;
           }).join('') : '<div style="color:var(--text3);font-size:0.8rem;padding:8px 0">Sem dados</div>'}
         </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">🎯 Conversão por Origem</span></div>
+        <div style="padding:12px 16px">${renderConvTabela(convOrigem)}</div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">🎯 Conversão por Serviço</span></div>
+        <div style="padding:12px 16px">${renderConvTabela(convServico)}</div>
       </div>
     </div>
     <div class="panel">
