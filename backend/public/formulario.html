@@ -152,6 +152,7 @@ async function init() {
           ${sec.perguntas.map(p => `
             <div class="field">
               <label>${p.label}</label>
+              ${p.dica ? `<div style="font-size:12px;color:#6b7280;margin-bottom:6px">💡 ${p.dica}</div>` : ''}
               ${campoHtml(chave, p)}
             </div>`).join('')}
         `).join('')}

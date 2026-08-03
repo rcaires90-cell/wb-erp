@@ -11,15 +11,15 @@ const FORMULARIOS_CONFIG = {
     intro: 'Perguntas-chave pra qualificar o cliente e já deixar tudo pronto pro Pipeline de Leads.',
     secoes: [
       { titulo: '01 · Dados Pessoais', perguntas: [
-        { id: 'nacionalidade', label: 'Nacionalidade / país de origem',  tipo: 'text' },
-        { id: 'tempo_brasil',  label: 'Há quanto tempo mora no Brasil?', tipo: 'text' },
-        { id: 'rnm_tipo',      label: 'Tipo de RNM que possui',          tipo: 'select', opcoes: ['Permanente', 'Temporário', 'Ainda não tem'] },
+        { id: 'nacionalidade',     label: 'Nacionalidade / país de origem',  tipo: 'text' },
+        { id: 'data_entrada',      label: 'Data de entrada no Brasil',       tipo: 'date' },
+        { id: 'rnm_tipo',          label: 'Tipo de RNM que possui',          tipo: 'select', opcoes: ['Permanente', 'Temporário', 'Ainda não tem'] },
+        { id: 'rnm_data_emissao',  label: 'Data de emissão do RNM',          tipo: 'date',
+          dica: 'Fica no verso da carteira do RNM, ao lado de onde está escrito "EMISSÃO" — não confundir com a "VALIDADE".' },
       ] },
       { titulo: '02 · Situação Migratória e Elegibilidade', perguntas: [
         { id: 'vinculo_brasileiro', label: 'É casado(a) ou tem filho(a) brasileiro(a)?', tipo: 'select', opcoes: ['Sim', 'Não'] },
-        { id: 'antecedentes',       label: 'Possui certidão de antecedentes criminais (Brasil e país de origem)?', tipo: 'select', opcoes: ['Sim, os dois', 'Só do Brasil', 'Nenhum ainda'] },
-        { id: 'portugues',          label: 'Fala, lê e escreve português com fluência?', tipo: 'select', opcoes: ['Sim', 'Parcialmente', 'Não'] },
-        { id: 'pendencias',         label: 'Tem alguma pendência com Receita Federal ou Polícia Federal?', tipo: 'text' },
+        { id: 'curso_portugues',    label: 'Já fez algum curso de língua portuguesa? Qual?', tipo: 'text' },
       ] },
       { titulo: '03 · Próximos Passos', perguntas: [
         { id: 'urgencia', label: 'Quando pretende iniciar o processo?', tipo: 'text' },
@@ -34,13 +34,12 @@ const FORMULARIOS_CONFIG = {
     secoes: [
       { titulo: '01 · Dados Pessoais', perguntas: [
         { id: 'nacionalidade', label: 'Nacionalidade / país de origem', tipo: 'text' },
-        { id: 'passaporte',    label: 'Possui passaporte válido?',      tipo: 'select', opcoes: ['Sim', 'Não', 'Está vencendo'] },
-        { id: 'situacao',      label: 'Já está no Brasil ou vai entrar?', tipo: 'select', opcoes: ['Já está no Brasil', 'Ainda vai entrar'] },
+        { id: 'visto',         label: 'Qual visto você possui?',        tipo: 'text' },
+        { id: 'data_entrada',  label: 'Data de entrada no Brasil',      tipo: 'date' },
       ] },
-      { titulo: '02 · Base Legal e Vínculo', perguntas: [
-        { id: 'base_legal',       label: 'Qual a base legal pretendida?', tipo: 'select', opcoes: ['CPLP', 'Reunião Familiar', 'Mercosul', 'Não sei — preciso de orientação'] },
-        { id: 'vinculo_familiar', label: 'Tem vínculo familiar com brasileiro(a)? (cônjuge, filho, pai/mãe)', tipo: 'text' },
-        { id: 'rnm_anterior',     label: 'É primeira solicitação ou renovação de RNM?', tipo: 'select', opcoes: ['Primeira solicitação', 'Renovação'] },
+      { titulo: '02 · Vínculo e Situação', perguntas: [
+        { id: 'vinculo_brasileiro', label: 'Tem filho(a) brasileiro(a) ou é casado(a) com brasileiro(a)?', tipo: 'select', opcoes: ['Sim', 'Não'] },
+        { id: 'base_legal',        label: 'Qual a base legal pretendida?', tipo: 'select', opcoes: ['CPLP', 'Reunião Familiar', 'Mercosul', 'Não sei — preciso de orientação'] },
       ] },
       { titulo: '03 · Localização e Prazo', perguntas: [
         { id: 'localizacao', label: 'Cidade/Estado onde pretende residir', tipo: 'text' },
