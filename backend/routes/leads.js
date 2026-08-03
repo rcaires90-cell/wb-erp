@@ -175,6 +175,12 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
 
 router.use(auth);
 
+// GET /api/leads/valores-servico — preço de referência por serviço (usado
+// no Treinamento interno e em qualquer tela que precise exibir valores)
+router.get('/valores-servico', (_req, res) => {
+  res.json(VALORES_SERVICO);
+});
+
 const STATUS_LABELS = {
   novo: 'Novo', contato_feito: 'Contato Feito', proposta_enviada: 'Proposta Enviada',
   negociando: 'Negociando', fechado: 'Fechado', perdido: 'Perdido',

@@ -1972,6 +1972,7 @@ const PAGE_TITLES = {
   'form-naturalizacao': 'Formulário — Naturalização Brasileira',
   'form-residencia':    'Formulário — Autorização de Residência',
   'form-visto-eua':     'Formulário — Visto EUA',
+  treinamento:          'Guia de Serviços',
 };
 
 function getDefaultPage() {
@@ -2011,6 +2012,8 @@ function buildNav() {
     ${ni('form-naturalizacao','🇧🇷','Naturalização Brasileira')}
     ${ni('form-residencia','🪪','Autorização de Residência')}
     ${ni('form-visto-eua','🇺🇸','Visto EUA')}
+    <div class="nav-section">Treinamento</div>
+    ${ni('treinamento','🎓','Guia de Serviços')}
     <div class="nav-section">Sistema</div>
     ${ni('configuracoes','⚙','Configurações')}`;
 }
@@ -2039,6 +2042,7 @@ function renderPage(page) {
     'form-naturalizacao': () => renderFormulario('naturalizacao'),
     'form-residencia':    () => renderFormulario('residencia'),
     'form-visto-eua':     () => renderFormulario('visto_eua'),
+    'treinamento':        renderTreinamento,
   };
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = `<div class="empty"><div class="icon">🔧</div><h3>Em breve</h3></div>`;
@@ -2060,6 +2064,7 @@ function renderPage(page) {
   if (page === 'form-naturalizacao') carregarFormulario('naturalizacao');
   if (page === 'form-residencia')    carregarFormulario('residencia');
   if (page === 'form-visto-eua')     carregarFormulario('visto_eua');
+  if (page === 'treinamento')        carregarTreinamento();
 }
 
 // ══════════════════════════════════════════════════
@@ -2176,6 +2181,110 @@ async function salvarFormularioLead(chave) {
   } catch(e) {
     showToast('Erro ao salvar: ' + e.message, 'error');
   }
+}
+
+// ══════════════════════════════════════════════════
+// TREINAMENTO — guia de serviços pra colaboradores novos aprenderem o
+// processo de cada serviço (o que é, etapas, documentos, perguntas-chave).
+// Reaproveita as fases/documentos/formulários já existentes no sistema —
+// tudo consistente com o que o resto do app já usa, nada inventado à parte.
+// ══════════════════════════════════════════════════
+const TREINAMENTO_INFO = {
+  naturalizacao: {
+    navPage: 'form-naturalizacao',
+    fases: () => FASES_NATURALIZACAO,
+    docsObr: DOCS_NATURALIZACAO_OBR,
+    docsComp: DOCS_NATURALIZACAO_COMP,
+    oQueE: 'Processo pelo qual um estrangeiro que já mora no Brasil se torna cidadão brasileiro, com os mesmos direitos de um brasileiro nato (exceto alguns cargos exclusivos, como Presidente da República).',
+    praQuem: 'Estrangeiros que já possuem RNM e residem no Brasil — normalmente 4 anos de residência (prazo reduzido pra 1 ano se casado(a) com brasileiro(a) ou tem filho(a) brasileiro(a)).',
+  },
+  residencia: {
+    navPage: 'form-residencia',
+    fases: () => FASES_RESIDENCIA,
+    docsObr: DOCS_RESIDENCIA_OBR,
+    docsComp: [],
+    oQueE: 'Processo pra regularizar a situação migratória de quem AINDA NÃO tem RNM — é o passo anterior à naturalização. Pode ser por CPLP (países de língua portuguesa), reunião familiar ou Mercosul.',
+    praQuem: 'Estrangeiros que ainda não têm RNM e precisam de uma base legal (CPLP, vínculo familiar com brasileiro ou Mercosul) pra residir legalmente no Brasil.',
+  },
+  visto_eua: {
+    navPage: 'form-visto-eua',
+    fases: () => FASES_VISTO_EUA,
+    docsObr: DOCS_EUA_OBR,
+    docsComp: [],
+    oQueE: 'Processo de solicitação do visto americano de turismo/negócios (B1/B2) — preparação da documentação, preenchimento do formulário DS-160 e orientação pra entrevista no consulado.',
+    praQuem: 'Qualquer pessoa que queira viajar aos Estados Unidos a turismo ou negócios e precise do visto.',
+  },
+};
+
+function renderTreinamento() {
+  return `<div id="treino-container"><div class="empty"><div class="icon">⏳</div><h3>Carregando...</h3></div></div>`;
+}
+
+async function carregarTreinamento() {
+  const container = document.getElementById('treino-container');
+  if (!container) return;
+
+  let formularios = {}, valores = {};
+  try {
+    [formularios, valores] = await Promise.all([
+      getFormulariosConfig(),
+      apiFetch('/leads/valores-servico'),
+    ]);
+  } catch(e) {
+    container.innerHTML = `<div class="empty"><div class="icon">⚠️</div><h3>Erro ao carregar</h3><p>${e.message}</p></div>`;
+    return;
+  }
+
+  const fmtMoeda = v => v ? `R$ ${Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '—';
+
+  container.innerHTML = `
+    <div style="margin-bottom:20px;max-width:760px">
+      <h2 style="margin:0">🎓 Guia de Serviços</h2>
+      <p style="margin:4px 0 0;color:var(--text3);font-size:0.82rem">Passo a passo de cada serviço da WB — o que é, pra quem é, etapas do processo, documentos necessários e as perguntas-chave pra fechar contrato. Feito pra colaboradores novos aprenderem rápido.</p>
+    </div>
+    ${Object.entries(TREINAMENTO_INFO).map(([chave, info]) => {
+      const cfg = formularios[chave];
+      const fases = info.fases();
+      const valor = cfg ? valores[cfg.servico] : null;
+      return `
+      <div class="panel" style="max-width:760px;margin-bottom:16px">
+        <div class="panel-header">
+          <span class="panel-title">${cfg?.icon || ''} ${cfg?.titulo || chave}</span>
+          ${valor ? `<span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--gold)">${fmtMoeda(valor)}</span>` : ''}
+        </div>
+        <div class="panel-body">
+          <p style="font-size:0.85rem;color:var(--text2);margin-bottom:6px"><b>O que é:</b> ${info.oQueE}</p>
+          <p style="font-size:0.85rem;color:var(--text2);margin-bottom:16px"><b>Pra quem é:</b> ${info.praQuem}</p>
+
+          <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;color:var(--gold);text-transform:uppercase;margin-bottom:10px">Etapas do Processo</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px">
+            ${fases.map((f, i) => `
+              <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:var(--bg3);border-radius:8px">
+                <span style="font-family:monospace;color:var(--text3);font-size:0.75rem;flex-shrink:0;width:20px">${i+1}.</span>
+                <div>
+                  <div style="font-size:0.82rem;font-weight:600">${f.icon} ${f.label}</div>
+                  <div style="font-size:0.74rem;color:var(--text3);margin-top:2px">${f.desc}</div>
+                </div>
+              </div>`).join('')}
+          </div>
+
+          <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;color:var(--gold);text-transform:uppercase;margin-bottom:10px">Documentos Necessários</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px">
+            ${info.docsObr.map(d => `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:0.75rem">${d.icon} ${d.label}</div>`).join('')}
+            ${info.docsComp.map(d => `<div style="background:var(--bg3);border:1px dashed var(--border2);border-radius:7px;padding:5px 10px;font-size:0.75rem;color:var(--text3)">${d.icon} ${d.label} <span style="font-size:0.65rem">(se aplicável)</span></div>`).join('')}
+          </div>
+
+          ${cfg ? `
+          <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;color:var(--gold);text-transform:uppercase;margin-bottom:10px">Perguntas-Chave pra Fechar</div>
+          <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:16px">
+            ${cfg.secoes.flatMap(s => s.perguntas).map(p => `<div style="font-size:0.78rem;color:var(--text2)">• ${p.label}</div>`).join('')}
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="navigateTo('${info.navPage}')">📋 Abrir formulário de fechamento</button>
+          ` : ''}
+        </div>
+      </div>`;
+    }).join('')}
+  `;
 }
 
 // ══════════════════════════════════
