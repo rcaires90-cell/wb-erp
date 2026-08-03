@@ -2,6 +2,7 @@ const router   = require('express').Router();
 const db       = require('../db');
 const auth     = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
+const { FORMULARIOS_CONFIG } = require('../lib/formularios');
 
 const VALORES_SERVICO = {
   'Naturalização Brasileira':                                       2790,
@@ -84,6 +85,62 @@ router.post('/publico', limiterPublico, async (req, res) => {
     res.json({ ok: true });
   } catch(e) {
     console.error('[leads/publico]', e.message);
+    res.status(500).json({ erro: 'Não foi possível enviar. Tente novamente.' });
+  }
+});
+
+// GET /api/leads/formularios — sem autenticação. Devolve o roteiro de
+// perguntas-chave por serviço (usado tanto no formulário interno quanto
+// na página pública que o cliente preenche direto).
+router.get('/formularios', (_req, res) => {
+  res.json(FORMULARIOS_CONFIG);
+});
+
+// POST /api/leads/formulario-publico/:chave — sem autenticação (link
+// enviado direto pro cliente responder). Cria o lead com as respostas
+// já formatadas, igual ao formulário interno faz.
+router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
+  try {
+    const cfg = FORMULARIOS_CONFIG[req.params.chave];
+    if (!cfg) return res.status(404).json({ erro: 'Formulário não encontrado' });
+
+    const { nome, tel, email, respostas, _hp } = req.body;
+
+    // Honeypot: bots preenchem o campo oculto, humanos não
+    if (_hp) return res.json({ ok: true });
+
+    if (!nome?.trim() || nome.trim().length > 200) return res.status(400).json({ erro: 'Nome inválido' });
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ erro: 'E-mail inválido' });
+
+    const nomeClean  = nome.trim().slice(0, 200);
+    const telClean   = (tel || '').toString().trim().slice(0, 30) || null;
+    const emailClean = (email || '').toString().trim().slice(0, 200) || null;
+
+    // Bloqueio de duplicata: mesmo email ou telefone nas últimas 2h
+    if (emailClean || telClean) {
+      const [dup] = await db.query(
+        `SELECT id FROM leads WHERE created_at >= NOW() - INTERVAL 2 HOUR AND (email = ? OR tel = ?) LIMIT 1`,
+        [emailClean || '__', telClean || '__']
+      );
+      if (dup.length) return res.json({ ok: true }); // retorna ok silenciosamente
+    }
+
+    const obs = Object.entries(respostas || {})
+      .filter(([, v]) => v && String(v).trim())
+      .map(([pergunta, resposta]) => `${pergunta}: ${String(resposta).trim()}`)
+      .join('\n');
+
+    const valor_estimado = VALORES_SERVICO[cfg.servico] || 0;
+
+    await db.query(
+      `INSERT INTO leads (nome, tel, email, servico, origem, status, obs, valor_estimado)
+       VALUES (?, ?, ?, ?, 'Formulário Público', 'novo', ?, ?)`,
+      [nomeClean, telClean, emailClean, cfg.servico, obs || null, valor_estimado]
+    );
+
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('[leads/formulario-publico]', e.message);
     res.status(500).json({ erro: 'Não foi possível enviar. Tente novamente.' });
   }
 });
