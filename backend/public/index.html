@@ -1259,8 +1259,6 @@ const CMD_PAGES = [
   { label: 'Pró-labore',           icon: '💵', page: 'prolabore' },
   { label: 'Relatório Financeiro', icon: '📈', page: 'relatorio' },
   { label: 'Conciliação Bancária', icon: '🏦', page: 'conciliacao' },
-  { label: 'WhatsApp Auto',        icon: '💬', page: 'whatsapp' },
-  { label: 'Diário Oficial',       icon: '🗞️', page: 'dou' },
   { label: 'Configurações',        icon: '⚙️',  page: 'configuracoes' },
 ];
 
@@ -2006,10 +2004,6 @@ function buildNav() {
     <div class="nav-section">Financeiro</div>
     ${ni('financeiro','💳','Financeiro', venc || '')}
     ${ni('conciliacao','🏦','Conciliação Bancária')}
-    <div class="nav-section">Ferramentas</div>
-    ${ni('whatsapp','💬','WhatsApp Auto')}
-    ${ni('dou','🗞️','Diário Oficial')}
-    ${ni('marketing','🚀','Marketing Studio')}
     <div class="nav-section">Sistema</div>
     ${ni('configuracoes','⚙','Configurações')}`;
 }
