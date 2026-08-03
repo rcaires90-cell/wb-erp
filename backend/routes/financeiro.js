@@ -421,19 +421,33 @@ async function extrairLancamentosDeLote(client, paginasPng, offset) {
     response_format: { type: 'json_object' },
     reasoning_effort: 'none',
     temperature: 0,
-    max_tokens: 4000,
+    // max_tokens é reservado no orçamento de tokens/minuto (TPM) da Groq no
+    // momento do request, não só no uso real — um valor folgado (ex: 4000)
+    // sozinho já consumia quase todo o limite de 8000 TPM, sobrando espaço
+    // pra praticamente nenhuma outra página na mesma janela de 1 minuto.
+    // 1200 é folgado o bastante pra até ~20 lançamentos numa única página.
+    max_tokens: 1200,
   });
 
   let completion;
-  try {
-    completion = await chamar();
-  } catch (e) {
-    // 413/429 = limite de tokens por minuto do tier gratuito da Groq — espera e tenta 1x de novo
-    if (e.status === 413 || e.status === 429) {
-      await sleep(25000);
+  let tentativa = 0;
+  for (;;) {
+    try {
       completion = await chamar();
-    } else {
-      throw e;
+      break;
+    } catch (e) {
+      tentativa++;
+      // 413/429 = limite de tokens da Groq (por minuto ou por dia) — espera
+      // exatamente o tempo que a Groq pede (header retry-after) e tenta de
+      // novo, até 3 tentativas no total.
+      if ((e.status === 413 || e.status === 429) && tentativa < 3) {
+        const retryAfterHeader = typeof e.headers?.get === 'function' ? e.headers.get('retry-after') : e.headers?.['retry-after'];
+        const retryAfterSeg = Number(retryAfterHeader);
+        const esperaMs = (Number.isFinite(retryAfterSeg) && retryAfterSeg > 0 ? Math.min(retryAfterSeg, 90) + 2 : 20) * 1000;
+        await sleep(esperaMs);
+      } else {
+        throw e;
+      }
     }
   }
 
@@ -463,19 +477,31 @@ router.post('/importar-extrato-pdf', uploadExtrato.single('extrato'), async (req
       return res.status(422).json({ erro: 'Não foi possível ler as páginas do PDF' });
     }
 
-    // 1 página por request — uma página sozinha já usa quase todo o limite de
-    // tokens/minuto do tier gratuito da Groq (medido: ~3800-4200 tokens/página)
+    // 1 página por request — uma página sozinha já usa boa parte do limite de
+    // tokens/minuto do tier gratuito da Groq
     const LOTE = 1;
     let extraidos = [];
+    const paginasComErro = [];
     for (let i = 0; i < paginas.length; i += LOTE) {
       const lote = paginas.slice(i, i + LOTE);
-      const doLote = await extrairLancamentosDeLote(client, lote, i);
-      extraidos = extraidos.concat(doLote);
-      if (i + LOTE < paginas.length) await sleep(3000); // espaça as chamadas pra não estourar o TPM
+      try {
+        const doLote = await extrairLancamentosDeLote(client, lote, i);
+        extraidos = extraidos.concat(doLote);
+      } catch (e) {
+        // Não perde as páginas que já deram certo por causa de UMA página
+        // que falhou (ex: estourou de novo o limite da Groq no meio do PDF)
+        console.error(`[financeiro] Falha ao processar página ${i + 1} do extrato:`, e.message);
+        paginasComErro.push(i + 1);
+      }
+      if (i + LOTE < paginas.length) await sleep(5000); // espaça as chamadas pra não estourar o TPM
     }
 
     if (!extraidos.length) {
-      return res.status(422).json({ erro: 'Nenhum lançamento reconhecido nesse PDF' });
+      return res.status(422).json({
+        erro: paginasComErro.length
+          ? `Não foi possível ler nenhuma página (limite de uso da IA atingido). Tente novamente em alguns minutos.`
+          : 'Nenhum lançamento reconhecido nesse PDF',
+      });
     }
 
     const inseridos = [];
@@ -503,6 +529,7 @@ router.post('/importar-extrato-pdf', uploadExtrato.single('extrato'), async (req
       ok: true,
       total_importado: inseridos.length,
       lancamentos: inseridos,
+      paginas_com_erro: paginasComErro.length ? paginasComErro : undefined,
     });
   } catch (e) {
     console.error('[financeiro POST /importar-extrato-pdf]', e);

@@ -5162,7 +5162,7 @@ async function importarExtratoPDF() {
   const conta = document.getElementById('imp-conta')?.value;
   const status = document.getElementById('imp-pdf-status');
   if (!file) return showToast('Selecione o PDF do extrato', 'warning');
-  if (status) status.textContent = '🤖 Lendo o extrato e separando os lançamentos... isso pode levar um minuto.';
+  if (status) status.textContent = '🤖 Lendo o extrato e separando os lançamentos... para extratos de várias páginas isso pode levar alguns minutos, não feche esta tela.';
   try {
     const formData = new FormData();
     formData.append('extrato', file);
@@ -5175,7 +5175,11 @@ async function importarExtratoPDF() {
     const json = await resp.json();
     if (!resp.ok || !json.ok) throw new Error(json.erro || 'Falha ao processar o PDF');
     closeModal();
-    showToast(`✅ ${json.total_importado} lançamentos importados do PDF!`, 'success');
+    if (json.paginas_com_erro?.length) {
+      showToast(`⚠️ ${json.total_importado} lançamentos importados, mas a(s) página(s) ${json.paginas_com_erro.join(', ')} falharam — confira se está tudo certo ou tente importar de novo mais tarde.`, 'warning');
+    } else {
+      showToast(`✅ ${json.total_importado} lançamentos importados do PDF!`, 'success');
+    }
     await carregarLancamentos();
   } catch(e) {
     if (status) status.textContent = '';
