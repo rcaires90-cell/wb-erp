@@ -83,7 +83,11 @@ async function gerarDocumentosCliente(clienteId) {
   const [modelos] = await db.query('SELECT * FROM modelos_documentos WHERE ativo = 1');
   if (!modelos.length) return [];
 
-  const dados = dadosParaTemplate(cliente);
+  const [parcelas] = await db.query(
+    'SELECT descricao, valor, vencimento, forma_pgto FROM parcelas WHERE cliente_id = ? ORDER BY vencimento ASC, id ASC',
+    [clienteId]
+  );
+  const dados = dadosParaTemplate(cliente, parcelas);
   const gerados = [];
 
   for (const modelo of modelos) {
