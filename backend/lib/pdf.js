@@ -59,7 +59,11 @@ async function htmlParaPdfBase64(html, opcoes = {}) {
       headerTemplate: '<span></span>',
       footerTemplate: opcoes.footerTemplate || RODAPE_PADRAO,
     });
-    return buffer.toString('base64');
+    // page.pdf() pode devolver um Uint8Array puro (não um Buffer do Node)
+    // dependendo da versão do Puppeteer — Uint8Array.toString() ignora o
+    // argumento 'base64' e vira uma lista de números separados por vírgula
+    // em vez de codificar em base64. Buffer.from() normaliza os dois casos.
+    return Buffer.from(buffer).toString('base64');
   } finally {
     await page.close();
   }
