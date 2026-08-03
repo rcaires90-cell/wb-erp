@@ -130,6 +130,36 @@ router.post('/', async (req, res) => {
   } catch(e) { res.status(500).json({ erro: e.message }); }
 });
 
+// POST /api/leads/formulario — formulário interno de fechamento (usado
+// pelos colaboradores durante a conversa com o cliente/prospect). Recebe
+// as perguntas-chave já respondidas e cria o lead direto no Pipeline.
+router.post('/formulario', async (req, res) => {
+  try {
+    const { servico, nome, tel, email, respostas } = req.body;
+    if (!nome?.trim()) return res.status(400).json({ erro: 'Nome é obrigatório' });
+    if (!servico || !SERVICOS_VALIDOS.has(servico)) return res.status(400).json({ erro: 'Serviço inválido' });
+
+    const obs = Object.entries(respostas || {})
+      .filter(([, v]) => v && String(v).trim())
+      .map(([pergunta, resposta]) => `${pergunta}: ${resposta}`)
+      .join('\n');
+
+    const valor_estimado = VALORES_SERVICO[servico] || 0;
+
+    const [r] = await db.query(
+      `INSERT INTO leads (nome,tel,email,servico,origem,status,responsavel,valor_estimado,obs,criado_por)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [nome.trim(), tel||null, email||null, servico, 'Formulário Interno',
+       'novo', req.user.nome, valor_estimado, obs||null, req.user.nome]
+    );
+    const [[novo]] = await db.query('SELECT * FROM leads WHERE id=?', [r.insertId]);
+    res.status(201).json(novo);
+  } catch(e) {
+    console.error('[leads POST /formulario]', e);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
 // PATCH /api/leads/:id
 router.patch('/:id', async (req, res) => {
   try {
