@@ -5394,7 +5394,11 @@ function abrirModalClassificar(id) {
       </div>
       <div id="cls-campos-despesa" style="display:none">
         <div class="form-group"><label>Categoria</label>
-          <select id="cls-categoria">${CATS_DESP.map(c=>`<option ${l.categoria===c?'selected':''}>${c}</option>`).join('')}</select>
+          <input id="cls-categoria" list="dl-cls-categoria" value="${l.categoria||''}" style="width:100%">
+          ${(() => {
+            const todas = [...new Set([...CATS_DESP, ..._categoriasBcCache])].sort();
+            return `<datalist id="dl-cls-categoria">${todas.map(c=>`<option value="${c}">`).join('')}</datalist>`;
+          })()}
         </div>
         <div class="form-group"><label>Forma de Pagamento</label>
           <select id="cls-forma">
