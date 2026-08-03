@@ -109,6 +109,21 @@ router.get('/lancamentos', async (req, res) => {
   }
 });
 
+// ── GET /api/financeiro/categorias ────────────────────────────────────────
+// Categorias já usadas em algum lançamento — pra sugerir no autocomplete e
+// permitir que a equipe crie categorias novas livremente (o campo é texto
+// livre, não uma lista fechada).
+router.get('/categorias', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT DISTINCT categoria FROM lancamentos_bancarios WHERE categoria IS NOT NULL AND categoria <> '' ORDER BY categoria"
+    );
+    res.json({ categorias: rows.map(r => r.categoria) });
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
+
 // ── POST /api/financeiro/lancamentos ────────────────────────────────────────
 // Lança um ou múltiplos registros (array ou objeto único)
 router.post('/lancamentos', async (req, res) => {
@@ -301,6 +316,55 @@ router.get('/resumo', async (req, res) => {
     });
   } catch (e) {
     console.error('[financeiro GET /resumo]', e);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ── GET /api/financeiro/fluxo-caixa ───────────────────────────────────────────
+// Projeção simples de fluxo de caixa: entradas previstas (parcelas em aberto,
+// dado real) vs saídas estimadas (média das despesas dos últimos 3 meses,
+// já que não existe um cadastro de despesas fixas/recorrentes no sistema —
+// é uma estimativa, não um valor conhecido, e a resposta deixa isso claro).
+router.get('/fluxo-caixa', async (req, res) => {
+  try {
+    const [parcelasAbertas] = await db.query(
+      `SELECT p.valor, p.vencimento, p.cliente_id, c.nome AS cliente_nome
+       FROM parcelas p JOIN clientes c ON c.id = p.cliente_id
+       WHERE p.paga = 0 AND p.vencimento IS NOT NULL`
+    );
+
+    const [[mediaDespesas]] = await db.query(`
+      SELECT SUM(valor) AS total, COUNT(DISTINCT DATE_FORMAT(data,'%Y-%m')) AS meses
+      FROM despesas
+      WHERE data >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)`
+    );
+    const mesesBase = Math.max(parseInt(mediaDespesas.meses) || 0, 1);
+    const saidaMensalMedia = parseFloat(mediaDespesas.total || 0) / mesesBase;
+
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const dias = (v) => Math.floor((new Date(v + 'T00:00:00') - hoje) / 864e5);
+
+    const buckets = {
+      vencidas: { label: 'Vencidas (ainda não pagas)', valor: 0, qtd: 0 },
+      d30:      { label: 'Próximos 30 dias',           valor: 0, qtd: 0, saida_estimada: saidaMensalMedia },
+      d60:      { label: '31 a 60 dias',                valor: 0, qtd: 0, saida_estimada: saidaMensalMedia },
+      d90:      { label: '61 a 90 dias',                valor: 0, qtd: 0, saida_estimada: saidaMensalMedia },
+      depois:   { label: 'Depois de 90 dias',           valor: 0, qtd: 0 },
+    };
+    for (const p of parcelasAbertas) {
+      const d = dias(p.vencimento);
+      const chave = d < 0 ? 'vencidas' : d <= 30 ? 'd30' : d <= 60 ? 'd60' : d <= 90 ? 'd90' : 'depois';
+      buckets[chave].valor += parseFloat(p.valor);
+      buckets[chave].qtd += 1;
+    }
+
+    res.json({
+      periodos: Object.values(buckets),
+      saida_mensal_media: saidaMensalMedia,
+      meses_base_media: mesesBase,
+    });
+  } catch (e) {
+    console.error('[financeiro GET /fluxo-caixa]', e);
     res.status(500).json({ erro: e.message });
   }
 });

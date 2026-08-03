@@ -4496,6 +4496,7 @@ function renderFinanceiro() {
     { id:'inadimplencia',label:`🔴 Inadimplência${venc ? ` (${venc})` : ''}` },
     { id:'despesas',     label:'💸 Despesas' },
     { id:'prolabore',    label:'💰 Pró-labore' },
+    { id:'fluxo',        label:'📈 Fluxo de Caixa' },
     { id:'relatorio',    label:'📊 Relatório' },
   ];
 
@@ -4553,6 +4554,8 @@ function renderFinanceiro() {
     corpo = renderDespesas();
   } else if (_finTab === 'prolabore') {
     corpo = renderProlabore();
+  } else if (_finTab === 'fluxo') {
+    corpo = renderFluxoCaixa();
   } else if (_finTab === 'relatorio') {
     corpo = renderRelatorio();
   }
@@ -4574,6 +4577,7 @@ function carregarAbaFinanceiro() {
   else if (_finTab === 'prolabore')     carregarProlabore();
   else if (_finTab === 'relatorio')    carregarRelatorio();
   else if (_finTab === 'inadimplencia') carregarInadimplencia();
+  else if (_finTab === 'fluxo')         carregarFluxoCaixa();
 }
 
 async function marcarPago(pid, cid) {
@@ -4924,6 +4928,19 @@ const CATEGORIAS_BC = [
   'Mantimentos Escritório','Serviços Contábeis','Impostos e Taxas',
   'Marketing','Software / Sistemas','Pessoal / Salário','Receita Clientes','Outros'
 ];
+// Categorias sugeridas no autocomplete = as fixas + qualquer uma que a
+// equipe já tenha digitado antes (o campo é texto livre, não lista fechada)
+let _categoriasBcCache = [...CATEGORIAS_BC];
+async function atualizarCategoriasBc() {
+  try {
+    const r = await apiFetch('/financeiro/categorias');
+    const usadas = r.categorias || [];
+    _categoriasBcCache = [...new Set([...CATEGORIAS_BC, ...usadas])].sort();
+  } catch (e) { /* mantém a lista fixa se falhar */ }
+}
+function datalistCategoriasBc(id) {
+  return `<datalist id="${id}">${_categoriasBcCache.map(c=>`<option value="${c}">`).join('')}</datalist>`;
+}
 
 function renderConciliacao() {
   return `
@@ -4954,6 +4971,7 @@ async function carregarLancamentos() {
   try {
     const data = await apiFetch(`/financeiro/resumo?mes=${conciliacaoMes}`);
     lancamentos_bc = (await apiFetch(`/financeiro/lancamentos?mes=${conciliacaoMes}`)).lancamentos || [];
+    atualizarCategoriasBc(); // não precisa esperar — só afeta o autocomplete dos modais
 
     // KPIs
     const { debitos, creditos, saldo } = data.totais;
@@ -5222,10 +5240,8 @@ function abrirNovoLancamento() {
         </div>
         <div class="form-group" style="margin:0">
           <label>Categoria</label>
-          <select id="nl-cat" style="width:100%">
-            <option value="">— Auto-detectar —</option>
-            ${CATEGORIAS_BC.map(c=>`<option>${c}</option>`).join('')}
-          </select>
+          <input id="nl-cat" list="dl-cat-nova" placeholder="Deixe em branco pra auto-detectar, ou digite/escolha" style="width:100%">
+          ${datalistCategoriasBc('dl-cat-nova')}
         </div>
         <div class="form-group" style="margin:0">
           <label>Conta</label>
@@ -5322,9 +5338,8 @@ async function editarLancamento(id) {
         </div>
         <div class="form-group" style="margin:0">
           <label>Categoria</label>
-          <select id="nl-cat" style="width:100%">
-            ${CATEGORIAS_BC.map(c=>`<option ${l.categoria===c?'selected':''}>${c}</option>`).join('')}
-          </select>
+          <input id="nl-cat" list="dl-cat-edit" value="${l.categoria||''}" style="width:100%">
+          ${datalistCategoriasBc('dl-cat-edit')}
         </div>
         <div class="form-group" style="margin:0">
           <label>Conta</label>
@@ -5968,6 +5983,58 @@ async function deletarCliente(id, nome) {
     showToast('Cliente arquivado.', '');
   } catch (e) {
     showToast('Erro: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// FLUXO DE CAIXA PROJETADO — entradas previstas (parcelas em aberto, dado
+// real) vs saídas estimadas (média das despesas dos últimos 3 meses, já
+// que o sistema não tem cadastro de despesas fixas/recorrentes).
+// ══════════════════════════════════════════════════
+function renderFluxoCaixa() {
+  return `<div id="fluxo-container"><div class="empty" style="padding:40px"><div class="icon">📈</div><p>Carregando...</p></div></div>`;
+}
+
+async function carregarFluxoCaixa() {
+  const el = document.getElementById('fluxo-container');
+  if (!el) return;
+  try {
+    const r = await apiFetch('/financeiro/fluxo-caixa');
+    const fmt = v => `R$ ${(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+    const periodos = r.periodos || [];
+
+    el.innerHTML = `
+      <div style="margin-bottom:16px;max-width:720px">
+        <p style="font-size:0.8rem;color:var(--text3)">
+          <b>Entradas previstas</b> vêm das parcelas já cadastradas e ainda não pagas — dado real.
+          <b>Saída estimada</b> é a média das despesas dos últimos ${r.meses_base_media} mês${r.meses_base_media>1?'es':''}
+          (R$ ${fmt(r.saida_mensal_media)}/mês) — uma projeção, não um valor conhecido, já que o sistema
+          não tem cadastro de despesas fixas/recorrentes.
+        </p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;max-width:900px">
+        ${periodos.map(p => {
+          const saldo = p.saida_estimada !== undefined ? p.valor - p.saida_estimada : null;
+          return `
+          <div class="panel" style="margin:0">
+            <div class="panel-body" style="padding:14px">
+              <div style="font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">${p.label}</div>
+              <div style="font-size:0.7rem;color:var(--text3)">Entradas previstas</div>
+              <div style="font-size:1.05rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--green)">${fmt(p.valor)}</div>
+              <div style="font-size:0.68rem;color:var(--text3);margin-bottom:8px">${p.qtd} parcela${p.qtd!==1?'s':''}</div>
+              ${p.saida_estimada !== undefined ? `
+                <div style="font-size:0.7rem;color:var(--text3)">Saída estimada</div>
+                <div style="font-size:1.05rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--red)">${fmt(p.saida_estimada)}</div>
+                <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">
+                  <div style="font-size:0.7rem;color:var(--text3)">Saldo projetado do período</div>
+                  <div style="font-size:1rem;font-weight:800;font-family:'DM Mono',monospace;color:${saldo>=0?'var(--green)':'var(--red)'}">${fmt(saldo)}</div>
+                </div>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="empty"><div class="icon">⚠️</div><h3>Erro ao carregar</h3><p>${e.message}</p></div>`;
   }
 }
 
