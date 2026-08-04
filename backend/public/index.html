@@ -7578,6 +7578,7 @@ function renderLeadsTabela(lista) {
               <td style="font-size:0.8rem;color:var(--text2)">${l.responsavel||'—'}</td>
               <td>
                 <div style="display:flex;gap:5px">
+                  <button onclick="abrirDetalheLead(${l.id})" class="btn btn-outline btn-sm" style="font-size:0.7rem">👁️ Ver</button>
                   ${l.status!=='fechado'?`<button onclick="converterLead(${l.id},'${(l.nome||'').replace(/'/g,"\\'")}');" class="btn btn-sm" style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);font-size:0.7rem">✓ Converter</button>`:''}
                   ${currentRole !== 'colaborador' ? `<button onclick="deletarLead(${l.id})" class="btn btn-danger btn-sm">×</button>` : ''}
                 </div>
@@ -7587,6 +7588,51 @@ function renderLeadsTabela(lista) {
         </tbody>
       </table>
     </div>`;
+}
+
+function abrirDetalheLead(id) {
+  const l = (_leadsCache || []).find(x => x.id === id);
+  if (!l) return;
+  const st = LEAD_STATUS.find(s=>s.id===l.status) || LEAD_STATUS[0];
+  const fmt = v => v ? `R$ ${(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '—';
+
+  // obs guarda tanto observações livres quanto as respostas do formulário
+  // público, no formato "Pergunta: Resposta" (uma por linha) — formata como
+  // lista de pergunta/resposta quando reconhece o padrão, senão mostra cru.
+  const linhasObs = (l.obs || '').split('\n').filter(l => l.trim());
+  const respostasHtml = linhasObs.length
+    ? linhasObs.map(linha => {
+        const m = linha.match(/^([^:]{1,120}):\s*(.*)$/);
+        return m
+          ? `<div style="margin-bottom:8px"><div style="font-size:0.72rem;color:var(--text3)">${m[1]}</div><div style="font-size:0.85rem;color:var(--text)">${m[2]}</div></div>`
+          : `<div style="margin-bottom:8px;font-size:0.85rem;color:var(--text)">${linha}</div>`;
+      }).join('')
+    : '<div style="color:var(--text3);font-size:0.85rem">Sem observações registradas.</div>';
+
+  openModal(`
+    <div class="modal-header">
+      <span style="font-weight:700">👁️ ${l.nome}</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+        <span class="badge" style="background:${st.cor}22;color:${st.cor};border:1px solid ${st.cor}44">${st.label}</span>
+        ${l.servico ? `<span class="badge badge-gray">${l.servico}</span>` : ''}
+        ${l.origem ? `<span class="badge badge-gray">${l.origem}</span>` : ''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;font-size:0.85rem">
+        <div><div style="font-size:0.7rem;color:var(--text3)">WhatsApp</div><div>${l.tel ? `<a href="https://wa.me/${l.tel.replace(/\D/g,'')}" target="_blank" style="color:var(--green)">📱 ${l.tel}</a>` : '—'}</div></div>
+        <div><div style="font-size:0.7rem;color:var(--text3)">E-mail</div><div>${l.email||'—'}</div></div>
+        <div><div style="font-size:0.7rem;color:var(--text3)">País/Cidade</div><div>${[l.pais,l.cidade,l.estado].filter(Boolean).join(' · ')||'—'}</div></div>
+        <div><div style="font-size:0.7rem;color:var(--text3)">Responsável</div><div>${l.responsavel||'—'}</div></div>
+        <div><div style="font-size:0.7rem;color:var(--text3)">Valor Estimado</div><div>${fmt(l.valor_estimado)}</div></div>
+        <div><div style="font-size:0.7rem;color:var(--text3)">Cadastrado em</div><div>${l.created_at ? new Date(String(l.created_at).slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR') : '—'}</div></div>
+      </div>
+      <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.06em;color:var(--gold);text-transform:uppercase;margin-bottom:10px">
+        ${l.origem === 'Formulário Público' ? 'Respostas do Formulário' : 'Observações'}
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px">${respostasHtml}</div>
+    </div>`, true);
 }
 
 function exportarLeadsCSV() {
