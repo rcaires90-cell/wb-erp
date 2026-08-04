@@ -2761,14 +2761,14 @@ function getFaseIdx(fase, servico) {
 
 function diasRestantesAntecedente(c) {
   if (!c.doc_antecedente_val) return null;
-  const val = new Date(c.doc_antecedente_val + 'T12:00');
+  const val = new Date(String(c.doc_antecedente_val).slice(0,10) + 'T12:00');
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   return Math.ceil((val - hoje) / 864e5);
 }
 
 function diasRestantesProcesso(c) {
   if (!c.processo_data_inicio) return null;
-  const inicio = new Date(c.processo_data_inicio + 'T12:00');
+  const inicio = new Date(String(c.processo_data_inicio).slice(0,10) + 'T12:00');
   const prev180 = new Date(inicio.getTime() + 180 * 864e5);
   const hoje = new Date();
   return Math.ceil((prev180 - hoje) / 864e5);
@@ -3305,7 +3305,7 @@ async function openCliente(id) {
           <div>
             <div style="font-size:0.62rem;color:var(--text3);margin-bottom:3px">Dias em andamento</div>
             <div style="font-size:0.82rem;font-weight:700;color:var(--text2)">
-              ${Math.floor((new Date()-new Date(c.processo_data_inicio+'T12:00'))/864e5)}d
+              ${Math.floor((new Date()-new Date(String(c.processo_data_inicio).slice(0,10)+'T12:00'))/864e5)}d
             </div>
           </div>` : ''}
         </div>
@@ -3534,6 +3534,7 @@ async function openCliente(id) {
         <div class="form-group"><label>UF</label><input id="ed-uf" placeholder="SP" maxlength="2" value="${htmlEsc(_end.uf)}" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'')"></div>
         <div class="form-group"><label>Serviço</label>
           <select id="ed-servico">
+            ${c.servico && !SERVICOS.includes(c.servico) ? `<option selected>${c.servico}</option>` : ''}
             ${SERVICOS.map(s=>`<option ${(c.servico||'Naturalização Brasileira')===s?'selected':''}>${s}</option>`).join('')}
           </select>
         </div>
