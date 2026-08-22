@@ -2621,7 +2621,9 @@ function capitalizarNome(el) {
 
 // ── Badges da sidebar ─────────────────────────────
 function atualizarBadgesSidebar() {
-  // Alerta de docs vencendo → badge vermelho no Dashboard
+  // Badge vermelho no Dashboard: só antecedente criminal vencendo/vencido,
+  // e só enquanto o processo ainda não chegou na fase PF Análise (depois
+  // disso o documento já foi entregue, não faz mais sentido alertar).
   const FASES_SEM = ['pf_analise','pf_biometria','mjsp_analise','dou_publicado','concluido'];
   let totalAlerta = 0;
   (clientes||[]).filter(c => !c.arquivado).forEach(c => {
@@ -2629,11 +2631,6 @@ function atualizarBadgesSidebar() {
       const d = Math.ceil((new Date(String(c.doc_antecedente_val).slice(0,10)+'T12:00') - new Date()) / 864e5);
       if (d <= 30) totalAlerta++;
     }
-    ['doc_passaporte_val','doc_rnm_val','doc_visto_val','data_validade_ar'].forEach(f => {
-      if (!c[f]) return;
-      const d = Math.ceil((new Date(String(c[f]).slice(0,10)+'T12:00') - new Date()) / 864e5);
-      if (d <= 60) totalAlerta++;
-    });
   });
   const bdDash = document.getElementById('badge-sidebar-dash');
   if (bdDash) { bdDash.textContent = totalAlerta || ''; bdDash.style.display = totalAlerta ? '' : 'none'; }
