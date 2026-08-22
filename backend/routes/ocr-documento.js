@@ -77,6 +77,8 @@ function normalizarDatasDados(dados) {
   return dados;
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 router.post('/', upload.single('imagem'), async (req, res) => {
   if (!req.file) return res.status(400).json({ erro: 'Arquivo obrigatório (imagem ou PDF)' });
   if (!process.env.GROQ_API_KEY) return res.status(500).json({ erro: 'GROQ_API_KEY não configurada' });
@@ -85,8 +87,11 @@ router.post('/', upload.single('imagem'), async (req, res) => {
     const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
     const isPdf = req.file.mimetype === 'application/pdf';
+    // Máx. 2 páginas — a "qualificação das partes" e a cláusula de pagamento
+    // de um contrato quase sempre estão nas 2 primeiras páginas, e cada
+    // página soma bastante no limite de tokens/minuto da Groq (8000 TPM).
     const paginas = isPdf
-      ? (await pdfParaImagensPng(req.file.buffer, 3)).map(buf => ({ buf, mime: 'image/png' }))
+      ? (await pdfParaImagensPng(req.file.buffer, 2)).map(buf => ({ buf, mime: 'image/png' }))
       : [{ buf: req.file.buffer, mime: req.file.mimetype }];
 
     const content = [{ type: 'text', text: PROMPT }];
@@ -97,14 +102,36 @@ router.post('/', upload.single('imagem'), async (req, res) => {
       });
     }
 
-    const completion = await client.chat.completions.create({
+    const chamar = () => client.chat.completions.create({
       model: VISION_MODEL,
       messages: [{ role: 'user', content }],
       response_format: { type: 'json_object' },
       reasoning_effort: 'none',
       temperature: 0,
-      max_tokens: 2048,
+      // Reservado no orçamento de tokens/minuto (TPM) no momento do request,
+      // não só no uso real — 1200 é folgado pro schema desse documento
+      // (mesmo com várias parcelas) e reduz bastante o custo por chamada.
+      max_tokens: 1200,
     });
+
+    let completion;
+    let tentativa = 0;
+    for (;;) {
+      try {
+        completion = await chamar();
+        break;
+      } catch (e) {
+        tentativa++;
+        if ((e.status === 413 || e.status === 429) && tentativa < 3) {
+          const retryAfterHeader = typeof e.headers?.get === 'function' ? e.headers.get('retry-after') : e.headers?.['retry-after'];
+          const retryAfterSeg = Number(retryAfterHeader);
+          const esperaMs = (Number.isFinite(retryAfterSeg) && retryAfterSeg > 0 ? Math.min(retryAfterSeg, 90) + 2 : 20) * 1000;
+          await sleep(esperaMs);
+        } else {
+          throw e;
+        }
+      }
+    }
 
     let texto = (completion.choices[0]?.message?.content || '').trim();
     texto = texto.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
@@ -120,6 +147,9 @@ router.post('/', upload.single('imagem'), async (req, res) => {
     res.json({ ok: true, dados });
   } catch (e) {
     console.error('[ocr-documento]', e.message);
+    if (e.status === 413 || e.status === 429) {
+      return res.status(429).json({ erro: 'Limite de uso da IA atingido no momento. Aguarde alguns minutos e tente novamente.' });
+    }
     res.status(500).json({ erro: e.message });
   }
 });
