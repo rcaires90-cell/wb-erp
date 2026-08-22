@@ -2775,39 +2775,6 @@ function renderDashboard() {
   const hoje    = new Date().toISOString().split('T')[0];
   const agHoje  = (agendamentos||[]).filter(a => a.data === hoje);
 
-  // Antecedentes vencendo em até 30 dias ou já vencidos
-  // Ignora clientes que já passaram da fase de Análise da PF (documento não é mais exigido)
-  const FASES_SEM_ALERTA_ANT = ['pf_analise','pf_biometria','mjsp_analise','dou_publicado','concluido'];
-  const antecedentesAlerta = (clientes||[]).filter(c => {
-    if (!c.doc_antecedente_val || c.arquivado) return false;
-    if (FASES_SEM_ALERTA_ANT.includes(c.processo_fase)) return false;
-    const val = new Date(String(c.doc_antecedente_val).slice(0,10) + 'T12:00');
-    const dias = Math.ceil((val - new Date()) / 864e5);
-    return dias <= 30;
-  }).map(c => {
-    const val = new Date(String(c.doc_antecedente_val).slice(0,10) + 'T12:00');
-    const dias = Math.ceil((val - new Date()) / 864e5);
-    return { ...c, diasAnt: dias };
-  }).sort((a,b) => a.diasAnt - b.diasAnt);
-
-  // Outros documentos vencendo em 60 dias
-  const docFields = [
-    { key: 'doc_passaporte_val', label: 'Passaporte', icon: '✈️' },
-    { key: 'doc_rnm_val',        label: 'RNM',        icon: '🪪' },
-    { key: 'doc_visto_val',      label: 'Visto',      icon: '🛂' },
-    { key: 'data_validade_ar',   label: 'Autor. Res.', icon: '📄' },
-  ];
-  const docsVencendo = [];
-  (clientes||[]).filter(c=>!c.arquivado).forEach(c => {
-    docFields.forEach(f => {
-      if (!c[f.key]) return;
-      const val = new Date(String(c[f.key]).slice(0,10) + 'T12:00');
-      const dias = Math.ceil((val - new Date()) / 864e5);
-      if (dias <= 60) docsVencendo.push({ c, f, dias });
-    });
-  });
-  docsVencendo.sort((a,b) => a.dias - b.dias);
-
   setTimeout(() => carregarTarefasAtrasadasDashboard(), 60);
   setTimeout(() => renderizarMapaClientes(), 80);
 
@@ -2819,37 +2786,6 @@ function renderDashboard() {
       <div class="stat-value">${agHoje.length}</div>
       <div class="stat-sub">${agHoje.length ? agHoje[0].hora + ' · ' + agHoje[0].tipo : 'Nenhum agendamento'}</div>
     </div>
-
-    ${antecedentesAlerta.length ? `
-      <div style="background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <span style="font-size:1.2rem">🔴</span>
-          <div style="font-size:0.82rem;font-weight:700;color:var(--red)">${antecedentesAlerta.length} antecedente(s) criminal(is) vencendo ou vencido(s)</div>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${antecedentesAlerta.map(c => `
-            <div onclick="openCliente(${c.id})" style="cursor:pointer;padding:6px 12px;background:var(--bg3);border:1px solid ${c.diasAnt < 0 ? 'rgba(239,68,68,0.4)' : 'rgba(245,158,11,0.3)'};border-radius:7px;font-size:0.78rem">
-              <span style="font-weight:600;color:var(--text)">${c.nome.split(' ')[0]}</span>
-              <span style="color:${c.diasAnt < 0 ? 'var(--red)' : 'var(--orange)'}"> · ${c.diasAnt < 0 ? Math.abs(c.diasAnt)+'d vencido' : c.diasAnt+'d restantes'}</span>
-            </div>`).join('')}
-        </div>
-      </div>` : ''}
-    ${docsVencendo.length ? `
-      <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:20px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <span style="font-size:1.2rem">📋</span>
-          <div style="font-size:0.82rem;font-weight:700;color:var(--blue)">${docsVencendo.length} documento(s) vencendo em até 60 dias</div>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${docsVencendo.map(({c, f, dias}) => `
-            <div onclick="openCliente(${c.id})" style="cursor:pointer;padding:6px 12px;background:var(--bg3);border:1px solid ${dias < 0 ? 'rgba(239,68,68,0.4)' : dias < 15 ? 'rgba(245,158,11,0.4)' : 'rgba(59,130,246,0.3)'};border-radius:7px;font-size:0.78rem">
-              <span style="font-size:0.85rem">${f.icon}</span>
-              <span style="font-weight:600;color:var(--text)"> ${c.nome.split(' ')[0]}</span>
-              <span style="color:var(--text3)"> ${f.label}</span>
-              <span style="color:${dias < 0 ? 'var(--red)' : dias < 15 ? 'var(--orange)' : 'var(--blue)'}"> · ${dias < 0 ? Math.abs(dias)+'d vencido' : dias+'d'}</span>
-            </div>`).join('')}
-        </div>
-      </div>` : ''}
 
     <div id="dash-tarefas-widget"></div>
 
