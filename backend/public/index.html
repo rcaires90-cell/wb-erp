@@ -5044,8 +5044,8 @@ async function carregarLancamentos() {
                   </td>
                   <td style="white-space:nowrap">
                     ${l.classificado_como
-                      ? `<span class="badge ${l.classificado_como==='despesa'?'badge-orange':'badge-blue'}" style="font-size:0.65rem;cursor:pointer" onclick="desclassificarLancamento(${l.id})" title="Clique pra desfazer">
-                          ${l.classificado_como==='despesa'?'💸 Despesa':'👤 Pró-labore'} ✕
+                      ? `<span class="badge ${l.classificado_como==='despesa'?'badge-orange':l.classificado_como==='prolabore'?'badge-blue':'badge-gray'}" style="font-size:0.65rem;cursor:pointer" onclick="desclassificarLancamento(${l.id})" title="Clique pra desfazer">
+                          ${(TIPOS_CLASSIFICACAO.find(t=>t.id===l.classificado_como)||{}).label || l.classificado_como} ✕
                         </span>`
                       : `<button class="btn btn-outline btn-sm" onclick="abrirModalClassificar(${l.id})" style="font-size:0.68rem;padding:4px 8px">🏷️ Classificar</button>`}
                   </td>
@@ -5373,6 +5373,14 @@ async function deletarLancamento(id) {
   }
 }
 
+const TIPOS_CLASSIFICACAO = [
+  { id:'despesa',       label:'💸 Despesa' },
+  { id:'prolabore',     label:'👤 Pró-labore' },
+  { id:'receita',       label:'💵 Receita' },
+  { id:'transferencia', label:'🔄 Transf. entre Contas' },
+  { id:'emprestimo',    label:'🏦 Empréstimo' },
+];
+
 function abrirModalClassificar(id) {
   const l = lancamentos_bc.find(x => x.id === id);
   if (!l) return;
@@ -5388,9 +5396,8 @@ function abrirModalClassificar(id) {
       </div>
       <div class="form-group">
         <label>Isso é</label>
-        <div style="display:flex;gap:8px">
-          <button type="button" id="cls-btn-despesa" onclick="setTipoClassificacao('despesa')" class="btn btn-outline" style="flex:1">💸 Despesa</button>
-          <button type="button" id="cls-btn-prolabore" onclick="setTipoClassificacao('prolabore')" class="btn btn-outline" style="flex:1">👤 Pró-labore</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${TIPOS_CLASSIFICACAO.map(t => `<button type="button" id="cls-btn-${t.id}" onclick="setTipoClassificacao('${t.id}')" class="btn btn-outline btn-sm" style="flex:1 1 auto;white-space:nowrap">${t.label}</button>`).join('')}
         </div>
       </div>
       <div id="cls-campos-despesa" style="display:none">
@@ -5425,20 +5432,22 @@ function abrirModalClassificar(id) {
 let _clsTipo = null;
 function setTipoClassificacao(tipo) {
   _clsTipo = tipo;
-  document.getElementById('cls-btn-despesa').style.cssText   = tipo==='despesa'   ? 'flex:1;background:var(--gold-dim);color:var(--gold);border-color:var(--gold-glow)' : 'flex:1';
-  document.getElementById('cls-btn-prolabore').style.cssText = tipo==='prolabore' ? 'flex:1;background:var(--gold-dim);color:var(--gold);border-color:var(--gold-glow)' : 'flex:1';
+  TIPOS_CLASSIFICACAO.forEach(t => {
+    const btn = document.getElementById('cls-btn-' + t.id);
+    if (btn) btn.style.cssText = tipo === t.id ? 'flex:1 1 auto;white-space:nowrap;background:var(--gold-dim);color:var(--gold);border-color:var(--gold-glow)' : 'flex:1 1 auto;white-space:nowrap';
+  });
   document.getElementById('cls-campos-despesa').style.display   = tipo==='despesa'   ? 'block' : 'none';
   document.getElementById('cls-campos-prolabore').style.display = tipo==='prolabore' ? 'block' : 'none';
 }
 
 async function salvarClassificacao(id) {
-  if (!_clsTipo) return showToast('Escolha Despesa ou Pró-labore', 'warning');
+  if (!_clsTipo) return showToast('Escolha uma opção em "Isso é"', 'warning');
   const obs = document.getElementById('cls-obs')?.value?.trim();
   const body = { tipo: _clsTipo, obs };
   if (_clsTipo === 'despesa') {
     body.categoria  = document.getElementById('cls-categoria')?.value;
     body.forma_pgto = document.getElementById('cls-forma')?.value;
-  } else {
+  } else if (_clsTipo === 'prolabore') {
     body.nome_socio = document.getElementById('cls-socio')?.value;
   }
   try {
@@ -5454,7 +5463,7 @@ async function salvarClassificacao(id) {
 
 async function desclassificarLancamento(id) {
   try {
-    await confirmar('Isso apaga o registro de despesa/pró-labore criado a partir desse lançamento.', 'Desfazer Classificação', '↩️', 'var(--orange)', 'Desfazer');
+    await confirmar('Isso remove a classificação desse lançamento (e apaga o registro de despesa/pró-labore vinculado, se houver).', 'Desfazer Classificação', '↩️', 'var(--orange)', 'Desfazer');
   } catch { return; }
   try {
     await apiFetch(`/financeiro/lancamentos/${id}/classificar`, { method: 'DELETE' });

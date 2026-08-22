@@ -205,16 +205,27 @@ router.delete('/lancamentos/:id', async (req, res) => {
   }
 });
 
+// Tipos que geram um registro espelhado em tabela própria (despesas/prolabore
+// alimentam abas dedicadas do sistema). Transferência entre contas, empréstimo
+// e receita são só uma etiqueta no próprio lançamento — servem pra tirar esses
+// valores das somas de despesa/receita real dos relatórios, sem precisar de
+// uma tabela/aba própria pra cada um.
+const TIPOS_CLASSIFICACAO_COM_TABELA = ['despesa', 'prolabore'];
+const TIPOS_CLASSIFICACAO_VALIDOS = ['despesa', 'prolabore', 'transferencia', 'emprestimo', 'receita'];
+
 // ── POST /api/financeiro/lancamentos/:id/classificar ──────────────────────────
-// Cristiane usa isso pra dizer "isso é despesa" / "isso é pró-labore" — cria o
-// registro correspondente em despesas/prolabore a partir do lançamento bancário
-// e marca o lançamento como já classificado (pra não duplicar/reclassificar à toa).
+// Cristiane usa isso pra dizer o que um lançamento bancário realmente é —
+// despesa/pró-labore criam o registro correspondente em despesas/prolabore;
+// transferência entre contas/empréstimo/receita só marcam o lançamento (não
+// são despesa nem receita operacional de verdade, ou já são óbvios pelo tipo
+// credito/debito, mas ficam identificados pra não aparecer como "sem
+// classificar" e não entrar nas médias de despesa dos relatórios).
 router.post('/lancamentos/:id/classificar', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { tipo, categoria, forma_pgto, nome_socio, cargo, obs } = req.body;
-    if (!['despesa', 'prolabore'].includes(tipo)) {
-      return res.status(400).json({ erro: "tipo deve ser 'despesa' ou 'prolabore'" });
+    if (!TIPOS_CLASSIFICACAO_VALIDOS.includes(tipo)) {
+      return res.status(400).json({ erro: `tipo deve ser um de: ${TIPOS_CLASSIFICACAO_VALIDOS.join(', ')}` });
     }
 
     const [[lanc]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
@@ -223,7 +234,7 @@ router.post('/lancamentos/:id/classificar', async (req, res) => {
       return res.status(409).json({ erro: `Já classificado como ${lanc.classificado_como}` });
     }
 
-    let refId;
+    let refId = null;
     if (tipo === 'despesa') {
       const [r] = await db.query(
         `INSERT INTO despesas (data, categoria, descricao, valor, forma_pgto, obs, lancado_por)
@@ -232,7 +243,7 @@ router.post('/lancamentos/:id/classificar', async (req, res) => {
          lanc.valor, forma_pgto || 'PIX', obs || `Classificado a partir do lançamento #${lanc.id}`, req.user.nome]
       );
       refId = r.insertId;
-    } else {
+    } else if (tipo === 'prolabore') {
       const mes = String(lanc.data).slice(0, 7);
       const [r] = await db.query(
         `INSERT INTO prolabore (mes, nome, cargo, valor, data_pgto, obs, lancado_por)
@@ -242,6 +253,7 @@ router.post('/lancamentos/:id/classificar', async (req, res) => {
       );
       refId = r.insertId;
     }
+    // transferencia / emprestimo / receita: só marca o lançamento, sem tabela própria
 
     await db.query(
       'UPDATE lancamentos_bancarios SET classificado_como=?, classificado_ref_id=? WHERE id=?',
@@ -256,7 +268,7 @@ router.post('/lancamentos/:id/classificar', async (req, res) => {
 });
 
 // ── DELETE /api/financeiro/lancamentos/:id/classificar ────────────────────────
-// Desfaz a classificação: apaga o despesa/prolabore criado e limpa o vínculo.
+// Desfaz a classificação: apaga o despesa/prolabore criado (se houver) e limpa o vínculo.
 router.delete('/lancamentos/:id/classificar', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -264,8 +276,10 @@ router.delete('/lancamentos/:id/classificar', async (req, res) => {
     if (!lanc) return res.status(404).json({ erro: 'Lançamento não encontrado' });
     if (!lanc.classificado_como) return res.status(400).json({ erro: 'Este lançamento não está classificado' });
 
-    const tabela = lanc.classificado_como === 'despesa' ? 'despesas' : 'prolabore';
-    await db.query(`DELETE FROM ${tabela} WHERE id = ?`, [lanc.classificado_ref_id]);
+    if (TIPOS_CLASSIFICACAO_COM_TABELA.includes(lanc.classificado_como) && lanc.classificado_ref_id) {
+      const tabela = lanc.classificado_como === 'despesa' ? 'despesas' : 'prolabore';
+      await db.query(`DELETE FROM ${tabela} WHERE id = ?`, [lanc.classificado_ref_id]);
+    }
     await db.query(
       'UPDATE lancamentos_bancarios SET classificado_como=NULL, classificado_ref_id=NULL WHERE id=?',
       [id]
