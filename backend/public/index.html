@@ -2893,10 +2893,13 @@ function renderizarMapaClientes() {
     worldCopyJump: true,
   }).setView([-10, -50], 3);
 
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  // Base escura minimalista (CartoDB Dark Matter, sem rótulos) — combina com o
+  // tema dark/dourado do resto do sistema, em vez da imagem de satélite antiga
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
     maxZoom: 18,
+    subdomains: 'abcd',
   }).addTo(map);
-  L.control.attribution({ position: 'bottomright', prefix: false }).addAttribution('Tiles &copy; Esri').addTo(map);
+  L.control.attribution({ position: 'bottomright', prefix: false }).addAttribution('&copy; OpenStreetMap, &copy; CARTO').addTo(map);
 
   const maxTotal = Math.max(1, ...pontos.map(p => p.total));
   pontos.forEach(p => {
