@@ -4065,7 +4065,9 @@ function aplicarDadosOCR(clienteId) {
   if (d.data_nascimento) { const el = document.getElementById('ed-nascimento'); if (el) el.value = d.data_nascimento; }
   if (d.cpf) { const el = document.getElementById('ed-cpf'); if (el) el.value = d.cpf; }
   aplicarEnderecoOCR(d, 'ed');
-  if (d.tipo_doc === 'rnm' && d.numero_doc) {
+  // Contrato costuma citar o RNM na qualificação das partes ("RNM nº X") —
+  // não só carteira física de RNM — então aplica nos dois casos.
+  if ((d.tipo_doc === 'rnm' || d.tipo_doc === 'contrato') && d.numero_doc) {
     const el = document.getElementById('ed-rnm'); if (el) el.value = d.numero_doc;
   }
   // validade do passaporte ou RNM → guardados no tab-docs (campos de data)
@@ -4202,7 +4204,9 @@ function aplicarOCRNovoCliente() {
   if (d.nacionalidade)  { const el = document.getElementById('nc-pais');        if (el) el.value = d.nacionalidade; }
   if (d.data_nascimento){ const el = document.getElementById('nc-nascimento');  if (el) el.value = d.data_nascimento; }
   aplicarEnderecoOCR(d, 'nc');
-  if (d.tipo_doc === 'rnm' && d.numero_doc) {
+  // Contrato costuma citar o RNM na qualificação das partes ("RNM nº X") —
+  // não só carteira física de RNM — então aplica nos dois casos.
+  if ((d.tipo_doc === 'rnm' || d.tipo_doc === 'contrato') && d.numero_doc) {
     const el = document.getElementById('nc-rnm'); if (el) el.value = d.numero_doc;
   }
   if (d.valor_total) { const el = document.getElementById('nc-valor'); if (el) el.value = d.valor_total; }
