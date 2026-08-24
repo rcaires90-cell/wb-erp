@@ -4436,6 +4436,7 @@ function renderFinanceiro() {
     { id:'parcelas',     label:'💳 Parcelas' },
     { id:'inadimplencia',label:`🔴 Inadimplência${venc ? ` (${venc})` : ''}` },
     { id:'despesas',     label:'💸 Despesas' },
+    { id:'contaspagar',  label:'🧾 Contas a Pagar' },
     { id:'prolabore',    label:'💰 Pró-labore' },
     { id:'fluxo',        label:'📈 Fluxo de Caixa' },
     { id:'relatorio',    label:'📊 Relatório' },
@@ -4493,6 +4494,8 @@ function renderFinanceiro() {
     corpo = renderInadimplencia();
   } else if (_finTab === 'despesas') {
     corpo = renderDespesas();
+  } else if (_finTab === 'contaspagar') {
+    corpo = renderContasPagar();
   } else if (_finTab === 'prolabore') {
     corpo = renderProlabore();
   } else if (_finTab === 'fluxo') {
@@ -4515,6 +4518,7 @@ function setFinTab(tab) {
 
 function carregarAbaFinanceiro() {
   if (_finTab === 'despesas')      carregarDespesas();
+  else if (_finTab === 'contaspagar')   carregarContasPagar();
   else if (_finTab === 'prolabore')     carregarProlabore();
   else if (_finTab === 'relatorio')    carregarRelatorio();
   else if (_finTab === 'inadimplencia') carregarInadimplencia();
@@ -5023,26 +5027,28 @@ function abrirModalRevisarConciliacao(revisar) {
     <div class="modal-header"><span style="font-weight:700">🔎 Revisar Conciliação — ${revisar.length} caso(s)</span>
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
     <div style="padding:16px 20px;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px">
-      <div style="font-size:0.78rem;color:var(--text3)">Mais de uma parcela em aberto bate com o valor/data desses lançamentos. Escolha a parcela correta pra dar baixa.</div>
-      ${revisar.map(({lancamento, candidatos}) => `
+      <div style="font-size:0.78rem;color:var(--text3)">Mais de uma parcela/conta a pagar em aberto bate com o valor/data desses lançamentos. Escolha a correta pra dar baixa.</div>
+      ${revisar.map(({lancamento, candidatos, tipo}) => `
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px">
           <div style="font-size:0.82rem;font-weight:700;margin-bottom:2px">${lancamento.descricao}</div>
           <div style="font-size:0.72rem;color:var(--text3);margin-bottom:8px">${new Date(String(lancamento.data).slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR')} · R$ ${parseFloat(lancamento.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
           <div style="display:flex;flex-direction:column;gap:6px">
             ${candidatos.map(c => `
-              <button onclick="confirmarConciliacaoManual(${lancamento.id},${c.id},this)"
+              <button onclick="confirmarConciliacaoManual(${lancamento.id},${c.id},'${tipo}',this)"
                 style="text-align:left;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;cursor:pointer;font-family:inherit;font-size:0.78rem;color:var(--text2)"
                 onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
-                <b>${c.cliente_nome}</b> · ${c.descricao||'Parcela'} · R$ ${parseFloat(c.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})} · vence ${new Date(String(c.vencimento).slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR')}
+                <b>${c.cliente_nome || c.fornecedor_nome}</b> · ${c.descricao||(tipo==='parcela'?'Parcela':'Conta a pagar')} · R$ ${parseFloat(c.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})} · vence ${new Date(String(c.vencimento).slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR')}
               </button>`).join('')}
           </div>
         </div>`).join('')}
     </div>`, true);
 }
 
-async function confirmarConciliacaoManual(lancamentoId, parcelaId, btn) {
+async function confirmarConciliacaoManual(lancamentoId, candidatoId, tipo, btn) {
   try {
-    await apiFetch('/financeiro/conciliar-manual', { method:'POST', body: JSON.stringify({ lancamento_id: lancamentoId, parcela_id: parcelaId }) });
+    const body = { lancamento_id: lancamentoId };
+    if (tipo === 'conta_pagar') body.conta_pagar_id = candidatoId; else body.parcela_id = candidatoId;
+    await apiFetch('/financeiro/conciliar-manual', { method:'POST', body: JSON.stringify(body) });
     btn.closest('div[style*="background:var(--bg3)"]').style.opacity = '0.4';
     btn.closest('div[style*="background:var(--bg3)"]').innerHTML += '<div style="font-size:0.72rem;color:var(--green);margin-top:6px">✓ Conciliado</div>';
     await loadData();
@@ -5961,14 +5967,16 @@ async function carregarFluxoCaixa() {
       <div style="margin-bottom:16px;max-width:720px">
         <p style="font-size:0.8rem;color:var(--text3)">
           <b>Entradas previstas</b> vêm das parcelas já cadastradas e ainda não pagas — dado real.
-          <b>Saída estimada</b> é a média das despesas dos últimos ${r.meses_base_media} mês${r.meses_base_media>1?'es':''}
-          (R$ ${fmt(r.saida_mensal_media)}/mês) — uma projeção, não um valor conhecido, já que o sistema
-          não tem cadastro de despesas fixas/recorrentes.
+          <b>Saída conhecida</b> vem das Contas a Pagar já cadastradas — dado real. <b>Saída estimada</b>
+          é a média das despesas dos últimos ${r.meses_base_media} mês${r.meses_base_media>1?'es':''}
+          (R$ ${fmt(r.saida_mensal_media)}/mês) — cobre gastos que ainda não foram cadastrados em Contas a Pagar,
+          é uma projeção, não um valor conhecido.
         </p>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;max-width:900px">
         ${periodos.map(p => {
-          const saldo = p.saida_estimada !== undefined ? p.valor - p.saida_estimada : null;
+          const saidaTotal = (p.saida_estimada || 0) + (p.saida_conhecida || 0);
+          const saldo = p.saida_estimada !== undefined ? p.valor - saidaTotal : (p.saida_conhecida ? p.valor - p.saida_conhecida : null);
           return `
           <div class="panel" style="margin:0">
             <div class="panel-body" style="padding:14px">
@@ -5976,9 +5984,14 @@ async function carregarFluxoCaixa() {
               <div style="font-size:0.7rem;color:var(--text3)">Entradas previstas</div>
               <div style="font-size:1.05rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--green)">${fmt(p.valor)}</div>
               <div style="font-size:0.68rem;color:var(--text3);margin-bottom:8px">${p.qtd} parcela${p.qtd!==1?'s':''}</div>
+              ${p.qtd_contas_pagar ? `
+                <div style="font-size:0.7rem;color:var(--text3)">Saída conhecida</div>
+                <div style="font-size:1.05rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--red)">${fmt(p.saida_conhecida)}</div>
+                <div style="font-size:0.68rem;color:var(--text3);margin-bottom:8px">${p.qtd_contas_pagar} conta${p.qtd_contas_pagar!==1?'s':''} a pagar</div>` : ''}
               ${p.saida_estimada !== undefined ? `
-                <div style="font-size:0.7rem;color:var(--text3)">Saída estimada</div>
-                <div style="font-size:1.05rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--red)">${fmt(p.saida_estimada)}</div>
+                <div style="font-size:0.7rem;color:var(--text3)">Saída estimada (extra)</div>
+                <div style="font-size:1.05rem;font-weight:800;font-family:'DM Mono',monospace;color:var(--orange)">${fmt(p.saida_estimada)}</div>` : ''}
+              ${saldo !== null ? `
                 <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">
                   <div style="font-size:0.7rem;color:var(--text3)">Saldo projetado do período</div>
                   <div style="font-size:1rem;font-weight:800;font-family:'DM Mono',monospace;color:${saldo>=0?'var(--green)':'var(--red)'}">${fmt(saldo)}</div>
@@ -5990,6 +6003,175 @@ async function carregarFluxoCaixa() {
   } catch (e) {
     el.innerHTML = `<div class="empty"><div class="icon">⚠️</div><h3>Erro ao carregar</h3><p>${e.message}</p></div>`;
   }
+}
+
+// ══════════════════════════════════════════════════
+// CONTAS A PAGAR — espelho de Parcelas, mas pro que a WB deve a
+// fornecedores/terceiros. Casa com lançamentos de débito na Conciliação
+// Bancária automaticamente (por valor+data, refinado por CNPJ/nome quando
+// há mais de um candidato).
+// ══════════════════════════════════════════════════
+let _cpCache = [];
+
+function renderContasPagar() {
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <h2>Contas a Pagar</h2>
+      <button class="btn btn-primary" onclick="abrirModalContaPagar()">+ Nova Conta a Pagar</button>
+    </div>
+    <div id="cp-corpo"><div class="empty" style="padding:40px"><div class="icon">🧾</div><p>Carregando...</p></div></div>`;
+}
+
+async function carregarContasPagar() {
+  const el = document.getElementById('cp-corpo');
+  if (!el) return;
+  try {
+    const lista = await apiFetch('/financeiro/contas-pagar');
+    _cpCache = lista;
+    const hoje = new Date().toISOString().split('T')[0];
+    const pendentes = lista.filter(c => !c.paga);
+    const vencidas  = pendentes.filter(c => String(c.vencimento).slice(0,10) < hoje);
+    const totalPend = pendentes.reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
+
+    el.innerHTML = `
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+        <div class="stat-card"><div class="stat-label">Total Pendente</div>
+          <div class="stat-value" style="font-size:1.3rem;color:var(--orange)">R$ ${totalPend.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+          <div class="stat-sub">${pendentes.length} conta${pendentes.length!==1?'s':''}</div></div>
+        <div class="stat-card"><div class="stat-label">Vencidas</div>
+          <div class="stat-value" style="font-size:1.3rem;color:${vencidas.length?'var(--red)':'var(--text2)'}">${vencidas.length}</div>
+          <div class="stat-sub">${vencidas.length ? '⚠️ requer atenção' : '✓ tudo em dia'}</div></div>
+        <div class="stat-card"><div class="stat-label">Pagas</div>
+          <div class="stat-value" style="font-size:1.3rem;color:var(--green)">${lista.filter(c=>c.paga).length}</div></div>
+      </div>
+      <div class="panel">
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>Vencimento</th><th>Fornecedor</th><th>CNPJ</th><th>Descrição</th><th>Categoria</th>
+              <th>Forma</th><th style="text-align:right">Valor</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody>
+              ${!lista.length ? `<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text3)">Nenhuma conta a pagar cadastrada.</td></tr>` :
+                lista.map(c => {
+                  const venc = String(c.vencimento).slice(0,10);
+                  const atrasada = !c.paga && venc < hoje;
+                  return `
+                <tr>
+                  <td style="white-space:nowrap;color:${atrasada?'var(--red)':'var(--text)'}">${fmtDate(c.vencimento)}</td>
+                  <td style="font-weight:600">${c.fornecedor_nome}</td>
+                  <td style="font-size:0.75rem;color:var(--text3)">${c.fornecedor_cnpj||'—'}</td>
+                  <td style="max-width:180px;word-break:break-word;color:var(--text2)">${c.descricao||'—'}</td>
+                  <td><span class="badge badge-gray" style="font-size:0.65rem">${c.categoria||'Outros'}</span></td>
+                  <td style="font-size:0.75rem;color:var(--text3)">${c.forma_pgto||'—'}</td>
+                  <td style="text-align:right;font-weight:600;color:var(--red)">R$ ${parseFloat(c.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                  <td style="white-space:nowrap">
+                    ${c.paga
+                      ? `<span class="badge badge-green" style="font-size:0.65rem">✓ Paga ${c.data_pgto?fmtDate(c.data_pgto):''}</span>`
+                      : atrasada
+                        ? `<span class="badge badge-orange" style="font-size:0.65rem">⚠️ Vencida</span>`
+                        : `<span class="badge badge-gray" style="font-size:0.65rem">Pendente</span>`}
+                  </td>
+                  <td style="white-space:nowrap">
+                    ${!c.paga ? `<button class="btn btn-green btn-sm" onclick="marcarContaPagarPaga(${c.id})" title="Marcar como paga">✓</button>` : ''}
+                    <button class="btn btn-ghost btn-sm" onclick="abrirModalContaPagar(${c.id})" title="Editar">✏️</button>
+                    <button class="btn btn-danger btn-sm" onclick="deletarContaPagar(${c.id})" title="Excluir">×</button>
+                  </td>
+                </tr>`;
+                }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch(e) {
+    if (el) el.innerHTML = `<div class="empty"><p style="color:var(--red)">Erro: ${e.message}</p></div>`;
+  }
+}
+
+// Modal única pra criar E editar — sem id, cria; com id, edita (todos os
+// campos ficam editáveis, inclusive depois de já paga, como pedido)
+function abrirModalContaPagar(id) {
+  const c = id ? _cpCache.find(x => x.id === id) : null;
+  const todasCats = [...new Set([...CATS_DESP, ..._categoriasBcCache])].sort();
+  openModal(`
+    <div class="modal-header"><span class="modal-title">${id ? 'Editar' : 'Nova'} Conta a Pagar</span><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid" style="gap:12px">
+        <div class="form-group"><label>Fornecedor *</label><input id="cp-fornecedor" value="${c?.fornecedor_nome||''}" placeholder="Nome do fornecedor/prestador"></div>
+        <div class="form-group"><label>CNPJ</label><input id="cp-cnpj" value="${c?.fornecedor_cnpj||''}" placeholder="00.000.000/0000-00"></div>
+        <div class="form-group form-full"><label>Descrição</label><input id="cp-desc" value="${c?.descricao||''}" placeholder="Ex: Aluguel sala, mensalidade software..."></div>
+        <div class="form-group"><label>Categoria</label>
+          <input id="cp-cat" list="dl-cp-cat" value="${c?.categoria||''}">
+          <datalist id="dl-cp-cat">${todasCats.map(x=>`<option value="${x}">`).join('')}</datalist>
+        </div>
+        <div class="form-group"><label>Valor (R$) *</label><input id="cp-valor" type="number" step="0.01" value="${c?.valor||''}" placeholder="0,00"></div>
+        <div class="form-group"><label>Vencimento *</label><input id="cp-venc" type="date" value="${c?.vencimento?String(c.vencimento).slice(0,10):''}"></div>
+        <div class="form-group"><label>Forma de Pagamento</label>
+          <select id="cp-forma">${['PIX','Transferência','Boleto','Cartão','Dinheiro'].map(f=>`<option ${c?.forma_pgto===f?'selected':''}>${f}</option>`).join('')}</select>
+        </div>
+        ${id ? `
+        <div class="form-group"><label>Status</label>
+          <select id="cp-paga">
+            <option value="0" ${!c?.paga?'selected':''}>Pendente</option>
+            <option value="1" ${c?.paga?'selected':''}>Paga</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Data do Pagamento</label><input id="cp-datapgto" type="date" value="${c?.data_pgto?String(c.data_pgto).slice(0,10):''}"></div>
+        ` : ''}
+        <div class="form-group form-full"><label>Observação</label><input id="cp-obs" value="${c?.obs||''}" placeholder="Opcional"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarContaPagar(${id||'null'})">Salvar</button>
+    </div>`);
+}
+
+async function salvarContaPagar(id) {
+  const fornecedor_nome = document.getElementById('cp-fornecedor')?.value?.trim();
+  const valor = parseFloat(document.getElementById('cp-valor')?.value);
+  const vencimento = document.getElementById('cp-venc')?.value;
+  if (!fornecedor_nome || isNaN(valor) || !vencimento) return showToast('Preencha fornecedor, valor e vencimento', 'warning');
+
+  const body = {
+    fornecedor_nome,
+    fornecedor_cnpj: document.getElementById('cp-cnpj')?.value?.trim() || null,
+    descricao: document.getElementById('cp-desc')?.value?.trim() || null,
+    categoria: document.getElementById('cp-cat')?.value?.trim() || 'Outros',
+    valor, vencimento,
+    forma_pgto: document.getElementById('cp-forma')?.value,
+    obs: document.getElementById('cp-obs')?.value?.trim() || null,
+  };
+  if (id) {
+    body.paga = document.getElementById('cp-paga')?.value === '1';
+    body.data_pgto = document.getElementById('cp-datapgto')?.value || null;
+  }
+
+  try {
+    await apiFetch(id ? `/financeiro/contas-pagar/${id}` : '/financeiro/contas-pagar', {
+      method: id ? 'PATCH' : 'POST', body: JSON.stringify(body),
+    });
+    closeModal();
+    showToast(id ? '✅ Conta a pagar atualizada!' : '✅ Conta a pagar criada!', 'success');
+    await carregarContasPagar();
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+async function marcarContaPagarPaga(id) {
+  try {
+    await apiFetch(`/financeiro/contas-pagar/${id}/pagar`, { method: 'POST' });
+    showToast('✅ Marcada como paga', 'success');
+    await carregarContasPagar();
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+async function deletarContaPagar(id) {
+  try { await confirmar('Essa conta a pagar será excluída permanentemente.', 'Excluir Conta a Pagar', '🗑️', 'var(--red)', 'Excluir'); } catch { return; }
+  try {
+    await apiFetch(`/financeiro/contas-pagar/${id}`, { method: 'DELETE' });
+    showToast('Conta a pagar excluída', 'success');
+    await carregarContasPagar();
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 function renderRelatorio() {

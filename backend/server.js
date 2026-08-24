@@ -87,6 +87,11 @@ async function runMigrations() {
     ['documentos_cliente', 'assinado_em',      "DATETIME     DEFAULT NULL"],
     ['documentos_cliente', 'assinado_nome',    "VARCHAR(200) DEFAULT NULL"],
     ['documentos_cliente', 'assinado_ip',      "VARCHAR(45)  DEFAULT NULL"],
+    // Contas a Pagar — vínculo com o lançamento bancário que a quitou +
+    // CNPJ detectado no texto do extrato (quando presente), pra ajudar a
+    // identificar o fornecedor automaticamente na conciliação
+    ['lancamentos_bancarios', 'conta_pagar_id', "INT DEFAULT NULL"],
+    ['lancamentos_bancarios', 'cnpj_detectado', "VARCHAR(20) DEFAULT NULL"],
   ];
   for (const [table, column, definition] of alterCols) {
     await addColumnIfNotExists(table, column, definition);
@@ -221,6 +226,24 @@ async function runMigrations() {
       pdf_base64  LONGTEXT NOT NULL,
       gerado_em   DATETIME DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_cliente (cliente_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS contas_pagar (
+      id              INT AUTO_INCREMENT PRIMARY KEY,
+      fornecedor_nome VARCHAR(200) NOT NULL,
+      fornecedor_cnpj VARCHAR(20)  DEFAULT NULL,
+      descricao       VARCHAR(300),
+      categoria       VARCHAR(100) DEFAULT 'Outros',
+      valor           DECIMAL(10,2) NOT NULL,
+      vencimento      DATE NOT NULL,
+      forma_pgto      VARCHAR(20) DEFAULT 'PIX',
+      paga            TINYINT(1) DEFAULT 0,
+      data_pgto       DATE DEFAULT NULL,
+      obs             VARCHAR(500),
+      lancado_por     VARCHAR(100),
+      created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_vencimento (vencimento),
+      INDEX idx_paga (paga)
     )`,
   ];
   for (const sql of createTables) {

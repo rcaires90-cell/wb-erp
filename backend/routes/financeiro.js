@@ -66,6 +66,18 @@ function extrairNomeDescricao(descricao) {
   return s || null;
 }
 
+// Alguns extratos (principalmente boleto) trazem o CNPJ do fornecedor junto
+// na descrição — tenta achar e normaliza só os dígitos, pra comparar depois
+// com o CNPJ cadastrado em Contas a Pagar. Retorna null se não achar nada
+// no formato certo (14 dígitos, com ou sem pontuação).
+function extrairCnpjDescricao(descricao) {
+  const s = descricao || '';
+  const m = s.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/);
+  if (!m) return null;
+  const digitos = m[0].replace(/\D/g, '');
+  return digitos.length === 14 ? digitos : null;
+}
+
 // ── GET /api/financeiro/lancamentos ─────────────────────────────────────────
 // ?mes=2026-04&conta=&categoria=&conciliado=
 router.get('/lancamentos', async (req, res) => {
@@ -346,6 +358,11 @@ router.get('/fluxo-caixa', async (req, res) => {
        FROM parcelas p JOIN clientes c ON c.id = p.cliente_id
        WHERE p.paga = 0 AND p.vencimento IS NOT NULL`
     );
+    // Contas a pagar em aberto = saída CONHECIDA (não estimativa), soma à parte
+    // da média histórica — cobre o que já está agendado de verdade.
+    const [contasPagarAbertas] = await db.query(
+      `SELECT valor, vencimento FROM contas_pagar WHERE paga = 0`
+    );
 
     const [[mediaDespesas]] = await db.query(`
       SELECT SUM(valor) AS total, COUNT(DISTINCT DATE_FORMAT(data,'%Y-%m')) AS meses
@@ -356,20 +373,26 @@ router.get('/fluxo-caixa', async (req, res) => {
     const saidaMensalMedia = parseFloat(mediaDespesas.total || 0) / mesesBase;
 
     const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-    const dias = (v) => Math.floor((new Date(v + 'T00:00:00') - hoje) / 864e5);
+    const dias = (v) => Math.floor((new Date(String(v).slice(0,10) + 'T00:00:00') - hoje) / 864e5);
 
     const buckets = {
-      vencidas: { label: 'Vencidas (ainda não pagas)', valor: 0, qtd: 0 },
-      d30:      { label: 'Próximos 30 dias',           valor: 0, qtd: 0, saida_estimada: saidaMensalMedia },
-      d60:      { label: '31 a 60 dias',                valor: 0, qtd: 0, saida_estimada: saidaMensalMedia },
-      d90:      { label: '61 a 90 dias',                valor: 0, qtd: 0, saida_estimada: saidaMensalMedia },
-      depois:   { label: 'Depois de 90 dias',           valor: 0, qtd: 0 },
+      vencidas: { label: 'Vencidas (ainda não pagas)', valor: 0, qtd: 0, saida_conhecida: 0, qtd_contas_pagar: 0 },
+      d30:      { label: 'Próximos 30 dias',           valor: 0, qtd: 0, saida_estimada: saidaMensalMedia, saida_conhecida: 0, qtd_contas_pagar: 0 },
+      d60:      { label: '31 a 60 dias',                valor: 0, qtd: 0, saida_estimada: saidaMensalMedia, saida_conhecida: 0, qtd_contas_pagar: 0 },
+      d90:      { label: '61 a 90 dias',                valor: 0, qtd: 0, saida_estimada: saidaMensalMedia, saida_conhecida: 0, qtd_contas_pagar: 0 },
+      depois:   { label: 'Depois de 90 dias',           valor: 0, qtd: 0, saida_conhecida: 0, qtd_contas_pagar: 0 },
     };
     for (const p of parcelasAbertas) {
       const d = dias(p.vencimento);
       const chave = d < 0 ? 'vencidas' : d <= 30 ? 'd30' : d <= 60 ? 'd60' : d <= 90 ? 'd90' : 'depois';
       buckets[chave].valor += parseFloat(p.valor);
       buckets[chave].qtd += 1;
+    }
+    for (const cp of contasPagarAbertas) {
+      const d = dias(cp.vencimento);
+      const chave = d < 0 ? 'vencidas' : d <= 30 ? 'd30' : d <= 60 ? 'd60' : d <= 90 ? 'd90' : 'depois';
+      buckets[chave].saida_conhecida += parseFloat(cp.valor);
+      buckets[chave].qtd_contas_pagar += 1;
     }
 
     res.json({
@@ -441,8 +464,9 @@ router.post('/importar-extrato', async (req, res) => {
       const valor = Math.abs(valorNum);
       const categoria = detectarCategoria(desc);
       const nome = extrairNomeDescricao(desc);
+      const cnpj = extrairCnpjDescricao(desc);
 
-      lancamentos.push({ data, descricao: desc, valor, tipo, categoria, conta: conta || null, nome });
+      lancamentos.push({ data, descricao: desc, valor, tipo, categoria, conta: conta || null, nome, cnpj });
     }
 
     if (!lancamentos.length) {
@@ -456,9 +480,9 @@ router.post('/importar-extrato', async (req, res) => {
     const inseridos = [];
     for (const l of lancamentos) {
       const [r] = await db.query(
-        `INSERT INTO lancamentos_bancarios (data, descricao, valor, tipo, categoria, conta, conciliado, criado_por, nome)
-         VALUES (?,?,?,?,?,?,0,?,?)`,
-        [l.data, l.descricao, l.valor, l.tipo, l.categoria, l.conta, req.user.nome, l.nome]
+        `INSERT INTO lancamentos_bancarios (data, descricao, valor, tipo, categoria, conta, conciliado, criado_por, nome, cnpj_detectado)
+         VALUES (?,?,?,?,?,?,0,?,?,?)`,
+        [l.data, l.descricao, l.valor, l.tipo, l.categoria, l.conta, req.user.nome, l.nome, l.cnpj]
       );
       inseridos.push({ ...l, id: r.insertId });
     }
@@ -589,14 +613,15 @@ router.post('/importar-extrato-pdf', uploadExtrato.single('extrato'), async (req
       const desc = (l.descricao || 'Lançamento importado').trim();
       const categoria = detectarCategoria(desc);
       const nome = extrairNomeDescricao(desc);
+      const cnpj = extrairCnpjDescricao(desc);
       const tipo = l.tipo === 'credito' ? 'credito' : 'debito';
 
       const [r] = await db.query(
-        `INSERT INTO lancamentos_bancarios (data, descricao, valor, tipo, categoria, conta, conciliado, criado_por, nome)
-         VALUES (?,?,?,?,?,?,0,?,?)`,
-        [l.data, desc, Math.abs(valorNum), tipo, categoria, conta, req.user.nome, nome]
+        `INSERT INTO lancamentos_bancarios (data, descricao, valor, tipo, categoria, conta, conciliado, criado_por, nome, cnpj_detectado)
+         VALUES (?,?,?,?,?,?,0,?,?,?)`,
+        [l.data, desc, Math.abs(valorNum), tipo, categoria, conta, req.user.nome, nome, cnpj]
       );
-      inseridos.push({ id: r.insertId, data: l.data, descricao: desc, valor: Math.abs(valorNum), tipo, categoria, conta, nome });
+      inseridos.push({ id: r.insertId, data: l.data, descricao: desc, valor: Math.abs(valorNum), tipo, categoria, conta, nome, cnpj });
     }
 
     if (!inseridos.length) {
@@ -615,29 +640,47 @@ router.post('/importar-extrato-pdf', uploadExtrato.single('extrato'), async (req
   }
 });
 
+// Estreita uma lista de candidatos (parcela OU conta a pagar) usando CNPJ
+// exato (mais confiável) e, se não bastar, nome do fornecedor/cliente
+// contido na descrição/nome do lançamento — só entra em ação quando o
+// valor+data já deixaram mais de um candidato em aberto.
+function estreitarPorNomeOuCnpj(candidatos, lancamento, campoCnpj, campoNome) {
+  if (candidatos.length <= 1) return candidatos;
+  if (campoCnpj && lancamento.cnpj_detectado) {
+    const porCnpj = candidatos.filter(c => c[campoCnpj] && c[campoCnpj].replace(/\D/g,'') === lancamento.cnpj_detectado);
+    if (porCnpj.length === 1) return porCnpj;
+  }
+  const textoLanc = `${lancamento.nome || ''} ${lancamento.descricao || ''}`.toLowerCase();
+  const porNome = candidatos.filter(c => {
+    const nome = (c[campoNome] || '').toLowerCase().trim();
+    return nome && nome.length >= 4 && textoLanc.includes(nome);
+  });
+  return porNome.length === 1 ? porNome : candidatos;
+}
+
 // ── POST /api/financeiro/conciliar-automatico ─────────────────────────────────
-// Casa lançamentos bancários (crédito, não conciliados) com parcelas em aberto
-// por valor (±R$1) e data de vencimento (±10 dias). Só dá baixa automática
-// quando há exatamente um candidato — caso contrário retorna pra revisão manual.
+// Casa lançamentos bancários (crédito → parcelas de cliente em aberto; débito
+// → contas a pagar em aberto) por valor (±R$1) e data de vencimento (±10
+// dias), tentando identificar o fornecedor/cliente exato por CNPJ ou nome
+// quando há mais de um candidato. Só dá baixa automática quando sobra
+// exatamente um candidato — caso contrário retorna pra revisão manual.
 router.post('/conciliar-automatico', async (req, res) => {
   try {
-    const [lancamentos] = await db.query(
-      `SELECT * FROM lancamentos_bancarios WHERE tipo = 'credito' AND conciliado = 0 AND parcela_id IS NULL`
-    );
-
     let conciliados = 0;
     const provaveis = [];
 
-    for (const l of lancamentos) {
-      const [candidatos] = await db.query(
+    // Créditos → parcelas de cliente
+    const [creditos] = await db.query(
+      `SELECT * FROM lancamentos_bancarios WHERE tipo = 'credito' AND conciliado = 0 AND parcela_id IS NULL`
+    );
+    for (const l of creditos) {
+      const [candidatosRaw] = await db.query(
         `SELECT p.*, c.nome AS cliente_nome
-         FROM parcelas p
-         JOIN clientes c ON c.id = p.cliente_id
-         WHERE p.paga = 0
-           AND ABS(p.valor - ?) <= 1
-           AND ABS(DATEDIFF(p.vencimento, ?)) <= 10`,
+         FROM parcelas p JOIN clientes c ON c.id = p.cliente_id
+         WHERE p.paga = 0 AND ABS(p.valor - ?) <= 1 AND ABS(DATEDIFF(p.vencimento, ?)) <= 10`,
         [l.valor, l.data]
       );
+      const candidatos = estreitarPorNomeOuCnpj(candidatosRaw, l, null, 'cliente_nome');
 
       if (candidatos.length === 1) {
         const p = candidatos[0];
@@ -645,11 +688,33 @@ router.post('/conciliar-automatico', async (req, res) => {
         await db.query('UPDATE lancamentos_bancarios SET conciliado = 1, parcela_id = ? WHERE id = ?', [p.id, l.id]);
         conciliados++;
       } else if (candidatos.length > 1) {
-        provaveis.push({ lancamento: l, candidatos });
+        provaveis.push({ tipo: 'parcela', lancamento: l, candidatos });
       }
     }
 
-    res.json({ ok: true, conciliados, revisar: provaveis, total_analisados: lancamentos.length });
+    // Débitos → contas a pagar
+    const [debitos] = await db.query(
+      `SELECT * FROM lancamentos_bancarios WHERE tipo = 'debito' AND conciliado = 0 AND conta_pagar_id IS NULL`
+    );
+    for (const l of debitos) {
+      const [candidatosRaw] = await db.query(
+        `SELECT * FROM contas_pagar
+         WHERE paga = 0 AND ABS(valor - ?) <= 1 AND ABS(DATEDIFF(vencimento, ?)) <= 10`,
+        [l.valor, l.data]
+      );
+      const candidatos = estreitarPorNomeOuCnpj(candidatosRaw, l, 'fornecedor_cnpj', 'fornecedor_nome');
+
+      if (candidatos.length === 1) {
+        const cp = candidatos[0];
+        await db.query('UPDATE contas_pagar SET paga = 1, data_pgto = ? WHERE id = ?', [l.data, cp.id]);
+        await db.query('UPDATE lancamentos_bancarios SET conciliado = 1, conta_pagar_id = ? WHERE id = ?', [cp.id, l.id]);
+        conciliados++;
+      } else if (candidatos.length > 1) {
+        provaveis.push({ tipo: 'conta_pagar', lancamento: l, candidatos });
+      }
+    }
+
+    res.json({ ok: true, conciliados, revisar: provaveis, total_analisados: creditos.length + debitos.length });
   } catch (e) {
     console.error('[financeiro POST /conciliar-automatico]', e);
     res.status(500).json({ erro: e.message });
@@ -657,20 +722,108 @@ router.post('/conciliar-automatico', async (req, res) => {
 });
 
 // ── POST /api/financeiro/conciliar-manual ─────────────────────────────────────
-// Confirma manualmente o casamento de um lançamento com uma parcela específica
-// (usado na revisão dos "prováveis" quando havia mais de um candidato)
+// Confirma manualmente o casamento de um lançamento com uma parcela ou conta a
+// pagar específica (usado na revisão dos "prováveis" quando havia mais de um candidato)
 router.post('/conciliar-manual', async (req, res) => {
   try {
-    const { lancamento_id, parcela_id } = req.body;
-    if (!lancamento_id || !parcela_id) return res.status(400).json({ erro: 'lancamento_id e parcela_id são obrigatórios' });
+    const { lancamento_id, parcela_id, conta_pagar_id } = req.body;
+    if (!lancamento_id || (!parcela_id && !conta_pagar_id)) {
+      return res.status(400).json({ erro: 'lancamento_id e (parcela_id ou conta_pagar_id) são obrigatórios' });
+    }
     const [[l]] = await db.query('SELECT data FROM lancamentos_bancarios WHERE id = ?', [lancamento_id]);
     if (!l) return res.status(404).json({ erro: 'Lançamento não encontrado' });
-    await db.query('UPDATE parcelas SET paga = 1, data_pgto = ? WHERE id = ?', [l.data, parcela_id]);
-    await db.query('UPDATE lancamentos_bancarios SET conciliado = 1, parcela_id = ? WHERE id = ?', [parcela_id, lancamento_id]);
+
+    if (parcela_id) {
+      await db.query('UPDATE parcelas SET paga = 1, data_pgto = ? WHERE id = ?', [l.data, parcela_id]);
+      await db.query('UPDATE lancamentos_bancarios SET conciliado = 1, parcela_id = ? WHERE id = ?', [parcela_id, lancamento_id]);
+    } else {
+      await db.query('UPDATE contas_pagar SET paga = 1, data_pgto = ? WHERE id = ?', [l.data, conta_pagar_id]);
+      await db.query('UPDATE lancamentos_bancarios SET conciliado = 1, conta_pagar_id = ? WHERE id = ?', [conta_pagar_id, lancamento_id]);
+    }
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ erro: e.message });
   }
+});
+
+// ════════════════════════════════════════════════════════════════
+// CONTAS A PAGAR
+// ════════════════════════════════════════════════════════════════
+
+router.get('/contas-pagar', async (req, res) => {
+  try {
+    let sql = 'SELECT * FROM contas_pagar WHERE 1=1';
+    const params = [];
+    if (req.query.mes) { sql += " AND DATE_FORMAT(vencimento,'%Y-%m')=?"; params.push(req.query.mes); }
+    if (req.query.paga !== undefined) { sql += ' AND paga=?'; params.push(req.query.paga === '1' ? 1 : 0); }
+    sql += ' ORDER BY paga ASC, vencimento ASC, id DESC';
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+router.post('/contas-pagar', async (req, res) => {
+  try {
+    const { fornecedor_nome, fornecedor_cnpj, descricao, categoria, valor, vencimento, forma_pgto, obs } = req.body;
+    if (!fornecedor_nome || valor === undefined || !vencimento) {
+      return res.status(400).json({ erro: 'fornecedor_nome, valor e vencimento são obrigatórios' });
+    }
+    const [r] = await db.query(
+      `INSERT INTO contas_pagar (fornecedor_nome, fornecedor_cnpj, descricao, categoria, valor, vencimento, forma_pgto, obs, lancado_por)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      [fornecedor_nome, fornecedor_cnpj || null, descricao || null, categoria || 'Outros',
+       parseFloat(valor), vencimento, forma_pgto || 'PIX', obs || null, req.user.nome]
+    );
+    const [[nova]] = await db.query('SELECT * FROM contas_pagar WHERE id=?', [r.insertId]);
+    res.status(201).json(nova);
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// Totalmente editável — qualquer campo pode ser atualizado, inclusive depois de paga
+router.patch('/contas-pagar/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { fornecedor_nome, fornecedor_cnpj, descricao, categoria, valor, vencimento, forma_pgto, obs, paga, data_pgto } = req.body;
+    await db.query(
+      `UPDATE contas_pagar SET
+        fornecedor_nome=COALESCE(?,fornecedor_nome), fornecedor_cnpj=COALESCE(?,fornecedor_cnpj),
+        descricao=COALESCE(?,descricao), categoria=COALESCE(?,categoria),
+        valor=COALESCE(?,valor), vencimento=COALESCE(?,vencimento),
+        forma_pgto=COALESCE(?,forma_pgto), obs=COALESCE(?,obs),
+        paga=COALESCE(?,paga), data_pgto=COALESCE(?,data_pgto)
+       WHERE id=?`,
+      [fornecedor_nome || null, fornecedor_cnpj || null, descricao || null, categoria || null,
+       valor !== undefined ? parseFloat(valor) : null, vencimento || null,
+       forma_pgto || null, obs || null,
+       paga !== undefined ? (paga ? 1 : 0) : null, data_pgto || null, id]
+    );
+    const [[atualizada]] = await db.query('SELECT * FROM contas_pagar WHERE id=?', [id]);
+    if (!atualizada) return res.status(404).json({ erro: 'Conta a pagar não encontrada' });
+    res.json(atualizada);
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// Atalho pra marcar como paga sem precisar mandar todos os campos
+router.post('/contas-pagar/:id/pagar', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const data_pgto = req.body.data_pgto || new Date().toISOString().slice(0, 10);
+    await db.query('UPDATE contas_pagar SET paga=1, data_pgto=? WHERE id=?', [data_pgto, id]);
+    const [[atualizada]] = await db.query('SELECT * FROM contas_pagar WHERE id=?', [id]);
+    if (!atualizada) return res.status(404).json({ erro: 'Conta a pagar não encontrada' });
+    res.json(atualizada);
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+router.delete('/contas-pagar/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    // Desvincula qualquer lançamento que apontava pra essa conta antes de apagar
+    await db.query('UPDATE lancamentos_bancarios SET conciliado=0, conta_pagar_id=NULL WHERE conta_pagar_id=?', [id]);
+    const [r] = await db.query('DELETE FROM contas_pagar WHERE id=?', [id]);
+    if (r.affectedRows === 0) return res.status(404).json({ erro: 'Conta a pagar não encontrada' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
 // ════════════════════════════════════════════════════════════════
