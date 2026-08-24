@@ -6094,10 +6094,16 @@ async function carregarContasPagar() {
 // Contas a Pagar (_cpCache já tem tudo, sem filtro de mês) — pega os dados
 // mais recentes lançados pra cada fornecedor, pra sugerir/preencher sozinho
 // da próxima vez que alguém digitar o mesmo nome.
+// Normaliza pra comparar nomes de fornecedor mesmo com diferenças pequenas
+// de digitação (maiúscula/minúscula, espaço duplo, espaços nas pontas)
+function chaveFornecedor(nome) {
+  return (nome || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 function fornecedoresConhecidosCP() {
   const porNome = {};
   [...(_cpCache||[])].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).forEach(c => {
-    const chave = (c.fornecedor_nome||'').trim().toLowerCase();
+    const chave = chaveFornecedor(c.fornecedor_nome);
     if (chave && !porNome[chave]) {
       porNome[chave] = { nome: c.fornecedor_nome, cnpj: c.fornecedor_cnpj, categoria: c.categoria, forma_pgto: c.forma_pgto };
     }
@@ -6109,7 +6115,7 @@ function fornecedoresConhecidosCP() {
 // forma de pagamento sozinho — só nos campos que ainda estiverem vazios,
 // pra nunca sobrescrever o que já foi digitado ou o que já estava salvo.
 function autoPreencherFornecedorCP(nomeDigitado) {
-  const conhecido = fornecedoresConhecidosCP()[(nomeDigitado||'').trim().toLowerCase()];
+  const conhecido = fornecedoresConhecidosCP()[chaveFornecedor(nomeDigitado)];
   if (!conhecido) return;
   const cnpjEl = document.getElementById('cp-cnpj');
   const catEl  = document.getElementById('cp-cat');
