@@ -245,6 +245,19 @@ async function runMigrations() {
       INDEX idx_vencimento (vencimento),
       INDEX idx_paga (paga)
     )`,
+    `CREATE TABLE IF NOT EXISTS controle_documentos (
+      id             INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_id     INT NOT NULL UNIQUE,
+      processo_n     VARCHAR(200) DEFAULT NULL,
+      protocolo      VARCHAR(200) DEFAULT NULL,
+      data_controle  DATE DEFAULT NULL,
+      itens_json     LONGTEXT,
+      situacao_atual TEXT,
+      pendencias     TEXT,
+      proximo_passo  TEXT,
+      created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
   ];
   for (const sql of createTables) {
     try { await db.query(sql); } catch(e) { console.warn('[migration] table:', e.message.slice(0,80)); }
@@ -340,6 +353,7 @@ app.use('/api/ocr-documento', require('./routes/ocr-documento'));
 app.use('/api/config',        require('./routes/config'));
 app.use('/api/tarefas',       require('./routes/tarefas'));
 app.use('/api/documentos-cliente', require('./routes/documentos-cliente'));
+app.use('/api/controle-documentos', require('./routes/controle-documentos'));
 
 // ── HEALTH CHECK ──────────────────────────────────
 app.get('/api/health', (_req, res) => {
