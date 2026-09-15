@@ -3276,10 +3276,7 @@ async function openCliente(id) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         ${[
           { field:'doc_antecedente_val', label:'🚔 Antecedente Criminal' },
-          { field:'doc_passaporte_val', label:'✈️ Passaporte' },
           { field:'doc_rnm_val',        label:'🪪 RNM' },
-          { field:'doc_visto_val',      label:'🛂 Visto' },
-          { field:'data_validade_ar',   label:'📄 Autorização de Residência' },
         ].map(({field, label}) => {
           const rawVal = c[field] ? String(c[field]).slice(0,10) : '';
           let diasStr = '', cor = 'var(--text3)';
