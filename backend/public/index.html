@@ -1819,6 +1819,22 @@ let _lastChange = 0;
 function notificacoesLogin() {
   const vencidas = (parcelas||[]).filter(p => !p.paga && p.vencimento && new Date(p.vencimento) < new Date()).length;
   if (vencidas > 0) showToast(`⚠️ ${vencidas} parcela(s) vencida(s)`, 'warning');
+
+  // Só antecedente criminal e RNM alertam (passaporte/visto/autorização de
+  // residência ficam só informativos na aba Validade) — e só enquanto o
+  // processo ainda não passou da fase PF Análise (depois disso o documento
+  // já foi entregue, não faz mais sentido alertar).
+  const FASES_SEM = ['pf_analise','pf_biometria','mjsp_analise','dou_publicado','concluido'];
+  const diasAte = val => Math.ceil((new Date(String(val).slice(0,10)+'T12:00') - new Date()) / 864e5);
+  const vencendo = (campo) => (clientes||[]).filter(c =>
+    !c.arquivado && c[campo] && !FASES_SEM.includes(c.processo_fase) && diasAte(c[campo]) <= 30
+  ).length;
+
+  const antec = vencendo('doc_antecedente_val');
+  if (antec > 0) showToast(`🚔 ${antec} antecedente(s) criminal(is) vencendo/vencido(s)`, 'warning');
+
+  const rnm = vencendo('doc_rnm_val');
+  if (rnm > 0) showToast(`🪪 ${rnm} RNM vencendo/vencido(s)`, 'warning');
 }
 
 function startRealtime() {
@@ -2001,7 +2017,7 @@ function buildNav() {
   const inadim = parcelas.filter(p => !p.paga && p.vencimento && new Date(p.vencimento) < new Date()).length;
   nav.innerHTML = `
     <div class="nav-section">Gestão</div>
-    ${ni('dashboard','📊','Dashboard <span id="badge-sidebar-dash" class="nav-badge" style="display:none;background:var(--red);color:#fff"></span>')}
+    ${ni('dashboard','📊','Dashboard')}
     ${ni('clientes','👥','Clientes')}
     ${ni('leads','🎯','Pipeline de Leads <span id="badge-sidebar-leads" class="nav-badge" style="display:none"></span>')}
     ${ni('agendamentos','📅','Agenda')}
@@ -2609,20 +2625,6 @@ function capitalizarNome(el) {
 
 // ── Badges da sidebar ─────────────────────────────
 function atualizarBadgesSidebar() {
-  // Badge vermelho no Dashboard: só antecedente criminal vencendo/vencido,
-  // e só enquanto o processo ainda não chegou na fase PF Análise (depois
-  // disso o documento já foi entregue, não faz mais sentido alertar).
-  const FASES_SEM = ['pf_analise','pf_biometria','mjsp_analise','dou_publicado','concluido'];
-  let totalAlerta = 0;
-  (clientes||[]).filter(c => !c.arquivado).forEach(c => {
-    if (c.doc_antecedente_val && !FASES_SEM.includes(c.processo_fase)) {
-      const d = Math.ceil((new Date(String(c.doc_antecedente_val).slice(0,10)+'T12:00') - new Date()) / 864e5);
-      if (d <= 30) totalAlerta++;
-    }
-  });
-  const bdDash = document.getElementById('badge-sidebar-dash');
-  if (bdDash) { bdDash.textContent = totalAlerta || ''; bdDash.style.display = totalAlerta ? '' : 'none'; }
-
   // Leads novos → badge dourado no Pipeline
   const novos = (_leadsCache||[]).filter(l => l.status === 'novo').length;
   const bdLeads = document.getElementById('badge-sidebar-leads');
