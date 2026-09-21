@@ -3,7 +3,8 @@ const db     = require('../db');
 const auth   = require('../middleware/auth');
 const { htmlParaPdfBase64 } = require('../lib/pdf');
 
-// Lista padrão definida pela equipe; as 2 linhas em branco são pra documentos avulsos.
+// Lista padrão definida pela equipe pra Naturalização; as 2 linhas em branco são
+// pra documentos avulsos. Outros serviços (RNM, Visto...) começam sem documento.
 const ITENS_PADRAO = [
   'E-mail com a informação do agendamento (Impresso)',
   'Declaração de adaptação de nome',
@@ -21,6 +22,11 @@ const ITENS_PADRAO = [
   '',
   '',
 ].map(documento => ({ documento, ok: false, observacao: '' }));
+
+// Mesma regra do resto do app: sem serviço definido conta como Naturalização.
+function itensPadraoDoServico(servico) {
+  return !servico || String(servico).includes('Naturaliz') ? ITENS_PADRAO : [];
+}
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -78,8 +84,18 @@ function montarHtmlControle(nomeCliente, d) {
 
 router.use(auth);
 
-// ── GET /api/controle-documentos/padrao/itens ─────
-router.get('/padrao/itens', (req, res) => res.json(ITENS_PADRAO));
+// ── GET /api/controle-documentos/:clienteId/padrao ─
+router.get('/:clienteId/padrao', async (req, res) => {
+  try {
+    const cid = parseInt(req.params.clienteId);
+    if (isNaN(cid)) return res.status(400).json({ erro: 'clienteId inválido' });
+    const [[cli]] = await db.query('SELECT servico FROM clientes WHERE id = ?', [cid]);
+    if (!cli) return res.status(404).json({ erro: 'Cliente não encontrado' });
+    res.json(itensPadraoDoServico(cli.servico));
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
 
 // ── GET /api/controle-documentos/:clienteId ───────
 router.get('/:clienteId', async (req, res) => {
@@ -87,22 +103,28 @@ router.get('/:clienteId', async (req, res) => {
     const cid = parseInt(req.params.clienteId);
     if (isNaN(cid)) return res.status(400).json({ erro: 'clienteId inválido' });
 
+    const [[cli]] = await db.query('SELECT servico FROM clientes WHERE id = ?', [cid]);
+    if (!cli) return res.status(404).json({ erro: 'Cliente não encontrado' });
+    const padrao = itensPadraoDoServico(cli.servico);
+
     const [[row]] = await db.query('SELECT * FROM controle_documentos WHERE cliente_id = ?', [cid]);
     if (!row) {
       return res.json({
         cliente_id: cid, processo_n: '', protocolo: '', data_controle: '',
-        itens: ITENS_PADRAO, situacao_atual: '', pendencias: '', proximo_passo: '',
+        itens: padrao, tem_lista_padrao: padrao.length > 0,
+        situacao_atual: '', pendencias: '', proximo_passo: '',
       });
     }
 
-    let itens = ITENS_PADRAO;
+    let itens = padrao;
     try {
       const parsed = JSON.parse(row.itens_json);
-      if (Array.isArray(parsed) && parsed.length) itens = parsed;
+      if (Array.isArray(parsed)) itens = parsed;
     } catch { /* mantém padrão se o JSON salvo estiver corrompido */ }
 
     res.json({
       cliente_id: cid,
+      tem_lista_padrao: padrao.length > 0,
       processo_n: row.processo_n || '',
       protocolo: row.protocolo || '',
       data_controle: row.data_controle ? String(row.data_controle).slice(0, 10) : '',
@@ -123,7 +145,7 @@ router.patch('/:clienteId', async (req, res) => {
     if (isNaN(cid)) return res.status(400).json({ erro: 'clienteId inválido' });
 
     const { processo_n, protocolo, data_controle, itens, situacao_atual, pendencias, proximo_passo } = req.body;
-    const itensJson = JSON.stringify(Array.isArray(itens) && itens.length ? itens : ITENS_PADRAO);
+    const itensJson = JSON.stringify(Array.isArray(itens) ? itens : []);
 
     await db.query(
       `INSERT INTO controle_documentos
@@ -156,7 +178,7 @@ router.post('/:clienteId/pdf', async (req, res) => {
     const { processo_n, protocolo, data_controle, itens, situacao_atual, pendencias, proximo_passo } = req.body;
     const html = montarHtmlControle(cliente.nome, {
       processo_n, protocolo, data_controle,
-      itens: Array.isArray(itens) && itens.length ? itens : ITENS_PADRAO,
+      itens: Array.isArray(itens) ? itens : [],
       situacao_atual, pendencias, proximo_passo,
     });
     const pdf_base64 = await htmlParaPdfBase64(html);
