@@ -108,6 +108,16 @@ h3{font-size:0.9rem;font-weight:600}
 .stat-label{font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
 .stat-value{font-size:1.8rem;font-weight:700;color:var(--text);font-family:'Geist Mono',monospace;line-height:1}
 .stat-sub{font-size:0.75rem;color:var(--text2);margin-top:6px}
+.fin-col{width:42px;flex-shrink:0;border-radius:6px;outline:none;transition:background 0.12s}
+.fin-col:hover,.fin-col:focus-visible{background:var(--bg4)}
+.fin-col.atual{background:var(--gold-dim)}
+.fin-plot{display:flex;flex-direction:column;justify-content:flex-end;align-items:center}
+.fin-stack{width:20px;display:flex;flex-direction:column-reverse;gap:2px}
+.fin-tot{font-size:0.62rem;font-weight:700;color:var(--gold);margin-bottom:4px;white-space:nowrap}
+.fin-mlabel{font-size:0.62rem;color:var(--text3);text-align:center;padding:6px 0 4px;white-space:nowrap}
+.fin-mlabel.atual{color:var(--gold);font-weight:700}
+.fin-tip{position:absolute;z-index:5;pointer-events:none;background:var(--bg4);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;font-size:0.75rem;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+.fin-swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
 
 /* ── BUTTONS ── */
@@ -525,30 +535,6 @@ async function carregarParcelasAlertaDashboard() {
               <span style="font-weight:600;color:var(--text)">${p.cliente_nome.split(' ')[0]}</span>
               <span style="color:var(--text3)"> · R$ ${(parseFloat(p.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
               <span style="color:${p.dias_para_vencer < 0 ? 'var(--red)' : 'var(--orange)'}"> · ${p.dias_para_vencer < 0 ? Math.abs(p.dias_para_vencer)+'d atrasada' : p.dias_para_vencer === 0 ? 'vence hoje' : p.dias_para_vencer+'d'}</span>
-            </div>`).join('')}
-        </div>
-      </div>`;
-  } catch(e) { el.innerHTML = ''; }
-}
-
-async function carregarTarefasAtrasadasDashboard() {
-  const el = document.getElementById('dash-tarefas-widget');
-  if (!el) return;
-  try {
-    const lista = await apiFetch('/tarefas/atrasadas');
-    if (!Array.isArray(lista) || !lista.length) { el.innerHTML = ''; return; }
-    el.innerHTML = `
-      <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <span style="font-size:1.2rem">📌</span>
-          <div style="font-size:0.82rem;font-weight:700;color:var(--red)">${lista.length} tarefa(s) atrasada(s)</div>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${lista.slice(0,12).map(t => `
-            <div onclick="openCliente(${t.cliente_id})" style="cursor:pointer;padding:6px 12px;background:var(--bg3);border:1px solid rgba(239,68,68,0.35);border-radius:7px;font-size:0.78rem">
-              <span style="font-weight:600;color:var(--text)">${t.cliente_nome.split(' ')[0]}</span>
-              <span style="color:var(--text3)"> · ${t.descricao}</span>
-              <span style="color:var(--red)"> · ${t.dias_atraso}d atraso</span>
             </div>`).join('')}
         </div>
       </div>`;
@@ -2754,11 +2740,194 @@ function diasRestantesProcesso(c) {
   return Math.ceil((prev180 - hoje) / 864e5);
 }
 
+// ── Dashboard: projeção financeira (já entrou × a entrar × atrasado) ──────────
+const FIN_MESES_ABREV = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const FIN_MESES_NOME  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const finMoeda    = v => 'R$ ' + (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const finCompacto = v => v >= 1000 ? (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mil' : String(Math.round(v));
+
+function finNiceMax(v) {
+  if (v <= 0) return 1000;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  const f = v / p;
+  return ([1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(s => f <= s) || 10) * p;
+}
+
+function calcProjecaoFinanceira() {
+  const d = new Date();
+  const hoje = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const mesAtual = hoje.slice(0, 7);
+  const ativos = new Set((clientes || []).filter(c => !c.arquivado).map(c => c.id));
+  const vazio = () => ({ entrou: 0, aEntrar: 0, atrasado: 0, nEntrou: 0, nAEntrar: 0, nAtrasado: 0 });
+  const meses = {};
+  const tot = { entrou: 0, entrouMes: 0, aEntrar: 0, atrasado: 0, nAEntrar: 0, nAtrasado: 0 };
+
+  (parcelas || []).forEach(p => {
+    if (!ativos.has(p.cliente_id)) return;
+    const v = parseFloat(p.valor) || 0;
+    if (v <= 0) return;
+    if (p.paga) {
+      tot.entrou += v;
+      const dt = String(p.data_pgto || p.vencimento || '').slice(0, 10);
+      if (dt.slice(0, 7) === mesAtual) tot.entrouMes += v;
+      if (dt) { const m = (meses[dt.slice(0, 7)] ||= vazio()); m.entrou += v; m.nEntrou++; }
+    } else {
+      const venc = String(p.vencimento || '').slice(0, 10);
+      const atrasada = !!venc && venc < hoje;
+      if (atrasada) { tot.atrasado += v; tot.nAtrasado++; } else { tot.aEntrar += v; tot.nAEntrar++; }
+      if (venc) {
+        const m = (meses[venc.slice(0, 7)] ||= vazio());
+        if (atrasada) { m.atrasado += v; m.nAtrasado++; } else { m.aEntrar += v; m.nAEntrar++; }
+      }
+    }
+  });
+
+  // Série contínua do primeiro ao último mês com movimento (meses sem nada aparecem vazios)
+  const chaves = Object.keys(meses).sort();
+  const serie = [];
+  if (chaves.length) {
+    let [y, m] = chaves[0].split('-').map(Number);
+    const [yf, mf] = chaves[chaves.length - 1].split('-').map(Number);
+    while (y < yf || (y === yf && m <= mf)) {
+      const k = `${y}-${String(m).padStart(2, '0')}`;
+      serie.push({ chave: k, ano: y, mes: m, ...(meses[k] || vazio()) });
+      if (++m > 12) { m = 1; y++; }
+    }
+  }
+  return { tot, serie, mesAtual };
+}
+
+function htmlFinanceiroDashboard() {
+  const { tot, serie, mesAtual } = calcProjecaoFinanceira();
+  const totalPrevisto = tot.entrou + tot.aEntrar + tot.atrasado;
+  const pct = totalPrevisto > 0 ? Math.round(tot.entrou / totalPrevisto * 100) : 0;
+  const H = 180;
+  const maxMes = Math.max(0, ...serie.map(s => s.entrou + s.aEntrar + s.atrasado));
+  const eixoMax = finNiceMax(maxMes);
+  const cor = { entrou: 'var(--green)', atrasado: 'var(--red)', aEntrar: 'var(--gold)' };
+  const rot = { entrou: 'Entrou', aEntrar: 'A entrar', atrasado: 'Atrasado' };
+  const ordem = ['entrou', 'atrasado', 'aEntrar']; // empilha de baixo pra cima
+
+  const colunas = serie.map(s => {
+    const total = s.entrou + s.aEntrar + s.atrasado;
+    const segs = ordem.filter(k => s[k] > 0);
+    const barras = segs.map((k, i) => {
+      const alt = Math.max(3, Math.round(s[k] / eixoMax * H));
+      return `<div style="height:${alt}px;background:${cor[k]};border-radius:${i === segs.length - 1 ? '4px 4px 0 0' : '0'}"></div>`;
+    }).join('');
+    const atual = s.chave === mesAtual;
+    const linhasTip = ordem.filter(k => s[k] > 0).map(k => {
+      const n = s['n' + k[0].toUpperCase() + k.slice(1)];
+      return `<div style="display:flex;justify-content:space-between;gap:14px"><span style="color:var(--text2)"><span class="fin-swatch" style="background:${cor[k]}"></span>${rot[k]} (${n})</span><b style="font-family:'Geist Mono',monospace;color:var(--text)">${finMoeda(s[k])}</b></div>`;
+    }).join('');
+    const tip = `<div style="font-weight:700;color:var(--text);margin-bottom:6px">${FIN_MESES_NOME[s.mes - 1]} de ${s.ano}${atual ? ' · mês atual' : ''}</div>`
+      + (linhasTip || `<div style="color:var(--text3)">Sem movimento</div>`)
+      + (segs.length > 1 ? `<div style="display:flex;justify-content:space-between;gap:14px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)"><span style="color:var(--text2)">Total</span><b style="font-family:'Geist Mono',monospace;color:var(--text)">${finMoeda(total)}</b></div>` : '');
+    return `<div class="fin-col${atual ? ' atual' : ''}" tabindex="0" data-tip="${htmlEsc(tip)}" aria-label="${FIN_MESES_NOME[s.mes - 1]} de ${s.ano}: ${finMoeda(total)}">
+      <div class="fin-plot" style="height:${H}px">
+        ${atual && total > 0 ? `<div class="fin-tot">${finCompacto(total)}</div>` : ''}
+        <div class="fin-stack">${barras}</div>
+      </div>
+      <div class="fin-mlabel${atual ? ' atual' : ''}">${FIN_MESES_ABREV[s.mes - 1]}/${String(s.ano).slice(2)}</div>
+    </div>`;
+  }).join('');
+
+  const tiles = [
+    { label: 'Já entrou', valor: tot.entrou, corV: 'var(--green)', sub: `Este mês: ${finMoeda(tot.entrouMes)}` },
+    { label: 'A entrar', valor: tot.aEntrar, corV: 'var(--gold)', sub: `${tot.nAEntrar} parcela(s) a vencer` },
+    { label: 'Atrasado', valor: tot.atrasado, corV: tot.atrasado > 0 ? 'var(--red)' : 'var(--text2)', sub: `${tot.nAtrasado} parcela(s) vencida(s)` },
+    { label: 'Total previsto', valor: totalPrevisto, corV: 'var(--text)', sub: `${pct}% já recebido`,
+      barra: `<div style="height:4px;border-radius:99px;background:var(--border);margin-top:8px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--green);border-radius:99px"></div></div>` },
+  ].map(t => `
+    <div class="stat-card">
+      <div class="stat-label">${t.label}</div>
+      <div class="stat-value" style="font-size:1.45rem;color:${t.corV}">${finMoeda(t.valor)}</div>
+      <div class="stat-sub">${t.sub}</div>${t.barra || ''}
+    </div>`).join('');
+
+  const linhasTabela = serie.map(s => {
+    const total = s.entrou + s.aEntrar + s.atrasado;
+    const cel = (v, c) => `<td style="text-align:right;font-variant-numeric:tabular-nums;color:${v > 0 ? c : 'var(--text3)'}">${v > 0 ? finMoeda(v) : '—'}</td>`;
+    return `<tr><td>${FIN_MESES_NOME[s.mes - 1]} de ${s.ano}${s.chave === mesAtual ? ' <span style="color:var(--gold);font-size:0.68rem">· atual</span>' : ''}</td>${cel(s.entrou, 'var(--green)')}${cel(s.aEntrar, 'var(--gold)')}${cel(s.atrasado, 'var(--red)')}${cel(total, 'var(--text)')}</tr>`;
+  }).join('');
+
+  const eixo = [eixoMax, eixoMax / 2, 0].map((v, i) =>
+    `<div style="position:absolute;right:8px;bottom:${i === 0 ? '100' : i === 1 ? '50' : '0'}%;transform:translateY(50%);font-size:0.62rem;color:var(--text3);white-space:nowrap">${v ? 'R$ ' + finCompacto(v) : '0'}</div>`).join('');
+
+  return `
+    <div class="panel" style="margin-bottom:12px">
+      <div class="panel-header"><span class="panel-title">💰 Financeiro — já entrou e projeção a entrar</span></div>
+      <div style="padding:18px 20px;position:relative">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:22px">${tiles}</div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:12px;font-size:0.75rem;color:var(--text2)">
+          ${['entrou', 'aEntrar', 'atrasado'].map(k => `<span><span class="fin-swatch" style="background:${cor[k]}"></span>${rot[k]}${k === 'entrou' ? ' (por mês do pagamento)' : ' (por mês do vencimento)'}</span>`).join('')}
+        </div>
+
+        ${serie.length ? `
+        <div style="display:flex;margin-top:10px">
+          <div style="position:relative;width:64px;height:${H}px;flex-shrink:0">${eixo}</div>
+          <div id="fin-scroll" style="overflow-x:auto;flex:1">
+            <div style="position:relative;width:max-content;min-width:100%">
+              <div style="position:absolute;left:0;right:0;top:0;height:${H}px;pointer-events:none">
+                <div style="position:absolute;left:0;right:0;top:0;border-top:1px solid var(--border)"></div>
+                <div style="position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--border)"></div>
+                <div style="position:absolute;left:0;right:0;bottom:0;border-top:1px solid var(--border2)"></div>
+              </div>
+              <div style="position:relative;display:flex;gap:4px" onmouseover="finMostrarTip(event)" onmouseout="finEsconderTip()" onfocusin="finMostrarTip(event)" onfocusout="finEsconderTip()" onclick="finMostrarTip(event)">${colunas}</div>
+            </div>
+          </div>
+        </div>
+        <div id="fin-tip" class="fin-tip" style="display:none"></div>
+
+        <details style="margin-top:16px">
+          <summary style="cursor:pointer;font-size:0.78rem;color:var(--text2)">Ver tabela por mês</summary>
+          <div style="overflow:auto;max-height:340px;margin-top:10px">
+            <table class="tbl">
+              <thead><tr><th>Mês</th><th style="text-align:right">Entrou</th><th style="text-align:right">A entrar</th><th style="text-align:right">Atrasado</th><th style="text-align:right">Total</th></tr></thead>
+              <tbody>${linhasTabela}</tbody>
+              <tfoot><tr style="font-weight:700"><td>Total geral</td>
+                <td style="text-align:right;color:var(--green)">${finMoeda(tot.entrou)}</td>
+                <td style="text-align:right;color:var(--gold)">${finMoeda(tot.aEntrar)}</td>
+                <td style="text-align:right;color:${tot.atrasado > 0 ? 'var(--red)' : 'var(--text3)'}">${finMoeda(tot.atrasado)}</td>
+                <td style="text-align:right">${finMoeda(totalPrevisto)}</td></tr></tfoot>
+            </table>
+          </div>
+        </details>` : `<div style="color:var(--text3);font-size:0.82rem;padding:16px 0">Ainda não há parcelas cadastradas.</div>`}
+      </div>
+    </div>`;
+}
+
+function finMostrarTip(ev) {
+  const col = ev.target.closest && ev.target.closest('.fin-col');
+  const tip = document.getElementById('fin-tip');
+  if (!col || !tip) return;
+  tip.innerHTML = col.dataset.tip;
+  tip.style.display = 'block';
+  const corpo = tip.parentElement.getBoundingClientRect();
+  const r = col.getBoundingClientRect();
+  const left = Math.max(4, Math.min(r.left - corpo.left + r.width / 2 - tip.offsetWidth / 2, corpo.width - tip.offsetWidth - 4));
+  tip.style.left = left + 'px';
+  tip.style.top = Math.max(4, r.top - corpo.top - tip.offsetHeight - 8) + 'px';
+}
+
+function finEsconderTip() {
+  const tip = document.getElementById('fin-tip');
+  if (tip) tip.style.display = 'none';
+}
+
+function finPosicionarScroll() {
+  const sc = document.getElementById('fin-scroll');
+  if (!sc) return;
+  const atual = sc.querySelector('.fin-col.atual');
+  sc.scrollLeft = atual ? atual.offsetLeft - sc.clientWidth / 2 + atual.offsetWidth / 2 : sc.scrollWidth;
+}
+
 function renderDashboard() {
   const hoje    = new Date().toISOString().split('T')[0];
   const agHoje  = (agendamentos||[]).filter(a => a.data === hoje);
 
-  setTimeout(() => carregarTarefasAtrasadasDashboard(), 60);
+  setTimeout(() => finPosicionarScroll(), 60);
   setTimeout(() => renderizarMapaClientes(), 80);
 
   return `
@@ -2770,7 +2939,7 @@ function renderDashboard() {
       <div class="stat-sub">${agHoje.length ? agHoje[0].hora + ' · ' + agHoje[0].tipo : 'Nenhum agendamento'}</div>
     </div>
 
-    <div id="dash-tarefas-widget"></div>
+    ${htmlFinanceiroDashboard()}
 
     <div class="panel" style="margin-top:12px">
       <div class="panel-header"><span class="panel-title">🗺️ Clientes pelo Mundo</span></div>
