@@ -3899,7 +3899,10 @@ function renderControleDocumentos(clienteId, d) {
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3)">Documentos</div>
-      <button class="btn btn-outline btn-sm" onclick="adicionarItemControle(${clienteId})">+ Item</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="restaurarListaPadraoControle(${clienteId})" title="Troca a lista de documentos pela lista padrão da equipe">↺ Lista padrão</button>
+        <button class="btn btn-outline btn-sm" onclick="adicionarItemControle(${clienteId})">+ Item</button>
+      </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
       <thead><tr>
@@ -3937,6 +3940,15 @@ function adicionarItemControle(clienteId) {
   const tbody = document.getElementById(`ctrl-itens-${clienteId}`);
   if (!tbody) return;
   tbody.insertAdjacentHTML('beforeend', linhaItemControle({documento:'',ok:false,observacao:''}));
+}
+
+async function restaurarListaPadraoControle(clienteId) {
+  try { await confirmar('A lista de documentos será trocada pela lista padrão — as marcações e observações dos documentos atuais serão perdidas (os campos de cima e de baixo continuam como estão).', 'Usar lista padrão', '📋', 'var(--gold)', 'Trocar lista'); } catch { return; }
+  try {
+    const itens = await apiFetch('/controle-documentos/padrao/itens');
+    document.getElementById(`ctrl-itens-${clienteId}`).innerHTML = itens.map(linhaItemControle).join('');
+    showToast('📋 Lista padrão carregada — clique em Salvar Controle pra guardar', 'success');
+  } catch(e) { showToast('Erro ao carregar a lista padrão', 'error'); }
 }
 
 function coletarDadosControle(clienteId) {

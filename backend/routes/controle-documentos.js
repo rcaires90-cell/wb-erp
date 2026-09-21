@@ -3,27 +3,21 @@ const db     = require('../db');
 const auth   = require('../middleware/auth');
 const { htmlParaPdfBase64 } = require('../lib/pdf');
 
-// Lista fixa de documentos do modelo "Controle Clientes — Não protocolados"
-// usado hoje em papel/Word pela equipe — replicada aqui sem alterar nada
-// (mesma ordem, mesmo texto). As 2 linhas em branco no final espelham as
-// linhas extras que já existiam no modelo pra anotar documentos avulsos.
+// Lista padrão definida pela equipe; as 2 linhas em branco são pra documentos avulsos.
 const ITENS_PADRAO = [
-  'Requerimento assinado pelo cliente',
-  'Procuração / contrato de honorários',
-  'Passaporte ou documento de identidade do país de origem',
-  'CRNM / RNM (frente e verso)',
-  'CPF',
-  'Certidão de nascimento (traduzida e legalizada)',
-  'Certidão de casamento / união estável (se houver)',
-  'Comprovante de residência atualizado',
-  'Certidão de antecedentes criminais — Polícia Federal',
-  'Certidão de antecedentes criminais — Justiça Federal',
-  'Certidão de antecedentes criminais — Justiça Estadual',
-  'Certidão de antecedentes do país de origem ou declaração de impossibilidade',
-  'Certificado de proficiência em português',
-  'Comprovante de meios de subsistência (CTPS, contrato, declaração)',
-  'Foto 3x4 / foto digital',
-  'Comprovante de pagamento da GRU',
+  'E-mail com a informação do agendamento (Impresso)',
+  'Declaração de adaptação de nome',
+  'RNM ORIGINAL',
+  'Comprovante de situação cadastral',
+  'Certidão Criminal Estadual de todos Estados em que morou',
+  'Certidão Criminal Federal de todos Estados em que morou',
+  'Atestado Criminal legalizado',
+  'Tradução ORIGINAL do Atestado Criminal',
+  'Carteira de trabalho / Extrato CNIS',
+  'Comprovante de endereço atualizado',
+  'Passaporte ( Todos que tiver )',
+  'Certificado de língua portuguesa (ORIGINAL)',
+  'Declaração de aula presencial (ORIGINAL)',
   '',
   '',
 ].map(documento => ({ documento, ok: false, observacao: '' }));
@@ -83,6 +77,9 @@ function montarHtmlControle(nomeCliente, d) {
 }
 
 router.use(auth);
+
+// ── GET /api/controle-documentos/padrao/itens ─────
+router.get('/padrao/itens', (req, res) => res.json(ITENS_PADRAO));
 
 // ── GET /api/controle-documentos/:clienteId ───────
 router.get('/:clienteId', async (req, res) => {
