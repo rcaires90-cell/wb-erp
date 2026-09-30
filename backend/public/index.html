@@ -1800,19 +1800,22 @@ function notificacoesLogin() {
   if (vencidas > 0) showToast(`⚠️ ${vencidas} parcela(s) vencida(s)`, 'warning');
 
   // Só antecedente criminal e RNM alertam (passaporte/visto/autorização de
-  // residência ficam só informativos na aba Validade) — e só enquanto o
-  // processo ainda não passou da fase PF Análise (depois disso o documento
-  // já foi entregue, não faz mais sentido alertar).
-  const FASES_SEM = ['pf_analise','pf_biometria','mjsp_analise','dou_publicado','concluido'];
+  // residência ficam só informativos na aba Validade).
   const diasAte = val => Math.ceil((new Date(String(val).slice(0,10)+'T12:00') - new Date()) / 864e5);
-  const vencendo = (campo) => (clientes||[]).filter(c =>
-    !c.arquivado && c[campo] && !FASES_SEM.includes(c.processo_fase) && diasAte(c[campo]) <= 30
-  ).length;
 
-  const antec = vencendo('doc_antecedente_val');
+  // Antecedente: só alerta enquanto o cliente ainda está em Pré-Protocolo —
+  // depois disso o documento já foi entregue/protocolado, não faz mais
+  // sentido cobrar (pedido explícito do usuário em 2026-09-30).
+  const antec = (clientes||[]).filter(c =>
+    !c.arquivado && c.doc_antecedente_val && (!c.processo_fase || c.processo_fase === 'pre_protocolo') && diasAte(c.doc_antecedente_val) <= 30
+  ).length;
   if (antec > 0) showToast(`🚔 ${antec} antecedente(s) criminal(is) vencendo/vencido(s)`, 'warning');
 
-  const rnm = vencendo('doc_rnm_val');
+  // RNM continua com a regra antiga: alerta até a fase PF Análise.
+  const FASES_SEM_RNM = ['pf_analise','pf_biometria','mjsp_analise','dou_publicado','concluido'];
+  const rnm = (clientes||[]).filter(c =>
+    !c.arquivado && c.doc_rnm_val && !FASES_SEM_RNM.includes(c.processo_fase) && diasAte(c.doc_rnm_val) <= 30
+  ).length;
   if (rnm > 0) showToast(`🪪 ${rnm} RNM vencendo/vencido(s)`, 'warning');
 }
 
