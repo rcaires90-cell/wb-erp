@@ -1968,6 +1968,7 @@ const PAGE_TITLES = {
   'form-residencia':    'Formulário — Autorização de Residência',
   'form-visto-eua':     'Formulário — Visto EUA',
   treinamento:          'Guia de Serviços',
+  procedimentos:        'Procedimentos Operacionais',
 };
 
 function getDefaultPage() {
@@ -2009,6 +2010,7 @@ function buildNav() {
     ${ni('form-visto-eua','🇺🇸','Visto EUA')}
     <div class="nav-section">Treinamento</div>
     ${ni('treinamento','🎓','Guia de Serviços')}
+    ${ni('procedimentos','🧭','Procedimentos Operacionais')}
     <div class="nav-section">Sistema</div>
     ${ni('configuracoes','⚙','Configurações')}`;
 }
@@ -2038,6 +2040,7 @@ function renderPage(page) {
     'form-residencia':    () => renderFormulario('residencia'),
     'form-visto-eua':     () => renderFormulario('visto_eua'),
     'treinamento':        renderTreinamento,
+    'procedimentos':      renderProcedimentos,
   };
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = `<div class="empty"><div class="icon">🔧</div><h3>Em breve</h3></div>`;
@@ -2251,35 +2254,45 @@ const PROCEDIMENTOS_OPERACIONAIS = [
       'O segredo aqui é saber <b>qual dos dois links usar em cada caso</b> — depois de abrir o link certo, o próprio portal do gov.br conduz o resto do passo a passo.',
     ],
   },
+  {
+    icon: '📑',
+    titulo: 'Situação Cadastral, CNIS e Carteira de Trabalho',
+    passos: [
+      '<b>Situação Cadastral do CPF</b> — <a href="https://servicos.receita.fazenda.gov.br/servicos/cpf/consultasituacao/consultapublica.asp" target="_blank" style="color:var(--gold)">Consulta Pública de CPF — Receita Federal</a>.',
+      '<b>CNIS</b> (extrato de contribuições do INSS) — acessar <b>logado na conta gov.br do cliente</b> (Meu INSS).',
+      '<b>Carteira de Trabalho Digital</b> — acessar <b>logado na conta gov.br do cliente</b>.',
+    ],
+  },
 ];
 
-function htmlProcedimentosOperacionais() {
+function renderProcedimentos() {
   return `
-    <div class="panel" style="max-width:760px;margin-bottom:20px">
-      <div class="panel-header"><span class="panel-title">🧭 Procedimentos Operacionais</span></div>
-      <div class="panel-body">
-        <p style="font-size:0.8rem;color:var(--text3);margin:0 0 16px">Passo a passo de tarefas que se repetem em qualquer serviço — pra fazer sozinho sem precisar perguntar pra ninguém.</p>
-        ${PROCEDIMENTOS_OPERACIONAIS.map(p => `
-          <div style="margin-bottom:18px">
-            <div style="font-size:0.82rem;font-weight:700;margin-bottom:10px">${p.icon} ${p.titulo}</div>
-            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:${p.tabela ? '12px' : '0'}">
-              ${p.passos.map((passo, i) => `
-                <div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;background:var(--bg3);border-radius:8px">
-                  <span style="font-family:monospace;color:var(--text3);font-size:0.75rem;flex-shrink:0;width:16px">${i+1}.</span>
-                  <div style="font-size:0.8rem;color:var(--text2);line-height:1.4">${passo}</div>
-                </div>`).join('')}
-            </div>
-            ${p.tabela ? `
-              <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.06em;color:var(--text3);text-transform:uppercase;margin-bottom:6px">${p.tabela.titulo}</div>
-              <div style="overflow-x:auto">
-                <table class="tbl" style="font-size:0.78rem">
-                  <thead><tr>${p.tabela.cabecalho.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-                  <tbody>${p.tabela.linhas.map(l => `<tr>${l.map(v => `<td>${v}</td>`).join('')}</tr>`).join('')}</tbody>
-                </table>
-              </div>` : ''}
-          </div>`).join('')}
-      </div>
-    </div>`;
+    <div style="margin-bottom:20px;max-width:760px">
+      <h2 style="margin:0">🧭 Procedimentos Operacionais</h2>
+      <p style="margin:4px 0 0;color:var(--text3);font-size:0.82rem">Passo a passo de tarefas que se repetem em qualquer serviço — pra fazer sozinho sem precisar perguntar pra ninguém.</p>
+    </div>
+    ${PROCEDIMENTOS_OPERACIONAIS.map(p => `
+      <div class="panel" style="max-width:760px;margin-bottom:16px">
+        <div class="panel-header"><span class="panel-title">${p.icon} ${p.titulo}</span></div>
+        <div class="panel-body">
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:${p.tabela ? '12px' : '0'}">
+            ${p.passos.map((passo, i) => `
+              <div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;background:var(--bg3);border-radius:8px">
+                <span style="font-family:monospace;color:var(--text3);font-size:0.75rem;flex-shrink:0;width:16px">${i+1}.</span>
+                <div style="font-size:0.8rem;color:var(--text2);line-height:1.4">${passo}</div>
+              </div>`).join('')}
+          </div>
+          ${p.tabela ? `
+            <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.06em;color:var(--text3);text-transform:uppercase;margin-bottom:6px">${p.tabela.titulo}</div>
+            <div style="overflow-x:auto">
+              <table class="tbl" style="font-size:0.78rem">
+                <thead><tr>${p.tabela.cabecalho.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                <tbody>${p.tabela.linhas.map(l => `<tr>${l.map(v => `<td>${v}</td>`).join('')}</tr>`).join('')}</tbody>
+              </table>
+            </div>` : ''}
+        </div>
+      </div>`).join('')}
+  `;
 }
 
 async function carregarTreinamento() {
@@ -2304,7 +2317,6 @@ async function carregarTreinamento() {
       <h2 style="margin:0">🎓 Guia de Serviços</h2>
       <p style="margin:4px 0 0;color:var(--text3);font-size:0.82rem">Passo a passo de cada serviço da WB — o que é, pra quem é, etapas do processo, documentos necessários e as perguntas-chave pra fechar contrato. Feito pra colaboradores novos aprenderem rápido.</p>
     </div>
-    ${htmlProcedimentosOperacionais()}
     ${Object.entries(TREINAMENTO_INFO).map(([chave, info]) => {
       const cfg = formularios[chave];
       const fases = info.fases();
