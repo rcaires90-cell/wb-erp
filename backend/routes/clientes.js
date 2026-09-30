@@ -54,6 +54,64 @@ async function notificarEtapa(cliente, novaEtapa) {
   } catch(e) { console.error('[email] ERRO notificarEtapa:', e.message); }
 }
 
+// Acompanhamento do antecedente criminal: solicitado → tem data → legalizado.
+// Cria/conclui tarefas automáticas em tarefas_cliente pra equipe não perder o
+// fio (ex: "pediu, mas nunca mais checamos se saiu a data").
+async function acompanharAntecedenteCriminal(clienteId, antes, fields) {
+  const solicitadoEm = 'doc_antecedente_solicitado_em' in fields ? fields.doc_antecedente_solicitado_em : antes.doc_antecedente_solicitado_em;
+  const validade      = 'doc_antecedente_val' in fields ? fields.doc_antecedente_val : antes.doc_antecedente_val;
+  const legalizado     = !!('doc_antecedente' in fields ? fields.doc_antecedente : antes.doc_antecedente);
+
+  const addDias = (dataStr, dias) => {
+    const d = new Date(String(dataStr).slice(0, 10) + 'T12:00');
+    d.setDate(d.getDate() + dias);
+    return d.toISOString().slice(0, 10);
+  };
+
+  async function upsertTarefa(faseId, descricao, prazoData) {
+    const [[existe]] = await db.query(
+      'SELECT id FROM tarefas_cliente WHERE cliente_id=? AND fase_id=? AND concluida=0',
+      [clienteId, faseId]
+    );
+    if (existe) {
+      await db.query('UPDATE tarefas_cliente SET prazo_data=? WHERE id=?', [prazoData, existe.id]);
+    } else {
+      await db.query(
+        'INSERT INTO tarefas_cliente (cliente_id, fase_id, descricao, prazo_data) VALUES (?,?,?,?)',
+        [clienteId, faseId, descricao, prazoData]
+      );
+    }
+  }
+  async function concluirTarefa(faseId) {
+    await db.query(
+      'UPDATE tarefas_cliente SET concluida=1 WHERE cliente_id=? AND fase_id=? AND concluida=0',
+      [clienteId, faseId]
+    );
+  }
+
+  // Solicitado, mas ainda sem data de validade → cobrar em +15 dias
+  if (solicitadoEm && !validade) {
+    await upsertTarefa(
+      'criminal_data',
+      'Ligar e perguntar se já tem a data do antecedente criminal',
+      addDias(solicitadoEm, 15)
+    );
+  } else {
+    await concluirTarefa('criminal_data');
+  }
+
+  // Tem validade mas ainda não foi legalizado → cobrar 30 dias antes de vencer
+  if (validade && !legalizado) {
+    await upsertTarefa(
+      'criminal_legalizacao',
+      'Cobrar legalização/apostilamento do antecedente criminal (vence em breve)',
+      addDias(validade, -30)
+    );
+  } else {
+    await concluirTarefa('criminal_legalizacao');
+  }
+}
+
 router.use(auth);
 
 // ── GET /api/clientes ─────────────────────────────
@@ -239,6 +297,8 @@ router.patch('/:id', async (req, res) => {
       'data_nascimento',
       // Validade de documentos extras
       'doc_passaporte_val', 'doc_rnm_val', 'doc_visto_val', 'data_validade_ar',
+      // Acompanhamento do antecedente criminal (pedido → data → legalização)
+      'doc_antecedente_solicitado_em',
     ];
 
     const setClauses = [];
@@ -254,7 +314,10 @@ router.patch('/:id', async (req, res) => {
       return res.status(400).json({ erro: 'Nenhum campo válido para atualizar' });
     }
 
-    const [[antes]] = await db.query('SELECT etapa, processo_fase, status, email, nome, servico FROM clientes WHERE id=?', [id]);
+    const [[antes]] = await db.query(
+      'SELECT etapa, processo_fase, status, email, nome, servico, doc_antecedente, doc_antecedente_val, doc_antecedente_solicitado_em FROM clientes WHERE id=?',
+      [id]
+    );
     params.push(id);
     await db.query(
       `UPDATE clientes SET ${setClauses.join(', ')}, updated_at = NOW() WHERE id = ?`,
@@ -278,6 +341,11 @@ router.patch('/:id', async (req, res) => {
     if ('status' in fields && fields.status !== antes?.status) {
       db.query('INSERT INTO historico_fases (cliente_id, fase_id, fase_label, usuario_nome) VALUES (?,?,?,?)',
         [id, 'status_change', `Status: ${antes.status||'?'} → ${fields.status}`, usuario_nome]).catch(()=>{});
+    }
+
+    if (['doc_antecedente_solicitado_em', 'doc_antecedente_val', 'doc_antecedente'].some(k => k in fields)) {
+      await acompanharAntecedenteCriminal(id, antes, fields).catch(e =>
+        console.error('[clientes] acompanharAntecedenteCriminal:', e.message));
     }
 
     res.json(updated[0]);

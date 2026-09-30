@@ -70,6 +70,9 @@ async function runMigrations() {
     ['clientes', 'doc_rnm_val',            "DATE          DEFAULT NULL"],
     ['clientes', 'doc_visto_val',          "DATE          DEFAULT NULL"],
     ['clientes', 'data_validade_ar',       "DATE          DEFAULT NULL"],
+    // Acompanhamento do antecedente criminal — data em que o cliente disse
+    // que já solicitou (antes de existir uma data de validade emitida)
+    ['clientes', 'doc_antecedente_solicitado_em', "DATE DEFAULT NULL"],
     ['leads', 'pais',           "VARCHAR(100) DEFAULT NULL"],
     ['leads', 'rnm_tipo',       "VARCHAR(50)  DEFAULT NULL"],
     ['leads', 'tempo_no_pais',  "VARCHAR(50)  DEFAULT NULL"],

@@ -3371,10 +3371,53 @@ async function openCliente(id) {
     <!-- ABA: VALIDADE DE DOCUMENTOS (checklist de entrega foi substituído pela aba Controle) -->
     <div id="tab-docs" class="modal-tab-pane" style="display:none;padding:18px 22px">
 
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Acompanhamento do Antecedente Criminal</div>
+      ${(() => {
+        const solicitado = c.doc_antecedente_solicitado_em ? String(c.doc_antecedente_solicitado_em).slice(0,10) : '';
+        const validade    = c.doc_antecedente_val ? String(c.doc_antecedente_val).slice(0,10) : '';
+        const legalizado  = !!c.doc_antecedente;
+        let diasStr = '', cor = 'var(--text3)', urgente = false;
+        if (validade) {
+          const dias = Math.ceil((new Date(validade+'T12:00') - new Date()) / 864e5);
+          diasStr = dias < 0 ? `${Math.abs(dias)}d vencido` : `${dias}d restantes`;
+          cor = dias < 0 ? 'var(--red)' : dias < 30 ? 'var(--orange)' : 'var(--green)';
+          urgente = dias < 30 && !legalizado;
+        }
+        const etapa = legalizado ? { texto:'✅ Legalizado', cor:'var(--green)' }
+          : validade   ? { texto:'⏳ Tem validade — aguardando legalização', cor:'var(--orange)' }
+          : solicitado ? { texto:'📞 Solicitado — aguardando data', cor:'var(--orange)' }
+          : { texto:'— Ainda não solicitado', cor:'var(--text3)' };
+        return `
+        <div style="background:var(--bg3);border-radius:8px;padding:12px 14px;margin-bottom:16px;border:1px solid ${urgente?'rgba(245,158,11,0.35)':'var(--border)'}">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+            <span style="font-size:0.78rem;color:var(--text2);font-weight:700">🚔 Antecedente Criminal</span>
+            <span style="font-size:0.68rem;font-weight:700;color:${etapa.cor}">${etapa.texto}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+            <div>
+              <div style="font-size:0.62rem;color:var(--text3);margin-bottom:3px">Solicitado em</div>
+              <input type="date" value="${solicitado}" onchange="updateDocVal(${c.id},'doc_antecedente_solicitado_em',this.value);carregarTarefas(${c.id})"
+                style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:4px 8px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
+            </div>
+            <div>
+              <div style="font-size:0.62rem;color:var(--text3);margin-bottom:3px">Validade / vencimento</div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <input type="date" value="${validade}" onchange="updateDocVal(${c.id},'doc_antecedente_val',this.value);carregarTarefas(${c.id})"
+                  style="flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:4px 8px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">
+                ${diasStr?`<span style="font-size:0.66rem;font-weight:700;color:${cor};white-space:nowrap">${diasStr}</span>`:''}
+              </div>
+            </div>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.78rem;color:var(--text2);cursor:pointer">
+            <input type="checkbox" ${legalizado?'checked':''} onchange="updateDocBool(${c.id},'doc_antecedente',this.checked);carregarTarefas(${c.id})" style="width:16px;height:16px;accent-color:var(--green);cursor:pointer">
+            Já foi legalizado / apostilado
+          </label>
+        </div>`;
+      })()}
+
       <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Validade de Documentos</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="display:grid;grid-template-columns:1fr;gap:8px">
         ${[
-          { field:'doc_antecedente_val', label:'🚔 Antecedente Criminal' },
           { field:'doc_rnm_val',        label:'🪪 RNM' },
         ].map(({field, label}) => {
           const rawVal = c[field] ? String(c[field]).slice(0,10) : '';
@@ -4428,6 +4471,14 @@ async function updateDocVal(clienteId, campo, valor) {
     await apiFetch('/clientes/' + clienteId, { method:'PATCH', body: JSON.stringify({ [campo]: valor || null }) });
     const idx = clientes.findIndex(x => x.id === clienteId);
     if (idx >= 0) clientes[idx][campo] = valor;
+  } catch(e) { showToast('Erro ao salvar','error'); }
+}
+
+async function updateDocBool(clienteId, campo, checked) {
+  try {
+    await apiFetch('/clientes/' + clienteId, { method:'PATCH', body: JSON.stringify({ [campo]: checked ? 1 : 0 }) });
+    const idx = clientes.findIndex(x => x.id === clienteId);
+    if (idx >= 0) clientes[idx][campo] = checked ? 1 : 0;
   } catch(e) { showToast('Erro ao salvar','error'); }
 }
 
