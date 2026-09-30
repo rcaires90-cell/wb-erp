@@ -397,6 +397,7 @@ html, body { margin:0; padding:0; height:100%; overflow:hidden; }
   </div>
 </div>
 
+<script src="lib/antecedente.js"></script>
 <script>
 
 
@@ -874,7 +875,8 @@ function renderConfiguracoes() {
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-outline btn-sm" onclick="loadData().then(()=>{renderPage(currentPage);showToast('✅ Dados atualizados!','success')})">🔄 Sincronizar agora</button>
               ${currentRole !== 'colaborador' ? `<button class="btn btn-outline btn-sm" onclick="exportarJSON()">📤 Exportar JSON</button>
-              <button class="btn btn-outline btn-sm" onclick="baixarBackupCompleto()">💾 Backup Completo</button>` : ''}
+              <button class="btn btn-outline btn-sm" onclick="baixarBackupCompleto()">💾 Backup Completo</button>
+              <button class="btn btn-outline btn-sm" onclick="rodarBackupPorEmailAgora()">✉️ Rodar backup por e-mail agora</button>` : ''}
             </div>
           </div>
         </div>
@@ -1346,6 +1348,19 @@ async function baixarBackupCompleto() {
   } catch(e) { showToast('Erro ao gerar backup', 'error'); }
 }
 
+async function rodarBackupPorEmailAgora() {
+  showToast('⏳ Gerando e enviando backup por e-mail...', 'info');
+  try {
+    const resp = await fetch(`${API_BASE}/config/backup-agora`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${AUTH_TOKEN}` }
+    });
+    const d = await resp.json();
+    if (!resp.ok) return showToast('Erro: ' + (d.erro || resp.status), 'error');
+    showToast(`✅ Backup enviado para ${d.enviado_para}!`, 'success');
+  } catch(e) { showToast('Erro ao rodar backup por e-mail', 'error'); }
+}
+
 async function dispararNotificacao(tipo) {
   showToast('⏳ Disparando notificações...', '');
   try {
@@ -1803,15 +1818,10 @@ function notificacoesLogin() {
   // residência ficam só informativos na aba Validade).
   const diasAte = val => Math.ceil((new Date(String(val).slice(0,10)+'T12:00') - new Date()) / 864e5);
 
-  // Antecedente: só NÃO alerta quando o documento já foi legalizado E o
-  // processo já foi protocolado (fase avançou além de pré-protocolo) — aí o
-  // antecedente já valeu pro protocolo e vencer depois não é mais problema.
-  // Protocolado sem legalizar, ou legalizado sem protocolar, continuam
-  // alertando (pedido explícito do usuário em 2026-09-30).
-  const antec = (clientes||[]).filter(c =>
-    !c.arquivado && c.doc_antecedente_val && diasAte(c.doc_antecedente_val) <= 30 &&
-    !(c.doc_antecedente && c.processo_fase && c.processo_fase !== 'pre_protocolo')
-  ).length;
+  // Regra de supressão (legalizado + protocolado) mora em lib/antecedente.js,
+  // compartilhada com o cron de e-mail do backend — nunca duplicar aqui de
+  // novo (ver project_wb_erp.md, entrada de 2026-09-30).
+  const antec = (clientes||[]).filter(c => window.WBAntecedente.deveAlertar(c, { janelaDias: 30 })).length;
   if (antec > 0) showToast(`🚔 ${antec} antecedente(s) criminal(is) vencendo/vencido(s)`, 'warning');
 
   // RNM continua com a regra antiga: alerta até a fase PF Análise.
@@ -3161,6 +3171,11 @@ function tabelaClientes(lista) {
             <td>
               <div style="font-size:0.78rem;font-weight:600;color:var(--text)">${faseInfo?.icon||'📋'} ${faseInfo?.label||'—'}</div>
               <div style="font-size:0.68rem;margin-top:3px">${servicoBadge(c.servico)}</div>
+              ${(!c.processo_protocolo && c.processo_fase && c.processo_fase !== 'pre_protocolo') ? `
+              <div title="Processo já avançou de fase mas o número do protocolo ainda não foi preenchido"
+                style="font-size:0.62rem;background:rgba(251,191,36,0.15);color:var(--orange,#fbbf24);border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:1px 7px;font-weight:700;display:inline-block;margin-top:4px;white-space:nowrap">
+                ⚠️ nº processo pendente
+              </div>` : ''}
             </td>
             <td style="min-width:120px">
               <div style="display:flex;align-items:center;gap:8px">
@@ -3386,7 +3401,14 @@ async function openCliente(id) {
         <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Protocolo & Prazo</div>
         <div style="display:grid;grid-template-columns:${(c.servico||'').includes('Naturaliz')||c.processo_data_inicio?'1fr 1fr 1fr':'1fr 1fr'};gap:10px">
           <div>
-            <div style="font-size:0.62rem;color:var(--text3);margin-bottom:3px">Número do Processo (MJSP)</div>
+            <div style="font-size:0.62rem;color:var(--text3);margin-bottom:3px;display:flex;align-items:center;gap:6px">
+              Número do Processo (MJSP)
+              ${(!c.processo_protocolo && c.processo_fase && c.processo_fase !== 'pre_protocolo') ? `
+              <span title="Processo já avançou de fase mas o número ainda não foi preenchido"
+                style="font-size:0.6rem;background:rgba(251,191,36,0.15);color:var(--orange,#fbbf24);border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:1px 7px;font-weight:700;white-space:nowrap">
+                ⚠️ falta preencher
+              </span>` : ''}
+            </div>
             <input id="proc-protocolo" value="${c.processo_protocolo||''}" placeholder="235881.0546341/2024"
               oninput="mascaraProcessoMJSP(this)"
               style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:0.78rem;outline:none;font-family:inherit">

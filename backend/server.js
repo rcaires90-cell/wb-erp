@@ -408,24 +408,22 @@ async function verificarAntecedenteCron() {
   console.log('[cron/antecedente] Verificando antecedentes a vencer...');
   try {
     const { sendEmail } = require('./lib/email');
+    const { deveAlertar } = require('./public/lib/antecedente');
     const EQUIPE_EMAIL = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
 
-    // Só não alerta quando o documento JÁ foi legalizado E o processo já foi
-    // protocolado — nesse caso o antecedente já valeu pro protocolo, vencer
-    // depois não é mais problema. "Protocolado" aqui é detectado pela fase
-    // ter avançado além de pré-protocolo (o campo processo_protocolo raramente
-    // é preenchido na prática, então não serve como sinal confiável).
-    // Protocolado mas ainda sem legalizar continua alertando — é uma
-    // pendência real (pedido do usuário em 2026-09-30).
-    const [clientes] = await db.query(`
-      SELECT id, nome, doc_antecedente_val
+    // Janela de 30 dias filtrada no SQL (usa índice/é barato); a regra de
+    // supressão (legalizado + protocolado) mora só em public/lib/antecedente.js,
+    // reaproveitada tal e qual pelo toast de login no frontend — ver esse
+    // arquivo pro histórico da regra.
+    const [candidatos] = await db.query(`
+      SELECT id, nome, doc_antecedente, doc_antecedente_val, processo_fase
       FROM clientes
       WHERE arquivado = 0
         AND doc_antecedente_val IS NOT NULL
         AND doc_antecedente_val <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-        AND NOT (doc_antecedente = 1 AND processo_fase IS NOT NULL AND processo_fase != 'pre_protocolo')
       ORDER BY doc_antecedente_val ASC
     `);
+    const clientes = candidatos.filter(c => deveAlertar(c, { janelaDias: 30 }));
 
     if (!clientes.length) {
       console.log('[cron/antecedente] Nenhum antecedente a vencer nos próximos 30 dias.');
@@ -672,30 +670,11 @@ async function verificarDocumentosVencendoCron() {
 
 async function backupSemanalCron() {
   const { sendEmail } = require('./lib/email');
+  const { rodarBackupSemanal } = require('./lib/backup');
   const EQUIPE = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
   try {
-    const tabelas = ['clientes','parcelas','agendamentos','leads','notas_clientes'];
-    const backup = { gerado_em: new Date().toISOString(), tabelas: {} };
-    for (const t of tabelas) {
-      const [rows] = await db.query(`SELECT * FROM \`${t}\``);
-      backup.tabelas[t] = rows;
-    }
-    const json = JSON.stringify(backup);
-    const data = new Date().toISOString().slice(0,10);
-    await sendEmail(EQUIPE, `💾 Backup Semanal WB ERP — ${data}`,
-      `<div style="font-family:Arial;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
-        <h2 style="color:#c9a84c">Backup Semanal — WB ERP</h2>
-        <p>Backup gerado em <b>${new Date().toLocaleString('pt-BR')}</b>.</p>
-        <ul>${tabelas.map(t=>`<li><b>${t}</b>: ${backup.tabelas[t].length} registros</li>`).join('')}</ul>
-        <p style="color:#888;font-size:0.85rem">Para backup completo, acesse o sistema: Exportar → backup.json</p>
-      </div>`,
-      [{ filename: `wb-backup-${data}.json`, content: json, contentType: 'application/json' }]
-    ).catch(() => {
-      // sendEmail pode não suportar attachments — envia sem anexo
-      sendEmail(EQUIPE, `💾 Backup Semanal WB ERP — ${data}`,
-        `<p>Backup gerado: ${tabelas.map(t=>`${t}: ${backup.tabelas[t].length} registros`).join(', ')}. Acesse o sistema para baixar o backup completo.</p>`);
-    });
-    console.log(`[cron/backup] Backup semanal enviado para ${EQUIPE}`);
+    const { resumo } = await rodarBackupSemanal(db, { sendEmail, equipeEmail: EQUIPE });
+    console.log(`[cron/backup] Backup semanal enviado para ${EQUIPE} (${resumo.join(', ')})`);
   } catch (e) { console.error('[cron/backup]', e.message); }
 }
 

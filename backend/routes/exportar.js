@@ -96,18 +96,13 @@ router.get('/leads.csv', async (req, res) => {
 });
 
 // GET /api/exportar/backup.json  — exporta todas as tabelas principais (só CEO)
+// Mesma lista de tabelas do backup semanal por e-mail (lib/backup.js) — uma
+// única fonte de verdade pro que entra no backup.
 router.get('/backup.json', async (req, res) => {
   if (req.user.role !== 'ceo') return res.status(403).json({ erro: 'Acesso negado' });
   try {
-    const tabelas = ['clientes','parcelas','agendamentos','despesas','prolabore',
-                     'leads','metas_mensais'];
-    const backup = { gerado_em: new Date().toISOString(), tabelas: {} };
-    for (const t of tabelas) {
-      try {
-        const [rows] = await db.query(`SELECT * FROM \`${t}\``);
-        backup.tabelas[t] = rows;
-      } catch { backup.tabelas[t] = []; }
-    }
+    const { gerarBackupDados } = require('../lib/backup');
+    const backup = await gerarBackupDados(db);
     const data = new Date().toISOString().slice(0,10);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="wb-erp-backup-${data}.json"`);

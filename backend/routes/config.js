@@ -4,6 +4,21 @@ const auth   = require('../middleware/auth');
 
 router.use(auth);
 
+// ── POST /api/config/backup-agora ─────────────────
+// Roda o mesmo backup do cron semanal sob demanda (mesmo e-mail/anexo).
+router.post('/backup-agora', async (req, res) => {
+  if (req.user.role === 'colaborador') return res.status(403).json({ erro: 'Acesso negado' });
+  try {
+    const { sendEmail } = require('../lib/email');
+    const { rodarBackupSemanal } = require('../lib/backup');
+    const EQUIPE = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
+    const { resumo } = await rodarBackupSemanal(db, { sendEmail, equipeEmail: EQUIPE });
+    res.json({ ok: true, enviado_para: EQUIPE, resumo });
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
+
 // ── GET /api/config ───────────────────────────────
 // Retorna todas as configurações do sistema como objeto chave:valor
 router.get('/', async (req, res) => {
