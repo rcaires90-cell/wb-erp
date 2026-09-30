@@ -410,13 +410,20 @@ async function verificarAntecedenteCron() {
     const { sendEmail } = require('./lib/email');
     const EQUIPE_EMAIL = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
 
+    // Só não alerta quando o documento JÁ foi legalizado E o processo já foi
+    // protocolado — nesse caso o antecedente já valeu pro protocolo, vencer
+    // depois não é mais problema. "Protocolado" aqui é detectado pela fase
+    // ter avançado além de pré-protocolo (o campo processo_protocolo raramente
+    // é preenchido na prática, então não serve como sinal confiável).
+    // Protocolado mas ainda sem legalizar continua alertando — é uma
+    // pendência real (pedido do usuário em 2026-09-30).
     const [clientes] = await db.query(`
       SELECT id, nome, doc_antecedente_val
       FROM clientes
       WHERE arquivado = 0
         AND doc_antecedente_val IS NOT NULL
         AND doc_antecedente_val <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-        AND (processo_fase IS NULL OR processo_fase = 'pre_protocolo')
+        AND NOT (doc_antecedente = 1 AND processo_fase IS NOT NULL AND processo_fase != 'pre_protocolo')
       ORDER BY doc_antecedente_val ASC
     `);
 

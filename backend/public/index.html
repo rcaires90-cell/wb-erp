@@ -1803,11 +1803,14 @@ function notificacoesLogin() {
   // residência ficam só informativos na aba Validade).
   const diasAte = val => Math.ceil((new Date(String(val).slice(0,10)+'T12:00') - new Date()) / 864e5);
 
-  // Antecedente: só alerta enquanto o cliente ainda está em Pré-Protocolo —
-  // depois disso o documento já foi entregue/protocolado, não faz mais
-  // sentido cobrar (pedido explícito do usuário em 2026-09-30).
+  // Antecedente: só NÃO alerta quando o documento já foi legalizado E o
+  // processo já foi protocolado (fase avançou além de pré-protocolo) — aí o
+  // antecedente já valeu pro protocolo e vencer depois não é mais problema.
+  // Protocolado sem legalizar, ou legalizado sem protocolar, continuam
+  // alertando (pedido explícito do usuário em 2026-09-30).
   const antec = (clientes||[]).filter(c =>
-    !c.arquivado && c.doc_antecedente_val && (!c.processo_fase || c.processo_fase === 'pre_protocolo') && diasAte(c.doc_antecedente_val) <= 30
+    !c.arquivado && c.doc_antecedente_val && diasAte(c.doc_antecedente_val) <= 30 &&
+    !(c.doc_antecedente && c.processo_fase && c.processo_fase !== 'pre_protocolo')
   ).length;
   if (antec > 0) showToast(`🚔 ${antec} antecedente(s) criminal(is) vencendo/vencido(s)`, 'warning');
 
