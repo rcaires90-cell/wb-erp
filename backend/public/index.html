@@ -1998,7 +1998,7 @@ function buildNav() {
   nav.innerHTML = `
     <div class="nav-section">Gestão</div>
     ${ni('dashboard','📊','Dashboard')}
-    ${ni('clientes','👥','Clientes')}
+    ${ni('clientes','👥','Clientes <span id="badge-sidebar-tarefas" class="nav-badge" style="display:none;background:var(--red);color:#fff" title="Tarefas atrasadas"></span>')}
     ${ni('leads','🎯','Pipeline de Leads <span id="badge-sidebar-leads" class="nav-badge" style="display:none"></span>')}
     ${ni('agendamentos','📅','Agenda')}
     <div class="nav-section">Financeiro</div>
@@ -2621,6 +2621,18 @@ function atualizarBadgesSidebar() {
   const novos = (_leadsCache||[]).filter(l => l.status === 'novo').length;
   const bdLeads = document.getElementById('badge-sidebar-leads');
   if (bdLeads) { bdLeads.textContent = novos || ''; bdLeads.style.display = novos ? '' : 'none'; }
+
+  // Tarefas atrasadas → badge vermelho em Clientes (cobre qualquer tarefa
+  // atrasada, inclusive as automáticas de acompanhamento do antecedente
+  // criminal — sem isso só dava pra ver abrindo cliente por cliente)
+  const bdTarefas = document.getElementById('badge-sidebar-tarefas');
+  if (bdTarefas) {
+    apiFetch('/tarefas/atrasadas').then(lista => {
+      const n = Array.isArray(lista) ? lista.length : 0;
+      bdTarefas.textContent = n || '';
+      bdTarefas.style.display = n ? '' : 'none';
+    }).catch(() => {});
+  }
 }
 
 // ── DDI + máscaras de telefone ────────────────────
