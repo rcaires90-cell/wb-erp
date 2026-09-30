@@ -2215,6 +2215,73 @@ function renderTreinamento() {
   return `<div id="treino-container"><div class="empty"><div class="icon">⏳</div><h3>Carregando...</h3></div></div>`;
 }
 
+// Passo a passo de tarefas operacionais que se repetem em qualquer serviço
+// (certidões, protocolo de RNM) — ditado pelo Renato em 2026-09-30 pra
+// treinar colaborador novo sem depender de ninguém estar disponível.
+const PROCEDIMENTOS_OPERACIONAIS = [
+  {
+    icon: '📜',
+    titulo: 'Certidões Criminais (Estaduais e Federais)',
+    passos: [
+      '<b>Estaduais</b> — sempre no site do <b>TJ (Tribunal de Justiça)</b> do estado/UF onde a pessoa morou (ex: TJSP para São Paulo, TJRJ para Rio de Janeiro).',
+      '<b>Federais</b> — sempre no site do <b>TRF</b> da região correspondente (TRF-1 a TRF-6, não é por estado individual — ver tabela abaixo).',
+      'No site, ir na área de <b>"Certidão"</b> ou <b>"Emissão de Certidão"</b> e escolher sempre a opção <b>"Certidão de Distribuição de Ações Criminais"</b> — nunca cível, trabalhista ou outra opção da lista.',
+      'Preencher os dados pedidos (nome, CPF, etc.). <b>Não tem taxa</b> pra emitir essas certidões.',
+      'O resultado geralmente <b>sai na hora</b> ou chega em instantes por e-mail.',
+    ],
+    tabela: {
+      titulo: 'Qual TRF cobre cada estado',
+      cabecalho: ['TRF', 'Estados'],
+      linhas: [
+        ['TRF-1 — Brasília/DF',      'AC, AP, AM, BA, DF, GO, MA, MT, PA, PI, RO, RR, TO'],
+        ['TRF-2 — Rio de Janeiro/RJ', 'RJ, ES'],
+        ['TRF-3 — São Paulo/SP',     'SP, MS'],
+        ['TRF-4 — Porto Alegre/RS',  'PR, SC, RS'],
+        ['TRF-5 — Recife/PE',        'AL, CE, PB, PE, RN, SE'],
+        ['TRF-6 — Belo Horizonte/MG','MG'],
+      ],
+    },
+  },
+  {
+    icon: '🪪',
+    titulo: 'RNM — Protocolo (Novo, Renovação ou Correção)',
+    passos: [
+      '<b>RNM novo</b> — sempre usar <a href="https://www.gov.br/pf/pt-br/assuntos/imigracao/pt/etapas" target="_blank" style="color:var(--gold)">gov.br/pf — Etapas da Imigração</a>.',
+      '<b>Renovação de RNM ou correção de dados</b> — sempre usar <a href="https://www.gov.br/pt-br/servicos/obter-carteira-de-registro-nacional-migratorio" target="_blank" style="color:var(--gold)">gov.br — Obter Carteira de RNM</a>.',
+      'O segredo aqui é saber <b>qual dos dois links usar em cada caso</b> — depois de abrir o link certo, o próprio portal do gov.br conduz o resto do passo a passo.',
+    ],
+  },
+];
+
+function htmlProcedimentosOperacionais() {
+  return `
+    <div class="panel" style="max-width:760px;margin-bottom:20px">
+      <div class="panel-header"><span class="panel-title">🧭 Procedimentos Operacionais</span></div>
+      <div class="panel-body">
+        <p style="font-size:0.8rem;color:var(--text3);margin:0 0 16px">Passo a passo de tarefas que se repetem em qualquer serviço — pra fazer sozinho sem precisar perguntar pra ninguém.</p>
+        ${PROCEDIMENTOS_OPERACIONAIS.map(p => `
+          <div style="margin-bottom:18px">
+            <div style="font-size:0.82rem;font-weight:700;margin-bottom:10px">${p.icon} ${p.titulo}</div>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:${p.tabela ? '12px' : '0'}">
+              ${p.passos.map((passo, i) => `
+                <div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;background:var(--bg3);border-radius:8px">
+                  <span style="font-family:monospace;color:var(--text3);font-size:0.75rem;flex-shrink:0;width:16px">${i+1}.</span>
+                  <div style="font-size:0.8rem;color:var(--text2);line-height:1.4">${passo}</div>
+                </div>`).join('')}
+            </div>
+            ${p.tabela ? `
+              <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.06em;color:var(--text3);text-transform:uppercase;margin-bottom:6px">${p.tabela.titulo}</div>
+              <div style="overflow-x:auto">
+                <table class="tbl" style="font-size:0.78rem">
+                  <thead><tr>${p.tabela.cabecalho.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+                  <tbody>${p.tabela.linhas.map(l => `<tr>${l.map(v => `<td>${v}</td>`).join('')}</tr>`).join('')}</tbody>
+                </table>
+              </div>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
 async function carregarTreinamento() {
   const container = document.getElementById('treino-container');
   if (!container) return;
@@ -2237,6 +2304,7 @@ async function carregarTreinamento() {
       <h2 style="margin:0">🎓 Guia de Serviços</h2>
       <p style="margin:4px 0 0;color:var(--text3);font-size:0.82rem">Passo a passo de cada serviço da WB — o que é, pra quem é, etapas do processo, documentos necessários e as perguntas-chave pra fechar contrato. Feito pra colaboradores novos aprenderem rápido.</p>
     </div>
+    ${htmlProcedimentosOperacionais()}
     ${Object.entries(TREINAMENTO_INFO).map(([chave, info]) => {
       const cfg = formularios[chave];
       const fases = info.fases();
