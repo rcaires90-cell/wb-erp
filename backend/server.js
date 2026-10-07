@@ -95,6 +95,18 @@ async function runMigrations() {
     // identificar o fornecedor automaticamente na conciliação
     ['lancamentos_bancarios', 'conta_pagar_id', "INT DEFAULT NULL"],
     ['lancamentos_bancarios', 'cnpj_detectado', "VARCHAR(20) DEFAULT NULL"],
+    // Custos de cliente (separado do parcelamento do contrato) — um
+    // lançamento pode financiar um custo inteiro (custo_recebimento_id /
+    // custo_realizacao_id) ou ser dividido em partes quando o valor do banco
+    // mistura contrato + custo (lancamento_pai_id aponta pro lançamento
+    // original "dividido=1", que fica só de registro/auditoria).
+    ['lancamentos_bancarios', 'custo_recebimento_id', "INT DEFAULT NULL"],
+    ['lancamentos_bancarios', 'custo_realizacao_id',  "INT DEFAULT NULL"],
+    ['lancamentos_bancarios', 'lancamento_pai_id',    "INT DEFAULT NULL"],
+    ['lancamentos_bancarios', 'dividido',             "TINYINT(1) DEFAULT 0"],
+    // FITID do OFX — identificador único do banco, evita importar a mesma
+    // transação duas vezes se o arquivo for importado de novo
+    ['lancamentos_bancarios', 'fitid', "VARCHAR(100) DEFAULT NULL"],
   ];
   for (const [table, column, definition] of alterCols) {
     await addColumnIfNotExists(table, column, definition);
@@ -247,6 +259,21 @@ async function runMigrations() {
       updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_vencimento (vencimento),
       INDEX idx_paga (paga)
+    )`,
+    `CREATE TABLE IF NOT EXISTS custos_cliente (
+      id              INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_id      INT NOT NULL,
+      descricao       VARCHAR(300) NOT NULL,
+      categoria       VARCHAR(100) DEFAULT 'Outros',
+      valor_recebido  DECIMAL(10,2) NOT NULL DEFAULT 0,
+      valor_realizado DECIMAL(10,2) NOT NULL DEFAULT 0,
+      status          VARCHAR(20) NOT NULL DEFAULT 'pendente',
+      obs             VARCHAR(500),
+      criado_por      VARCHAR(100),
+      created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_cliente (cliente_id),
+      INDEX idx_status (status)
     )`,
     `CREATE TABLE IF NOT EXISTS controle_documentos (
       id             INT AUTO_INCREMENT PRIMARY KEY,

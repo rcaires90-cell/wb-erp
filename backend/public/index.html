@@ -2471,6 +2471,23 @@ const SERVICOS = [
   'Visto Americano de Turismo',
 ];
 
+// Custos de cliente — separado do parcelamento do contrato (pedido do
+// usuário em 2026-10-07). Ciclo de vida: pendente → recebido → realizado →
+// (classificação manual) credito_cliente | excedente_empresa, ou cancelado
+// a qualquer momento antes de ser classificado.
+const LABEL_STATUS_CUSTO = {
+  pendente: '🟡 Pendente',
+  recebido: '🔵 Recebido',
+  realizado: '🟠 Realizado',
+  credito_cliente: '🟣 Crédito do Cliente',
+  excedente_empresa: '🟢 Excedente da Empresa',
+  cancelado: '🔴 Cancelado',
+};
+const COR_STATUS_CUSTO = {
+  pendente: '#eab308', recebido: '#3b82f6', realizado: '#f97316',
+  credito_cliente: '#a855f7', excedente_empresa: '#22c55e', cancelado: '#ef4444',
+};
+
 // ── CPF Validator + Mask ─────────────────────────
 function validarCPFjs(cpf) {
   const c = cpf.replace(/\D/g, '');
@@ -3356,7 +3373,7 @@ async function openCliente(id) {
       <button class="modal-tab active" onclick="switchModalTab(this,'tab-processo')">⚙️ Processo</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-docs')">🗓️ Validade</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-controle');carregarControleDocumentos(${c.id})">🗂️ Controle</button>
-      <button class="modal-tab" onclick="switchModalTab(this,'tab-financeiro')">💳 Financeiro</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'tab-financeiro');carregarCustosCliente(${c.id})">💳 Financeiro</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-dados')">👤 Dados</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-notas');carregarNotas(${c.id})">📝 Notas</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-comunicacoes');carregarComunicacoes(${c.id})">📞 Contatos</button>
@@ -3614,6 +3631,11 @@ async function openCliente(id) {
           }).join('')}
         </tbody>
       </table>` : '<div style="text-align:center;padding:24px;color:var(--text3)">Sem parcelas cadastradas</div>'}
+
+      <div style="margin:28px 0 14px;border-top:1px solid var(--border)"></div>
+      <div id="custos-cliente-wrap-${c.id}">
+        <div class="empty" style="padding:20px"><div class="icon">💼</div><h3>Carregando custos...</h3></div>
+      </div>
     </div>
 
     <!-- ABA: DADOS -->
@@ -3797,6 +3819,8 @@ async function openCliente(id) {
       _activeTab = _tabToRestore;
       if (_tabToRestore === 'tab-notas') carregarNotas(id);
       else if (_tabToRestore === 'tab-comunicacoes') carregarComunicacoes(id);
+      else if (_tabToRestore === 'tab-financeiro') carregarCustosCliente(id);
+      else if (_tabToRestore === 'tab-controle') carregarControleDocumentos(id);
     }
   }
   // Carrega histórico de fases e tarefas sempre que abre o processo
@@ -3951,6 +3975,213 @@ function switchModalTab(btn, tabId) {
   btn.classList.add('active');
   document.getElementById(tabId).style.display = 'block';
   _activeTab = tabId; // memoriza aba ativa
+}
+
+// ── CUSTOS DE CLIENTE (painel na aba Financeiro) ──────────────────────────────
+// Separado do parcelamento do contrato — pedido do usuário em 2026-10-07.
+async function carregarCustosCliente(clienteId) {
+  const el = document.getElementById(`custos-cliente-wrap-${clienteId}`);
+  if (!el) return;
+  try {
+    delete _custosPorClienteCache[clienteId];
+    const painel = await apiFetch(`/financeiro/painel-cliente/${clienteId}`);
+    el.innerHTML = renderPainelCustosCliente(painel, clienteId);
+  } catch(e) {
+    el.innerHTML = `<div class="empty" style="padding:20px"><p style="color:var(--red)">Erro ao carregar custos: ${e.message}</p></div>`;
+  }
+}
+
+function renderPainelCustosCliente(painel, clienteId) {
+  const { custos, historico } = painel; // contrato já é mostrado pelos cards de cima (parcelas, já carregadas globalmente)
+  const cardsResumo = [
+    ['Recebido p/ Custos', custos.recebido_total, 'var(--text)'],
+    ['Custos Realizados', custos.realizado_total, 'var(--text)'],
+    ['Crédito do Cliente', custos.credito_cliente_total, '#a855f7'],
+    ['Excedente da Empresa', custos.excedente_empresa_total, '#22c55e'],
+  ];
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-size:0.8rem;font-weight:700">💼 Custos do Cliente (${custos.lista.length})</span>
+      <button class="btn btn-gold btn-sm" onclick="abrirModalNovoCusto(${clienteId})">+ Novo Custo</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+      ${cardsResumo.map(([l,v,cor])=>`
+      <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:0.58rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:4px">${l}</div>
+        <div style="font-size:0.82rem;font-weight:800;font-family:'DM Mono',monospace;color:${cor}">R$ ${parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+      </div>`).join('')}
+    </div>
+    ${!custos.lista.length ? `<div class="empty" style="padding:20px"><div class="icon">💼</div><h3>Nenhum custo cadastrado</h3><p>Certidões, taxas, traduções... ficam separados do parcelamento do contrato</p></div>` : `
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
+      ${custos.lista.map(cc => renderLinhaCusto(cc, clienteId)).join('')}
+    </div>`}
+    ${historico.length ? `
+    <div style="font-size:0.8rem;font-weight:700;margin:16px 0 8px">📜 Histórico Financeiro</div>
+    <div class="tbl-wrap">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 8px;font-size:0.62rem;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Data</th>
+        <th style="text-align:left;padding:6px 8px;font-size:0.62rem;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Descrição</th>
+        <th style="text-align:left;padding:6px 8px;font-size:0.62rem;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Tipo</th>
+        <th style="text-align:right;padding:6px 8px;font-size:0.62rem;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Entrada</th>
+        <th style="text-align:right;padding:6px 8px;font-size:0.62rem;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Saída</th>
+        <th style="text-align:left;padding:6px 8px;font-size:0.62rem;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Status</th>
+      </tr></thead>
+      <tbody>
+        ${historico.map(h => `
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:7px 8px;font-size:0.76rem;white-space:nowrap">${h.data?fmtDate(h.data):'—'}</td>
+          <td style="padding:7px 8px;font-size:0.76rem">${htmlEsc(h.descricao||'—')}</td>
+          <td style="padding:7px 8px;font-size:0.72rem"><span class="badge badge-gray">${h.tipo}</span></td>
+          <td style="padding:7px 8px;font-size:0.76rem;text-align:right;color:var(--green)">${parseFloat(h.entrada)>0?'R$ '+parseFloat(h.entrada).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+          <td style="padding:7px 8px;font-size:0.76rem;text-align:right;color:var(--red)">${parseFloat(h.saida)>0?'R$ '+parseFloat(h.saida).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+          <td style="padding:7px 8px;font-size:0.72rem;color:var(--text3)">${h.status_mov}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>` : ''}`;
+}
+
+function renderLinhaCusto(cc, clienteId) {
+  const cor = COR_STATUS_CUSTO[cc.status] || '#999';
+  const saldo = parseFloat(cc.saldo);
+  const podeClassificar = cc.status === 'realizado' && saldo > 0;
+  const podeCancelar = !['credito_cliente','excedente_empresa','cancelado'].includes(cc.status);
+  return `
+    <div style="background:var(--bg3);border-radius:8px;padding:12px 14px;border-left:3px solid ${cor}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:700;font-size:0.84rem">${htmlEsc(cc.descricao)}</div>
+          <div style="font-size:0.68rem;color:var(--text3);margin-top:2px">${htmlEsc(cc.categoria||'Outros')} · <span style="color:${cor}">${LABEL_STATUS_CUSTO[cc.status]||cc.status}</span></div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="abrirModalEditarCusto(${cc.id},${clienteId})" title="Editar">✎</button>
+          ${podeClassificar ? `<button class="btn btn-outline btn-sm" onclick="classificarSaldoCusto(${cc.id},${clienteId})" style="font-size:0.68rem">🏷️ Classificar saldo</button>` : ''}
+          ${podeCancelar ? `<button class="btn btn-ghost btn-sm" onclick="cancelarCusto(${cc.id},${clienteId})" style="color:var(--red)" title="Cancelar">✕</button>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="excluirCusto(${cc.id},${clienteId})" style="color:var(--red)" title="Excluir definitivamente">🗑</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px">
+        <div><div style="font-size:0.58rem;color:var(--text3);text-transform:uppercase">Recebido</div><div style="font-weight:700;font-family:'DM Mono',monospace;font-size:0.82rem">R$ ${parseFloat(cc.valor_recebido).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+        <div><div style="font-size:0.58rem;color:var(--text3);text-transform:uppercase">Realizado</div><div style="font-weight:700;font-family:'DM Mono',monospace;font-size:0.82rem">R$ ${parseFloat(cc.valor_realizado).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+        <div><div style="font-size:0.58rem;color:var(--text3);text-transform:uppercase">Saldo</div><div style="font-weight:700;font-family:'DM Mono',monospace;font-size:0.82rem;color:${saldo>0?'var(--orange)':saldo<0?'var(--red)':'var(--text2)'}">R$ ${saldo.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+      </div>
+      ${cc.obs ? `<div style="font-size:0.72rem;color:var(--text3);margin-top:8px;font-style:italic">${htmlEsc(cc.obs)}</div>` : ''}
+    </div>`;
+}
+
+function abrirModalNovoCusto(clienteId) {
+  openModal(`
+    <div class="modal-header"><span style="font-weight:700">+ Novo Custo</span><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div style="padding:20px 22px;display:flex;flex-direction:column;gap:10px">
+      <div class="form-group"><label>Descrição</label><input id="nc-descricao" placeholder="Ex: Certidão Estadual de SP"></div>
+      <div class="form-group"><label>Categoria</label><input id="nc-categoria" placeholder="Ex: Certidão, Tradução, Taxa..." list="categorias-custo-list">
+        <datalist id="categorias-custo-list">
+          ${['Certidão','Tradução Juramentada','Taxa de Protocolo','Apostilamento','Outros'].map(c=>`<option value="${c}">`).join('')}
+        </datalist>
+      </div>
+      <div class="form-group"><label>Observação (opcional)</label><input id="nc-obs"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-gold" onclick="salvarNovoCusto(${clienteId})">Criar</button>
+      </div>
+    </div>`, true);
+}
+
+async function salvarNovoCusto(clienteId) {
+  const descricao = document.getElementById('nc-descricao')?.value?.trim();
+  if (!descricao) return showToast('Descreva o custo', 'warning');
+  const categoria = document.getElementById('nc-categoria')?.value?.trim();
+  const obs = document.getElementById('nc-obs')?.value?.trim();
+  try {
+    await apiFetch('/financeiro/custos', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, descricao, categoria, obs }) });
+    delete _custosPorClienteCache[clienteId];
+    closeModal();
+    showToast('✅ Custo criado!', 'success');
+    await carregarCustosCliente(clienteId);
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+function abrirModalEditarCusto(custoId, clienteId) {
+  apiFetch(`/financeiro/custos/${custoId}`).then(cc => {
+    openModal(`
+      <div class="modal-header"><span style="font-weight:700">Editar Custo</span><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+      <div style="padding:20px 22px;display:flex;flex-direction:column;gap:10px">
+        <div class="form-group"><label>Descrição</label><input id="ec-descricao" value="${htmlEsc(cc.descricao)}"></div>
+        <div class="form-group"><label>Categoria</label><input id="ec-categoria" value="${htmlEsc(cc.categoria||'')}"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group"><label>Valor Recebido (R$)</label><input id="ec-recebido" type="number" step="0.01" value="${cc.valor_recebido}"></div>
+          <div class="form-group"><label>Valor Realizado (R$)</label><input id="ec-realizado" type="number" step="0.01" value="${cc.valor_realizado}"></div>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text3)">Ajuste manual — use quando o pagamento não passou pela conciliação bancária (dinheiro, outra conta etc). O status é recalculado automaticamente a partir desses valores.</div>
+        <div class="form-group"><label>Observação</label><input id="ec-obs" value="${htmlEsc(cc.obs||'')}"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">
+          <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-gold" onclick="salvarEdicaoCusto(${custoId},${clienteId})">Salvar</button>
+        </div>
+      </div>`, true);
+  });
+}
+
+async function salvarEdicaoCusto(custoId, clienteId) {
+  const descricao = document.getElementById('ec-descricao')?.value?.trim();
+  const categoria = document.getElementById('ec-categoria')?.value?.trim();
+  const obs = document.getElementById('ec-obs')?.value;
+  const valor_recebido = document.getElementById('ec-recebido')?.value;
+  const valor_realizado = document.getElementById('ec-realizado')?.value;
+  try {
+    await apiFetch(`/financeiro/custos/${custoId}`, { method:'PATCH', body: JSON.stringify({ descricao, categoria, obs, valor_recebido, valor_realizado }) });
+    closeModal();
+    showToast('✅ Custo atualizado!', 'success');
+    await carregarCustosCliente(clienteId);
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+function classificarSaldoCusto(custoId, clienteId) {
+  apiFetch(`/financeiro/custos/${custoId}`).then(cc => {
+    openModal(`
+      <div class="modal-header"><span style="font-weight:700">🏷️ Classificar Saldo</span><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+      <div style="padding:20px 22px">
+        <div style="font-size:0.85rem;margin-bottom:16px;line-height:1.5">
+          <strong>${htmlEsc(cc.descricao)}</strong> ficou com saldo de
+          <strong style="color:var(--orange)">R$ ${parseFloat(cc.saldo).toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong>
+          depois de realizado. De quem é esse valor?
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-outline" onclick="confirmarClassificacaoSaldo(${custoId},${clienteId},'credito_cliente')">🟣 Crédito do Cliente</button>
+          <button class="btn btn-outline" onclick="confirmarClassificacaoSaldo(${custoId},${clienteId},'excedente_empresa')">🟢 Excedente da Empresa</button>
+        </div>
+      </div>`, true);
+  });
+}
+
+async function confirmarClassificacaoSaldo(custoId, clienteId, destino) {
+  try {
+    await apiFetch(`/financeiro/custos/${custoId}/classificar-saldo`, { method:'POST', body: JSON.stringify({ destino }) });
+    closeModal();
+    showToast('✅ Saldo classificado!', 'success');
+    await carregarCustosCliente(clienteId);
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+async function cancelarCusto(custoId, clienteId) {
+  try { await confirmar('Esse custo deixa de aparecer como pendente, mas continua no histórico.', 'Cancelar custo', '🛑', 'var(--red)', 'Cancelar custo'); }
+  catch { return; }
+  try {
+    await apiFetch(`/financeiro/custos/${custoId}/cancelar`, { method:'POST' });
+    showToast('Custo cancelado', 'success');
+    await carregarCustosCliente(clienteId);
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+async function excluirCusto(custoId, clienteId) {
+  try { await confirmar('Os lançamentos bancários vinculados a este custo voltam a ficar pendentes de conciliação. Essa ação não pode ser desfeita.', 'Excluir custo definitivamente', '🗑️', 'var(--red)', 'Excluir'); }
+  catch { return; }
+  try {
+    await apiFetch(`/financeiro/custos/${custoId}`, { method:'DELETE' });
+    showToast('Custo excluído', 'success');
+    await carregarCustosCliente(clienteId);
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 // ── NOTAS INTERNAS ────────────────────────────────────────────────────────────
@@ -5330,7 +5561,11 @@ async function carregarLancamentos() {
                         </span>`
                       : `<button class="btn btn-outline btn-sm" onclick="abrirModalClassificar(${l.id})" style="font-size:0.68rem;padding:4px 8px">🏷️ Classificar</button>`}
                   </td>
-                  <td>
+                  <td style="white-space:nowrap">
+                    ${!l.conciliado && !l.dividido ? `
+                    <button class="btn btn-ghost btn-sm" onclick="abrirModalVincularCusto(${l.id})" title="Vincular este lançamento a um custo de cliente">🔗 Custo</button>
+                    <button class="btn btn-ghost btn-sm" onclick="abrirModalDividirLancamento(${l.id})" title="Dividir este lançamento entre contrato e custo (ex: um PIX que é parte parcela, parte custo)">✂️ Dividir</button>` : ''}
+                    ${l.dividido ? `<span class="badge badge-gray" style="font-size:0.62rem" title="Esse lançamento foi dividido em partes — veja os lançamentos filhos">dividido</span>` : ''}
                     <button class="btn btn-ghost btn-sm" onclick="editarLancamento(${l.id})" title="Editar">✏️</button>
                     <button class="btn btn-ghost btn-sm" onclick="deletarLancamento(${l.id})" title="Excluir" style="color:var(--red)">🗑</button>
                   </td>
@@ -5394,6 +5629,248 @@ async function confirmarConciliacaoManual(lancamentoId, candidatoId, tipo, btn) 
   } catch(e) { showToast('Erro ao conciliar', 'error'); }
 }
 
+// ════════════════════════════════════════════════════════════════
+// CUSTOS DE CLIENTE — vincular lançamento inteiro / dividir em partes
+// ════════════════════════════════════════════════════════════════
+
+function clientesAtivosOrdenados() {
+  return (clientes||[]).filter(c=>!c.arquivado).sort((a,b)=>a.nome.localeCompare(b.nome));
+}
+
+let _custosPorClienteCache = {};
+async function custosDoCliente(clienteId) {
+  if (!clienteId) return [];
+  if (!_custosPorClienteCache[clienteId]) {
+    _custosPorClienteCache[clienteId] = await apiFetch(`/financeiro/custos?cliente_id=${clienteId}`);
+  }
+  return _custosPorClienteCache[clienteId];
+}
+
+// ── Modal: vincular o lançamento INTEIRO a um custo (caso simples) ──
+function abrirModalVincularCusto(lancamentoId) {
+  openModal(`
+    <div class="modal-header">
+      <span style="font-weight:700">🔗 Vincular a Custo de Cliente</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div class="form-group">
+        <label>Cliente</label>
+        <select id="vc-cliente" onchange="carregarCustosParaVinculo()">
+          <option value="">Selecione...</option>
+          ${clientesAtivosOrdenados().map(c=>`<option value="${c.id}">${htmlEsc(c.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div id="vc-custos-wrap"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-gold" onclick="confirmarVincularCusto(${lancamentoId})">Vincular</button>
+      </div>
+    </div>`, true);
+}
+
+async function carregarCustosParaVinculo() {
+  const clienteId = document.getElementById('vc-cliente')?.value;
+  const wrap = document.getElementById('vc-custos-wrap');
+  if (!wrap) return;
+  if (!clienteId) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = '<div style="padding:10px;color:var(--text3);font-size:0.8rem">Carregando custos...</div>';
+  const custos = (await custosDoCliente(clienteId)).filter(c => c.status !== 'cancelado');
+  wrap.innerHTML = `
+    <div class="form-group" style="margin-top:10px">
+      <label>Custo</label>
+      <select id="vc-custo" onchange="document.getElementById('vc-novo-wrap').style.display=this.value==='__novo__'?'flex':'none'">
+        ${custos.map(c=>`<option value="${c.id}">${htmlEsc(c.descricao)} — ${LABEL_STATUS_CUSTO[c.status]||c.status} (saldo R$ ${parseFloat(c.saldo).toLocaleString('pt-BR',{minimumFractionDigits:2})})</option>`).join('')}
+        <option value="__novo__">+ Novo custo...</option>
+      </select>
+    </div>
+    <div id="vc-novo-wrap" style="display:${custos.length?'none':'flex'};flex-direction:column;gap:8px;margin-top:8px">
+      <input id="vc-novo-descricao" placeholder="Descrição do custo (ex: Certidão Estadual)">
+      <input id="vc-novo-categoria" placeholder="Categoria (ex: Certidão, Tradução...)">
+    </div>`;
+}
+
+async function confirmarVincularCusto(lancamentoId) {
+  const clienteId = document.getElementById('vc-cliente')?.value;
+  if (!clienteId) return showToast('Selecione o cliente', 'warning');
+  const custoSel = document.getElementById('vc-custo')?.value;
+  if (!custoSel) return showToast('Selecione ou crie um custo', 'warning');
+  try {
+    let custoId = custoSel;
+    if (custoSel === '__novo__') {
+      const descricao = document.getElementById('vc-novo-descricao')?.value?.trim();
+      if (!descricao) return showToast('Descreva o custo', 'warning');
+      const categoria = document.getElementById('vc-novo-categoria')?.value?.trim();
+      const novo = await apiFetch('/financeiro/custos', { method:'POST', body: JSON.stringify({ cliente_id: clienteId, descricao, categoria }) });
+      custoId = novo.id;
+      delete _custosPorClienteCache[clienteId];
+    }
+    const l = lancamentos_bc.find(x=>x.id===lancamentoId);
+    const modo = l?.tipo === 'credito' ? 'recebimento' : 'realizacao';
+    await apiFetch(`/financeiro/lancamentos/${lancamentoId}/vincular-custo`, { method:'POST', body: JSON.stringify({ custo_id: custoId, modo }) });
+    closeModal();
+    showToast('✅ Vinculado ao custo!', 'success');
+    await carregarLancamentos();
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
+// ── Modal: dividir o lançamento em várias partes com destinos diferentes ──
+// (caso central do pedido: um PIX de R$1.400 = R$1.000 de parcela + R$400 de custo)
+let _divLancamentoId = null;
+let _divPartes = [];
+let _divContasPagarAbertas = null;
+
+const DESTINOS_DIVISAO = {
+  credito: [['parcela','Parcela do contrato'],['custo_recebimento','Custo — recebimento']],
+  debito:  [['conta_pagar','Conta a Pagar'],['custo_realizacao','Custo — realização']],
+};
+
+function abrirModalDividirLancamento(lancamentoId) {
+  const l = lancamentos_bc.find(x=>x.id===lancamentoId);
+  if (!l) return;
+  _divLancamentoId = lancamentoId;
+  const destinos = DESTINOS_DIVISAO[l.tipo];
+  _divPartes = [
+    { valor: '', destino: destinos[0][0], clienteId: '', subId: '' },
+    { valor: '', destino: destinos[1][0], clienteId: '', subId: '' },
+  ];
+  _divContasPagarAbertas = null;
+
+  openModal(`
+    <div class="modal-header">
+      <span style="font-weight:700">✂️ Dividir Lançamento</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div style="font-size:0.82rem;color:var(--text2);margin-bottom:14px">
+        ${l.tipo==='credito'?'Entrada':'Saída'} de <strong>R$ ${parseFloat(l.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong>
+        em ${new Date(String(l.data).slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR')} — ${htmlEsc(l.descricao)}
+      </div>
+      <div id="div-partes-wrap"></div>
+      <button class="btn btn-outline btn-sm" onclick="adicionarParteDivisao()" style="margin-top:4px">+ Adicionar parte</button>
+      <div id="div-total-check" style="margin-top:14px;font-size:0.85rem;font-weight:700"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-gold" onclick="confirmarDividirLancamento()">Dividir Lançamento</button>
+      </div>
+    </div>`, true);
+  renderDividirPartes();
+}
+
+function adicionarParteDivisao() {
+  const l = lancamentos_bc.find(x=>x.id===_divLancamentoId);
+  _divPartes.push({ valor: '', destino: DESTINOS_DIVISAO[l.tipo][0][0], clienteId: '', subId: '' });
+  renderDividirPartes();
+}
+function removerParteDivisao(i) {
+  _divPartes.splice(i, 1);
+  renderDividirPartes();
+}
+
+async function renderDividirPartes() {
+  const l = lancamentos_bc.find(x=>x.id===_divLancamentoId);
+  const wrap = document.getElementById('div-partes-wrap');
+  if (!l || !wrap) return;
+  const destinos = DESTINOS_DIVISAO[l.tipo];
+
+  wrap.innerHTML = _divPartes.map((p,i) => `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;background:var(--bg3);border-radius:8px;padding:10px;flex-wrap:wrap">
+      <input type="number" step="0.01" value="${p.valor}" placeholder="Valor" style="width:110px"
+        oninput="_divPartes[${i}].valor=this.value;atualizarTotalDivisao()">
+      <select style="width:180px" onchange="_divPartes[${i}].destino=this.value;_divPartes[${i}].clienteId='';_divPartes[${i}].subId='';renderDividirPartes()">
+        ${destinos.map(([v,lbl])=>`<option value="${v}" ${p.destino===v?'selected':''}>${lbl}</option>`).join('')}
+      </select>
+      ${p.destino==='conta_pagar' ? `
+        <select style="flex:1;min-width:200px" id="div-sub-${i}" onchange="_divPartes[${i}].subId=this.value">
+          <option value="">Carregando contas a pagar...</option>
+        </select>
+      ` : `
+        <select style="min-width:160px" onchange="_divPartes[${i}].clienteId=this.value;_divPartes[${i}].subId='';renderDividirPartes()">
+          <option value="">Cliente...</option>
+          ${clientesAtivosOrdenados().map(c=>`<option value="${c.id}" ${String(p.clienteId)===String(c.id)?'selected':''}>${htmlEsc(c.nome)}</option>`).join('')}
+        </select>
+        <select style="flex:1;min-width:200px" id="div-sub-${i}" ${!p.clienteId?'disabled':''} onchange="_divPartes[${i}].subId=this.value">
+          <option value="">${p.clienteId ? 'Carregando...' : 'Escolha o cliente primeiro'}</option>
+        </select>
+      `}
+      <button class="btn btn-ghost btn-sm" onclick="removerParteDivisao(${i})" title="Remover parte" style="color:var(--red)">✕</button>
+    </div>`).join('');
+
+  // Popula os selects de sub-destino de forma assíncrona (parcela/custo/conta a pagar)
+  for (let i = 0; i < _divPartes.length; i++) {
+    await popularSubDestino(i);
+  }
+  atualizarTotalDivisao();
+}
+
+async function popularSubDestino(i) {
+  const p = _divPartes[i];
+  const sel = document.getElementById(`div-sub-${i}`);
+  if (!sel) return;
+
+  if (p.destino === 'conta_pagar') {
+    if (!_divContasPagarAbertas) _divContasPagarAbertas = await apiFetch('/financeiro/contas-pagar?paga=0');
+    sel.innerHTML = `<option value="">Conta a pagar...</option>` +
+      _divContasPagarAbertas.map(cp=>`<option value="${cp.id}" ${String(p.subId)===String(cp.id)?'selected':''}>${htmlEsc(cp.fornecedor_nome)} — R$ ${parseFloat(cp.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})} (venc. ${fmtDate(cp.vencimento)})</option>`).join('');
+    sel.disabled = false;
+    return;
+  }
+
+  if (!p.clienteId) { sel.innerHTML = '<option value="">Escolha o cliente primeiro</option>'; sel.disabled = true; return; }
+
+  if (p.destino === 'parcela') {
+    const abertas = (parcelas||[]).filter(pc => String(pc.cliente_id)===String(p.clienteId) && !pc.paga);
+    sel.innerHTML = `<option value="">Parcela...</option>` +
+      abertas.map(pc=>`<option value="${pc.id}" ${String(p.subId)===String(pc.id)?'selected':''}>${htmlEsc(pc.descricao||'Parcela')} — R$ ${parseFloat(pc.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}${pc.vencimento?' (venc. '+fmtDate(pc.vencimento)+')':''}</option>`).join('');
+    sel.disabled = false;
+  } else {
+    const custos = (await custosDoCliente(p.clienteId)).filter(c => c.status !== 'cancelado');
+    sel.innerHTML = `<option value="">Custo...</option>` +
+      custos.map(c=>`<option value="${c.id}" ${String(p.subId)===String(c.id)?'selected':''}>${htmlEsc(c.descricao)} — ${LABEL_STATUS_CUSTO[c.status]||c.status}</option>`).join('') +
+      `<option value="__novo__" ${p.subId==='__novo__'?'selected':''}>+ Novo custo...</option>`;
+    sel.disabled = false;
+  }
+}
+
+function atualizarTotalDivisao() {
+  const l = lancamentos_bc.find(x=>x.id===_divLancamentoId);
+  const el = document.getElementById('div-total-check');
+  if (!l || !el) return;
+  const soma = _divPartes.reduce((s,p)=>s+(parseFloat(p.valor)||0),0);
+  const alvo = parseFloat(l.valor);
+  const bate = Math.abs(soma - alvo) <= 0.01;
+  el.style.color = bate ? 'var(--green)' : 'var(--red)';
+  el.textContent = `Soma das partes: R$ ${soma.toLocaleString('pt-BR',{minimumFractionDigits:2})} de R$ ${alvo.toLocaleString('pt-BR',{minimumFractionDigits:2})} ${bate?'✓':'— precisa bater com o valor do lançamento'}`;
+}
+
+async function confirmarDividirLancamento() {
+  try {
+    const partesFinais = [];
+    for (const p of _divPartes) {
+      if (!(parseFloat(p.valor) > 0)) return showToast('Preencha o valor de todas as partes', 'warning');
+      if (p.destino !== 'conta_pagar' && !p.clienteId) return showToast('Selecione o cliente em todas as partes', 'warning');
+      let destinoId = p.subId;
+      if (!destinoId) return showToast('Selecione o destino (parcela/custo/conta a pagar) de todas as partes', 'warning');
+
+      if (destinoId === '__novo__') {
+        const descricao = prompt('Descrição do novo custo:');
+        if (!descricao) return;
+        const categoria = prompt('Categoria (opcional):') || null;
+        const novo = await apiFetch('/financeiro/custos', { method:'POST', body: JSON.stringify({ cliente_id: p.clienteId, descricao, categoria }) });
+        destinoId = novo.id;
+        delete _custosPorClienteCache[p.clienteId];
+      }
+      partesFinais.push({ valor: parseFloat(p.valor), destino: p.destino, destino_id: parseInt(destinoId) });
+    }
+
+    await apiFetch(`/financeiro/lancamentos/${_divLancamentoId}/dividir`, { method:'POST', body: JSON.stringify({ partes: partesFinais }) });
+    closeModal();
+    showToast('✅ Lançamento dividido com sucesso!', 'success');
+    await loadData();
+    await carregarLancamentos();
+  } catch(e) { showToast('Erro ao dividir: ' + e.message, 'error'); }
+}
+
 function abrirImportarExtrato() {
   const contas = ['Nubank','Itaú','Bradesco','Caixa','Santander','Sicoob','Cora','Infinity','Outro'];
   openModal(`
@@ -5435,11 +5912,50 @@ function abrirImportarExtrato() {
         </div>
         <div id="imp-pdf-status" style="font-size:0.72rem;color:var(--text3);margin-top:6px"></div>
       </div>
+      <div style="display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--text3);font-size:0.75rem">
+        <div style="flex:1;height:1px;background:var(--border)"></div>ou (recomendado)<div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+      <div class="form-group">
+        <label>Arquivo OFX do Extrato</label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input type="file" id="imp-ofx" accept=".ofx,.OFX" style="flex:1">
+          <button class="btn btn-outline btn-sm" onclick="importarExtratoOFX()" style="white-space:nowrap">🏦 Importar OFX</button>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text3);margin-top:6px">Formato estruturado direto do banco — mais confiável que PDF/texto, e evita duplicar se importar o mesmo arquivo de novo.</div>
+        <div id="imp-ofx-status" style="font-size:0.72rem;color:var(--text3);margin-top:4px"></div>
+      </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
         <button class="btn btn-gold" onclick="importarExtrato()">📥 Importar Texto</button>
       </div>
     </div>`, true);
+}
+
+async function importarExtratoOFX() {
+  const file = document.getElementById('imp-ofx')?.files?.[0];
+  const conta = document.getElementById('imp-conta')?.value;
+  const status = document.getElementById('imp-ofx-status');
+  if (!file) return showToast('Selecione o arquivo OFX', 'warning');
+  if (status) status.textContent = '⏳ Lendo o arquivo...';
+  try {
+    const formData = new FormData();
+    formData.append('arquivo', file);
+    formData.append('conta', conta || '');
+    const resp = await fetch(API_BASE + '/financeiro/importar-extrato-ofx', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('wb_token') || '') },
+      body: formData,
+    });
+    const json = await resp.json();
+    if (!resp.ok || !json.ok) throw new Error(json.erro || 'Falha ao processar o OFX');
+    closeModal();
+    const msgDup = json.duplicados_ignorados ? ` (${json.duplicados_ignorados} já importado(s) antes, ignorado(s))` : '';
+    showToast(`✅ ${json.total_importado} lançamentos importados do OFX!${msgDup}`, 'success');
+    await carregarLancamentos();
+  } catch(e) {
+    if (status) status.textContent = '';
+    showToast('Erro ao importar OFX: ' + e.message, 'error');
+  }
 }
 
 async function importarExtrato() {

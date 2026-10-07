@@ -18,6 +18,15 @@ const uploadExtrato = multer({
   },
 });
 
+// OFX não tem um mimetype confiável entre bancos/navegadores (varia entre
+// application/x-ofx, text/plain, application/octet-stream) — aceita
+// qualquer arquivo dentro do limite de tamanho, o parser que decide se tem
+// conteúdo reconhecível.
+const uploadOfx = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: 10 * 1024 * 1024 }, // 10 MB
+});
+
 // ── Regras de auto-categorização por palavra-chave ──────────────────────────
 const REGRAS_CATEGORIA = [
   { cat: 'Aluguel',             palavras: ['aluguel','locacao','locação','imovel','imóvel','condominio','condomínio'] },
@@ -498,6 +507,57 @@ router.post('/importar-extrato', async (req, res) => {
   }
 });
 
+// ── POST /api/financeiro/importar-extrato-ofx ────────────────────────────────
+// Importação por OFX (formato preferido — estruturado, com FITID único por
+// transação, evita a ambiguidade de parsing de texto/PDF). Dedup por FITID:
+// se o mesmo arquivo for importado de novo (ou períodos se sobrepuserem),
+// transações já importadas são puladas, nunca duplicadas.
+router.post('/importar-extrato-ofx', uploadOfx.single('arquivo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ erro: 'Arquivo OFX é obrigatório' });
+  try {
+    const { parseOFX } = require('../lib/ofx');
+    const conta = req.body.conta || null;
+    const texto = req.file.buffer.toString('utf-8');
+    const transacoes = parseOFX(texto);
+
+    if (!transacoes.length) {
+      return res.status(422).json({ erro: 'Nenhuma transação reconhecida nesse arquivo OFX.' });
+    }
+
+    const inseridos = [];
+    let duplicadosIgnorados = 0;
+    for (const t of transacoes) {
+      if (t.fitid) {
+        const [[existente]] = await db.query('SELECT id FROM lancamentos_bancarios WHERE fitid = ?', [t.fitid]);
+        if (existente) { duplicadosIgnorados++; continue; }
+      }
+      const categoria = detectarCategoria(t.descricao);
+      const nome = extrairNomeDescricao(t.descricao);
+      const cnpj = extrairCnpjDescricao(t.descricao);
+      const [r] = await db.query(
+        `INSERT INTO lancamentos_bancarios (data, descricao, valor, tipo, categoria, conta, conciliado, criado_por, nome, cnpj_detectado, fitid)
+         VALUES (?,?,?,?,?,?,0,?,?,?,?)`,
+        [t.data, t.descricao, t.valor, t.tipo, categoria, conta, req.user.nome, nome, cnpj, t.fitid]
+      );
+      inseridos.push({ id: r.insertId, ...t, categoria, nome, cnpj });
+    }
+
+    if (!inseridos.length && duplicadosIgnorados) {
+      return res.json({ ok: true, total_importado: 0, duplicados_ignorados: duplicadosIgnorados, lancamentos: [], info: 'Todas as transações desse arquivo já tinham sido importadas antes.' });
+    }
+
+    res.status(201).json({
+      ok: true,
+      total_importado: inseridos.length,
+      duplicados_ignorados: duplicadosIgnorados,
+      lancamentos: inseridos,
+    });
+  } catch (e) {
+    console.error('[financeiro POST /importar-extrato-ofx]', e);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Extrai lançamentos de um lote de páginas (1 página por vez — cada página já
@@ -742,6 +802,353 @@ router.post('/conciliar-manual', async (req, res) => {
     }
     res.json({ ok: true });
   } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// Helper compartilhado: recalcula valor_recebido/valor_realizado + status de
+// um custo e grava no banco. `delta` é positivo (vincular) ou negativo
+// (desvincular); `perna` diz qual dos dois valores mexe.
+async function ajustarCustoERecalcularStatus(custoId, perna, delta) {
+  const { avancarStatusLifecycle, STATUS_FINAIS_MANUAIS } = require('../lib/custos');
+  const [[custo]] = await db.query('SELECT * FROM custos_cliente WHERE id = ?', [custoId]);
+  if (!custo) throw new Error('Custo não encontrado');
+
+  const campo = perna === 'recebimento' ? 'valor_recebido' : 'valor_realizado';
+  const novoValor = Math.max(0, (parseFloat(custo[campo]) || 0) + delta);
+  const custoAtualizado = { ...custo, [campo]: novoValor };
+
+  // Ao desvincular (delta negativo), reabre a classificação manual — os
+  // números mudaram, uma classificação antiga (crédito/excedente) não vale
+  // mais. Ao vincular (delta positivo) nunca mexe num status já finalizado.
+  if (delta < 0 && STATUS_FINAIS_MANUAIS.includes(custoAtualizado.status)) {
+    custoAtualizado.status = 'pendente';
+  }
+  const novoStatus = avancarStatusLifecycle(custoAtualizado);
+
+  await db.query('UPDATE custos_cliente SET ' + campo + ' = ?, status = ? WHERE id = ?', [novoValor, novoStatus, custoId]);
+  return novoStatus;
+}
+
+// ── POST /api/financeiro/lancamentos/:id/vincular-custo ───────────────────────
+// Vincula o lançamento INTEIRO (valor cheio) a um custo de cliente — caso
+// simples, sem divisão. Para quando o valor do banco bate só com o custo (ou
+// só com o contrato) e não precisa dividir.
+router.post('/lancamentos/:id/vincular-custo', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { custo_id, modo } = req.body; // modo: 'recebimento' | 'realizacao'
+    if (!custo_id || !['recebimento', 'realizacao'].includes(modo)) {
+      return res.status(400).json({ erro: 'custo_id e modo (recebimento|realizacao) são obrigatórios' });
+    }
+
+    const [[l]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
+    if (!l) return res.status(404).json({ erro: 'Lançamento não encontrado' });
+    if (l.conciliado || l.dividido || l.parcela_id || l.conta_pagar_id || l.custo_recebimento_id || l.custo_realizacao_id || l.classificado_como) {
+      return res.status(409).json({ erro: 'Este lançamento já está conciliado/vinculado a outra coisa' });
+    }
+    const tipoEsperado = modo === 'recebimento' ? 'credito' : 'debito';
+    if (l.tipo !== tipoEsperado) {
+      return res.status(400).json({ erro: `Recebimento de custo precisa de um lançamento de crédito; realização, de débito (este é ${l.tipo})` });
+    }
+
+    const novoStatus = await ajustarCustoERecalcularStatus(custo_id, modo, l.valor);
+    const campoFk = modo === 'recebimento' ? 'custo_recebimento_id' : 'custo_realizacao_id';
+    await db.query(`UPDATE lancamentos_bancarios SET conciliado = 1, ${campoFk} = ? WHERE id = ?`, [custo_id, id]);
+
+    const [[lancamentoAtualizado]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
+    res.json({ ok: true, lancamento: lancamentoAtualizado, custo_status: novoStatus });
+  } catch (e) {
+    console.error('[financeiro POST /lancamentos/:id/vincular-custo]', e);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ── DELETE /api/financeiro/lancamentos/:id/vincular-custo ─────────────────────
+// Desfaz o vínculo (reverte o valor do custo e reabre a classificação, se houver).
+router.delete('/lancamentos/:id/vincular-custo', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [[l]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
+    if (!l) return res.status(404).json({ erro: 'Lançamento não encontrado' });
+    if (!l.custo_recebimento_id && !l.custo_realizacao_id) {
+      return res.status(400).json({ erro: 'Este lançamento não está vinculado a um custo' });
+    }
+
+    if (l.custo_recebimento_id) {
+      await ajustarCustoERecalcularStatus(l.custo_recebimento_id, 'recebimento', -l.valor);
+    } else {
+      await ajustarCustoERecalcularStatus(l.custo_realizacao_id, 'realizacao', -l.valor);
+    }
+    await db.query(
+      'UPDATE lancamentos_bancarios SET conciliado = 0, custo_recebimento_id = NULL, custo_realizacao_id = NULL WHERE id = ?',
+      [id]
+    );
+    const [[lancamentoAtualizado]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
+    res.json({ ok: true, lancamento: lancamentoAtualizado });
+  } catch (e) {
+    console.error('[financeiro DELETE /lancamentos/:id/vincular-custo]', e);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ── POST /api/financeiro/lancamentos/:id/dividir ──────────────────────────────
+// Divide um lançamento bancário em várias partes com destinos diferentes —
+// o caso central do pedido: um PIX de R$1.400 que é R$1.000 de parcela do
+// contrato + R$400 de custo. O lançamento original fica marcado como
+// "dividido" (preservado pra auditoria, some das listas de pendentes) e cada
+// parte vira um novo lançamento filho já conciliado com seu destino.
+router.post('/lancamentos/:id/dividir', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { partes } = req.body;
+
+    const [[l]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
+    if (!l) return res.status(404).json({ erro: 'Lançamento não encontrado' });
+    if (l.conciliado || l.dividido || l.parcela_id || l.conta_pagar_id || l.custo_recebimento_id || l.custo_realizacao_id || l.classificado_como) {
+      return res.status(409).json({ erro: 'Este lançamento já está conciliado/vinculado a outra coisa' });
+    }
+
+    const { validarPartesDivisao } = require('../lib/custos');
+    const validacao = validarPartesDivisao(l.valor, partes, l.tipo);
+    if (!validacao.ok) return res.status(400).json({ erro: validacao.erro });
+
+    // Confere que cada destino existe de verdade antes de aplicar qualquer
+    // efeito — evita deixar o lançamento filho com uma FK órfã se vier um id
+    // inválido (digitado errado, já apagado etc).
+    const TABELA_POR_DESTINO = { parcela: 'parcelas', conta_pagar: 'contas_pagar', custo_recebimento: 'custos_cliente', custo_realizacao: 'custos_cliente' };
+    for (const parte of partes) {
+      const tabela = TABELA_POR_DESTINO[parte.destino];
+      const [[existe]] = await db.query(`SELECT id FROM ${tabela} WHERE id = ?`, [parte.destino_id]);
+      if (!existe) return res.status(400).json({ erro: `${parte.destino} #${parte.destino_id} não encontrado(a)` });
+    }
+
+    const filhosCriados = [];
+    for (const parte of partes) {
+      const [r] = await db.query(
+        `INSERT INTO lancamentos_bancarios
+          (data, descricao, valor, tipo, categoria, conta, conciliado, obs, criado_por, nome, cnpj_detectado, lancamento_pai_id)
+         VALUES (?,?,?,?,?,?,1,?,?,?,?,?)`,
+        [l.data, l.descricao, parseFloat(parte.valor), l.tipo, l.categoria, l.conta,
+         `Parte de divisão do lançamento #${l.id}`, req.user.nome, l.nome, l.cnpj_detectado, l.id]
+      );
+      const filhoId = r.insertId;
+
+      if (parte.destino === 'parcela') {
+        await db.query('UPDATE parcelas SET paga = 1, data_pgto = ? WHERE id = ?', [l.data, parte.destino_id]);
+        await db.query('UPDATE lancamentos_bancarios SET parcela_id = ? WHERE id = ?', [parte.destino_id, filhoId]);
+      } else if (parte.destino === 'conta_pagar') {
+        await db.query('UPDATE contas_pagar SET paga = 1, data_pgto = ? WHERE id = ?', [l.data, parte.destino_id]);
+        await db.query('UPDATE lancamentos_bancarios SET conta_pagar_id = ? WHERE id = ?', [parte.destino_id, filhoId]);
+      } else if (parte.destino === 'custo_recebimento') {
+        await ajustarCustoERecalcularStatus(parte.destino_id, 'recebimento', parseFloat(parte.valor));
+        await db.query('UPDATE lancamentos_bancarios SET custo_recebimento_id = ? WHERE id = ?', [parte.destino_id, filhoId]);
+      } else if (parte.destino === 'custo_realizacao') {
+        await ajustarCustoERecalcularStatus(parte.destino_id, 'realizacao', parseFloat(parte.valor));
+        await db.query('UPDATE lancamentos_bancarios SET custo_realizacao_id = ? WHERE id = ?', [parte.destino_id, filhoId]);
+      }
+
+      const [[filho]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [filhoId]);
+      filhosCriados.push(filho);
+    }
+
+    await db.query('UPDATE lancamentos_bancarios SET dividido = 1, conciliado = 1 WHERE id = ?', [id]);
+    const [[original]] = await db.query('SELECT * FROM lancamentos_bancarios WHERE id = ?', [id]);
+    res.status(201).json({ ok: true, original, partes: filhosCriados });
+  } catch (e) {
+    console.error('[financeiro POST /lancamentos/:id/dividir]', e);
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// CUSTOS DE CLIENTE (separado do parcelamento do contrato)
+// ════════════════════════════════════════════════════════════════
+
+// ── GET /api/financeiro/custos ────────────────────────────────────────────────
+// ?cliente_id=&status=
+router.get('/custos', async (req, res) => {
+  try {
+    let sql = `SELECT cc.*, c.nome AS cliente_nome FROM custos_cliente cc JOIN clientes c ON c.id = cc.cliente_id WHERE 1=1`;
+    const params = [];
+    if (req.query.cliente_id) { sql += ' AND cc.cliente_id = ?'; params.push(parseInt(req.query.cliente_id)); }
+    if (req.query.status) { sql += ' AND cc.status = ?'; params.push(req.query.status); }
+    sql += ' ORDER BY cc.created_at DESC';
+    const [rows] = await db.query(sql, params);
+    res.json(rows.map(r => ({ ...r, saldo: parseFloat(r.valor_recebido) - parseFloat(r.valor_realizado) })));
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+router.get('/custos/:id', async (req, res) => {
+  try {
+    const [[c]] = await db.query(
+      `SELECT cc.*, cl.nome AS cliente_nome FROM custos_cliente cc JOIN clientes cl ON cl.id = cc.cliente_id WHERE cc.id = ?`,
+      [parseInt(req.params.id)]
+    );
+    if (!c) return res.status(404).json({ erro: 'Custo não encontrado' });
+    res.json({ ...c, saldo: parseFloat(c.valor_recebido) - parseFloat(c.valor_realizado) });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+router.post('/custos', async (req, res) => {
+  try {
+    const { cliente_id, descricao, categoria, obs } = req.body;
+    if (!cliente_id || !descricao) return res.status(400).json({ erro: 'cliente_id e descricao são obrigatórios' });
+    const [r] = await db.query(
+      `INSERT INTO custos_cliente (cliente_id, descricao, categoria, obs, criado_por) VALUES (?,?,?,?,?)`,
+      [parseInt(cliente_id), descricao.trim(), categoria || 'Outros', obs || null, req.user.nome]
+    );
+    const [[novo]] = await db.query('SELECT * FROM custos_cliente WHERE id = ?', [r.insertId]);
+    res.status(201).json(novo);
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// Edição livre — inclusive ajuste manual de valor_recebido/valor_realizado
+// pra quando o pagamento não passou pela conciliação bancária (dinheiro,
+// outra conta etc). Recalcula o status automaticamente a partir dos novos
+// valores, a não ser que o status já tenha sido classificado manualmente.
+router.patch('/custos/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { descricao, categoria, obs, valor_recebido, valor_realizado } = req.body;
+    const [[atual]] = await db.query('SELECT * FROM custos_cliente WHERE id = ?', [id]);
+    if (!atual) return res.status(404).json({ erro: 'Custo não encontrado' });
+
+    const { avancarStatusLifecycle, STATUS_FINAIS_MANUAIS } = require('../lib/custos');
+    const mesclado = {
+      ...atual,
+      valor_recebido: valor_recebido !== undefined ? parseFloat(valor_recebido) : atual.valor_recebido,
+      valor_realizado: valor_realizado !== undefined ? parseFloat(valor_realizado) : atual.valor_realizado,
+    };
+    const status = (valor_recebido !== undefined || valor_realizado !== undefined) && !STATUS_FINAIS_MANUAIS.includes(atual.status)
+      ? avancarStatusLifecycle(mesclado)
+      : atual.status;
+
+    await db.query(
+      `UPDATE custos_cliente SET
+        descricao=COALESCE(?,descricao), categoria=COALESCE(?,categoria), obs=COALESCE(?,obs),
+        valor_recebido=?, valor_realizado=?, status=?
+       WHERE id=?`,
+      [descricao || null, categoria || null, obs !== undefined ? obs : atual.obs,
+       mesclado.valor_recebido, mesclado.valor_realizado, status, id]
+    );
+    const [[atualizado]] = await db.query('SELECT * FROM custos_cliente WHERE id = ?', [id]);
+    res.json({ ...atualizado, saldo: parseFloat(atualizado.valor_recebido) - parseFloat(atualizado.valor_realizado) });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// ── POST /api/financeiro/custos/:id/classificar-saldo ─────────────────────────
+// Decide se o saldo (recebido - realizado) depois de tudo pronto é crédito
+// do cliente ou excedente da empresa — nunca automático, sempre uma decisão
+// humana (pedido explícito do usuário).
+router.post('/custos/:id/classificar-saldo', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { destino } = req.body; // 'credito_cliente' | 'excedente_empresa'
+    if (!['credito_cliente', 'excedente_empresa'].includes(destino)) {
+      return res.status(400).json({ erro: "destino deve ser 'credito_cliente' ou 'excedente_empresa'" });
+    }
+    const [[custo]] = await db.query('SELECT * FROM custos_cliente WHERE id = ?', [id]);
+    if (!custo) return res.status(404).json({ erro: 'Custo não encontrado' });
+
+    const { podeClassificarSaldo, saldoCusto } = require('../lib/custos');
+    if (!podeClassificarSaldo(custo)) {
+      return res.status(409).json({ erro: `Só é possível classificar quando o custo está realizado e com saldo positivo (saldo atual: ${saldoCusto(custo)})` });
+    }
+    await db.query('UPDATE custos_cliente SET status = ? WHERE id = ?', [destino, id]);
+    const [[atualizado]] = await db.query('SELECT * FROM custos_cliente WHERE id = ?', [id]);
+    res.json(atualizado);
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+router.post('/custos/:id/cancelar', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const [[custo]] = await db.query('SELECT * FROM custos_cliente WHERE id = ?', [id]);
+    if (!custo) return res.status(404).json({ erro: 'Custo não encontrado' });
+    if (['credito_cliente', 'excedente_empresa'].includes(custo.status)) {
+      return res.status(409).json({ erro: 'Custo já foi classificado (crédito/excedente) — não pode mais ser cancelado' });
+    }
+    await db.query('UPDATE custos_cliente SET status = ? WHERE id = ?', ['cancelado', id]);
+    const [[atualizado]] = await db.query('SELECT * FROM custos_cliente WHERE id = ?', [id]);
+    res.json(atualizado);
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+router.delete('/custos/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    // Desvincula qualquer lançamento apontando pra esse custo antes de apagar
+    // (não apaga o lançamento bancário em si — só tira o vínculo e reabre
+    // pra conciliação, igual é feito com Contas a Pagar).
+    await db.query('UPDATE lancamentos_bancarios SET conciliado = 0, custo_recebimento_id = NULL WHERE custo_recebimento_id = ?', [id]);
+    await db.query('UPDATE lancamentos_bancarios SET conciliado = 0, custo_realizacao_id = NULL WHERE custo_realizacao_id = ?', [id]);
+    const [r] = await db.query('DELETE FROM custos_cliente WHERE id = ?', [id]);
+    if (!r.affectedRows) return res.status(404).json({ erro: 'Custo não encontrado' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// ── GET /api/financeiro/painel-cliente/:clienteId ─────────────────────────────
+// Painel completo do pedido do usuário: contrato e custos SEPARADOS, nunca
+// misturados, + histórico unificado das duas pernas pra auditoria.
+router.get('/painel-cliente/:clienteId', async (req, res) => {
+  try {
+    const clienteId = parseInt(req.params.clienteId);
+    const [[cliente]] = await db.query('SELECT id, nome, valor FROM clientes WHERE id = ?', [clienteId]);
+    if (!cliente) return res.status(404).json({ erro: 'Cliente não encontrado' });
+
+    // ── Contrato ──
+    const [parcelas] = await db.query('SELECT * FROM parcelas WHERE cliente_id = ? ORDER BY vencimento ASC', [clienteId]);
+    const recebidoContrato = parcelas.filter(p => p.paga).reduce((s, p) => s + parseFloat(p.valor), 0);
+    const valorTotalContrato = parseFloat(cliente.valor) || 0;
+
+    // ── Custos ──
+    const [custos] = await db.query('SELECT * FROM custos_cliente WHERE cliente_id = ? ORDER BY created_at DESC', [clienteId]);
+    const somaCusto = (lista, campo) => lista.reduce((s, c) => s + parseFloat(c[campo] || 0), 0);
+    const custosComSaldo = custos.map(c => ({ ...c, saldo: parseFloat(c.valor_recebido) - parseFloat(c.valor_realizado) }));
+
+    // ── Histórico unificado (parcelas pagas + movimentos de custo) ──
+    const [histParcelas] = await db.query(
+      `SELECT data_pgto AS data, descricao, 'Contrato' AS tipo, valor AS entrada, 0 AS saida, 'Conciliado' AS status_mov
+       FROM parcelas WHERE cliente_id = ? AND paga = 1`,
+      [clienteId]
+    );
+    const [histCustoRecebido] = await db.query(
+      `SELECT l.data AS data, cc.descricao AS descricao, 'Custo' AS tipo, l.valor AS entrada, 0 AS saida, 'Recebido' AS status_mov
+       FROM lancamentos_bancarios l JOIN custos_cliente cc ON cc.id = l.custo_recebimento_id
+       WHERE cc.cliente_id = ?`,
+      [clienteId]
+    );
+    const [histCustoRealizado] = await db.query(
+      `SELECT l.data AS data, cc.descricao AS descricao, 'Custo' AS tipo, 0 AS entrada, l.valor AS saida, 'Realizado' AS status_mov
+       FROM lancamentos_bancarios l JOIN custos_cliente cc ON cc.id = l.custo_realizacao_id
+       WHERE cc.cliente_id = ?`,
+      [clienteId]
+    );
+    const historico = [...histParcelas, ...histCustoRecebido, ...histCustoRealizado]
+      .sort((a, b) => new Date(b.data) - new Date(a.data));
+
+    res.json({
+      cliente: { id: cliente.id, nome: cliente.nome },
+      contrato: {
+        valor_total: valorTotalContrato,
+        recebido: recebidoContrato,
+        saldo: valorTotalContrato - recebidoContrato,
+        parcelas_pagas: parcelas.filter(p => p.paga).length,
+        parcelas_pendentes: parcelas.filter(p => !p.paga).length,
+      },
+      custos: {
+        lista: custosComSaldo,
+        recebido_total: somaCusto(custos, 'valor_recebido'),
+        realizado_total: somaCusto(custos, 'valor_realizado'),
+        credito_cliente_total: somaCusto(custos.filter(c => c.status === 'credito_cliente'), 'valor_recebido') - somaCusto(custos.filter(c => c.status === 'credito_cliente'), 'valor_realizado'),
+        excedente_empresa_total: somaCusto(custos.filter(c => c.status === 'excedente_empresa'), 'valor_recebido') - somaCusto(custos.filter(c => c.status === 'excedente_empresa'), 'valor_realizado'),
+      },
+      historico,
+    });
+  } catch (e) {
+    console.error('[financeiro GET /painel-cliente/:clienteId]', e);
     res.status(500).json({ erro: e.message });
   }
 });
