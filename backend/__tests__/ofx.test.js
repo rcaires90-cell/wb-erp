@@ -41,8 +41,8 @@ describe('parseOFX', () => {
   test('extrai transações de OFX com tags fechadas', () => {
     const t = parseOFX(OFX_COM_FECHAMENTO);
     expect(t).toHaveLength(2);
-    expect(t[0]).toEqual({ data: '2026-10-01', valor: 1400, tipo: 'credito', descricao: 'JOAO DA SILVA', fitid: '20261001001' });
-    expect(t[1]).toEqual({ data: '2026-10-05', valor: 250, tipo: 'debito', descricao: 'PAGAMENTO CERTIDAO', fitid: '20261005001' });
+    expect(t[0]).toEqual({ data: '2026-10-01', valor: 1400, tipo: 'credito', descricao: 'JOAO DA SILVA', nome: 'JOAO DA SILVA', fitid: '20261001001' });
+    expect(t[1]).toEqual({ data: '2026-10-05', valor: 250, tipo: 'debito', descricao: 'PAGAMENTO CERTIDAO', nome: null, fitid: '20261005001' });
   });
 
   test('extrai transações de OFX SGML sem fechamento de tag', () => {
@@ -54,9 +54,24 @@ describe('parseOFX', () => {
     expect(t[1].valor).toBe(100);
   });
 
-  test('prefere MEMO sobre NAME quando ambos existem', () => {
+  test('concatena NAME e MEMO quando os dois existem e são diferentes (não descarta nenhum)', () => {
     const t = parseOFX(`<STMTTRN><DTPOSTED>20261001</DTPOSTED><TRNAMT>10.00</TRNAMT><NAME>FULANO</NAME><MEMO>DESCRICAO REAL</MEMO></STMTTRN>`);
-    expect(t[0].descricao).toBe('DESCRICAO REAL');
+    expect(t[0].descricao).toBe('FULANO - DESCRICAO REAL');
+  });
+
+  test('não duplica quando NAME e MEMO são iguais', () => {
+    const t = parseOFX(`<STMTTRN><DTPOSTED>20261001</DTPOSTED><TRNAMT>10.00</TRNAMT><NAME>MESMA COISA</NAME><MEMO>MESMA COISA</MEMO></STMTTRN>`);
+    expect(t[0].descricao).toBe('MESMA COISA');
+  });
+
+  test('nome vem exatamente como o campo NAME do OFX, sem nenhuma limpeza', () => {
+    const t = parseOFX(`<STMTTRN><DTPOSTED>20261001</DTPOSTED><TRNAMT>10.00</TRNAMT><NAME>PIX RECEBIDO DE JOAO DA SILVA</NAME></STMTTRN>`);
+    expect(t[0].nome).toBe('PIX RECEBIDO DE JOAO DA SILVA');
+  });
+
+  test('nome é null quando o OFX não tem campo NAME', () => {
+    const t = parseOFX(`<STMTTRN><DTPOSTED>20261001</DTPOSTED><TRNAMT>10.00</TRNAMT><MEMO>SO TEM MEMO</MEMO></STMTTRN>`);
+    expect(t[0].nome).toBeNull();
   });
 
   test('ignora bloco sem data ou sem valor', () => {

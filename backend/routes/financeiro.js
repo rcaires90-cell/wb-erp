@@ -532,7 +532,10 @@ router.post('/importar-extrato-ofx', uploadOfx.single('arquivo'), async (req, re
         if (existente) { duplicadosIgnorados++; continue; }
       }
       const categoria = detectarCategoria(t.descricao);
-      const nome = extrairNomeDescricao(t.descricao);
+      // O OFX já traz o nome estruturado no campo NAME (t.nome) — usa ele
+      // exatamente como veio do banco, sem heurística de limpeza. Só cai pra
+      // extração por regex se o arquivo não tinha NAME (raro, mas acontece).
+      const nome = t.nome || extrairNomeDescricao(t.descricao);
       const cnpj = extrairCnpjDescricao(t.descricao);
       const [r] = await db.query(
         `INSERT INTO lancamentos_bancarios (data, descricao, valor, tipo, categoria, conta, conciliado, criado_por, nome, cnpj_detectado, fitid)
