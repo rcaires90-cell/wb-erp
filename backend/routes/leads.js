@@ -4,6 +4,7 @@ const auth     = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 const { FORMULARIOS_CONFIG } = require('../lib/formularios');
 const { sendEmail } = require('../lib/email');
+const agenda = require('../lib/agendaServico');
 
 const EQUIPE_EMAIL = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
 const PORTAL_URL   = 'https://sistema.wbassessoriamigratoria.com.br';
@@ -34,7 +35,7 @@ const limiterPublico = rateLimit({
 // POST /api/leads/publico — sem autenticação (formulário público da landing page)
 router.post('/publico', limiterPublico, async (req, res) => {
   try {
-    const { nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, _hp } = req.body;
+    const { nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, agendamento, _hp } = req.body;
 
     // Honeypot: bots preenchem o campo oculto, humanos não
     if (_hp) return res.json({ ok: true });
@@ -71,19 +72,44 @@ router.post('/publico', limiterPublico, async (req, res) => {
       cidadeClean && estado ? `Localização: ${cidadeClean}/${estado}` : (cidadeClean || estado || null),
     ].filter(Boolean).join(' | ');
 
+    let leadId = null;
     try {
-      await db.query(
+      const [r] = await db.query(
         `INSERT INTO leads (nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, origem, status, obs, valor_estimado)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Landing Page', 'novo', ?, ?)`,
         [nomeClean, telClean, emailClean, paisClean, servico||null,
          rnm_tipo||null, tempo_no_pais||null, cidadeClean, estado||null, obs||null, valor_estimado]
       );
+      leadId = r.insertId;
     } catch {
-      await db.query(
+      const [r] = await db.query(
         `INSERT INTO leads (nome, tel, email, servico, origem, status, obs, valor_estimado)
          VALUES (?, ?, ?, ?, 'Landing Page', 'novo', ?, ?)`,
         [nomeClean, telClean, emailClean, servico||null, obs||null, valor_estimado]
       );
+      leadId = r.insertId;
+    }
+
+    // Horário escolhido na landing page (opcional). Se alguém pegou o mesmo
+    // horário no meio tempo, o lead fica salvo do mesmo jeito e a página
+    // avisa que a equipe vai entrar em contato pra marcar.
+    if (agendamento?.data && agendamento?.hora) {
+      const { data, hora } = agendamento;
+      if (!(await agenda.verificarHorario(db, data, hora))) {
+        return res.json({ ok: true, agendado: false, horario_indisponivel: true });
+      }
+      const token = agenda.novoToken();
+      const tipo = 'Consulta inicial';
+      await db.query(
+        `INSERT INTO agendamentos (cliente_nome, data, hora, tipo, obs, colaborador, status, token, lead_id, email, tel, origem)
+         VALUES (?, ?, ?, ?, ?, NULL, 'pendente', ?, ?, ?, ?, 'Landing Page')`,
+        [nomeClean, data, hora, tipo, servico || null, token, leadId, emailClean, telClean]
+      );
+      const ag = { nome: nomeClean, data, hora, tipo, token, email: emailClean, tel: telClean, obs: servico || null };
+      agenda.enviarPedidoConfirmacao(ag).catch(e => console.error('[leads/publico] e-mail confirmação:', e.message));
+      agenda.avisarEquipe(`📅 Novo agendamento pela landing page — ${nomeClean}`, ag, ' marcou um atendimento pela landing page (aguardando confirmação).')
+        .catch(e => console.error('[leads/publico] aviso equipe:', e.message));
+      return res.json({ ok: true, agendado: true, agendamento: { data, hora } });
     }
 
     res.json({ ok: true });

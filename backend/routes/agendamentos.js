@@ -1,7 +1,130 @@
 const router = require('express').Router();
 const db     = require('../db');
 const auth   = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
 const { sendEmail } = require('../lib/email');
+const { agoraSP, gerarDisponibilidade, escHtml } = require('../lib/agendaPublica');
+const agenda = require('../lib/agendaServico');
+
+// ══ ROTAS PÚBLICAS (sem login) ═══════════════════════════════════════════
+// Usadas pela landing page (escolher horário) e por agendamento.html (link
+// do e-mail: confirmar / cancelar / reagendar). Ficam antes do router.use(auth).
+const limiterPublico = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 60,
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip,
+  message: { erro: 'Muitas tentativas. Tente novamente mais tarde.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const TOKEN_RE = /^[a-f0-9]{48}$/;
+
+// GET /api/agendamentos/publico/horarios — dias e horários livres
+router.get('/publico/horarios', limiterPublico, async (req, res) => {
+  try {
+    const conf = await agenda.carregarConfig(db);
+    let excetoId = null;
+    // Ao reagendar, o horário atual da própria pessoa não conta como ocupado
+    if (TOKEN_RE.test(req.query.token || '')) {
+      const [[ag]] = await db.query('SELECT id FROM agendamentos WHERE token = ?', [req.query.token]);
+      excetoId = ag?.id || null;
+    }
+    const ocupados = await agenda.carregarOcupados(db, conf, excetoId);
+    res.json({ ativa: conf.ativa, dias: gerarDisponibilidade(conf, ocupados) });
+  } catch (e) {
+    console.error('[agendamentos/publico/horarios]', e.message);
+    res.status(500).json({ erro: 'Não foi possível carregar os horários.' });
+  }
+});
+
+async function buscarPorToken(token) {
+  if (!TOKEN_RE.test(token || '')) return null;
+  const [[ag]] = await db.query(
+    `SELECT a.id, DATE_FORMAT(a.data, '%Y-%m-%d') AS data, a.hora, a.tipo, a.status, a.obs, a.tel,
+            COALESCE(c.nome, a.cliente_nome) AS nome, COALESCE(NULLIF(c.email, ''), a.email) AS email
+     FROM agendamentos a LEFT JOIN clientes c ON a.cliente_id = c.id
+     WHERE a.token = ?`, [token]);
+  return ag || null;
+}
+const jaPassou = (ag) => {
+  const agora = agoraSP();
+  return ag.data < agora.data || (ag.data === agora.data && String(ag.hora).slice(0, 5) < agora.hora);
+};
+const publico = (ag) => ({ nome: ag.nome, data: ag.data, hora: String(ag.hora).slice(0, 5), tipo: ag.tipo, status: ag.status || 'confirmado', passou: jaPassou(ag) });
+
+// GET /api/agendamentos/publico/:token
+router.get('/publico/:token', limiterPublico, async (req, res) => {
+  try {
+    const ag = await buscarPorToken(req.params.token);
+    if (!ag) return res.status(404).json({ erro: 'Agendamento não encontrado' });
+    res.json(publico(ag));
+  } catch (e) {
+    console.error('[agendamentos/publico GET]', e.message);
+    res.status(500).json({ erro: 'Erro ao carregar o agendamento.' });
+  }
+});
+
+// POST /api/agendamentos/publico/:token/confirmar
+router.post('/publico/:token/confirmar', limiterPublico, async (req, res) => {
+  try {
+    const ag = await buscarPorToken(req.params.token);
+    if (!ag) return res.status(404).json({ erro: 'Agendamento não encontrado' });
+    if (ag.status === 'cancelado') return res.status(409).json({ erro: 'Este agendamento foi cancelado. Escolha um novo horário.' });
+    if (jaPassou(ag)) return res.status(409).json({ erro: 'Este horário já passou.' });
+    if (ag.status !== 'confirmado') {
+      await db.query("UPDATE agendamentos SET status = 'confirmado', confirmado_em = NOW() WHERE id = ?", [ag.id]);
+      agenda.avisarEquipe(`✅ Presença confirmada — ${ag.nome}`, ag, ' confirmou presença.')
+        .catch(e => console.error('[agendamentos] aviso equipe:', e.message));
+    }
+    res.json(publico({ ...ag, status: 'confirmado' }));
+  } catch (e) {
+    console.error('[agendamentos/publico confirmar]', e.message);
+    res.status(500).json({ erro: 'Não foi possível confirmar. Tente novamente.' });
+  }
+});
+
+// POST /api/agendamentos/publico/:token/cancelar
+router.post('/publico/:token/cancelar', limiterPublico, async (req, res) => {
+  try {
+    const ag = await buscarPorToken(req.params.token);
+    if (!ag) return res.status(404).json({ erro: 'Agendamento não encontrado' });
+    if (jaPassou(ag)) return res.status(409).json({ erro: 'Este horário já passou.' });
+    if (ag.status !== 'cancelado') {
+      await db.query("UPDATE agendamentos SET status = 'cancelado', cancelado_em = NOW() WHERE id = ?", [ag.id]);
+      agenda.avisarEquipe(`❌ Agendamento cancelado — ${ag.nome}`, ag, ' cancelou o atendimento pela internet. O horário foi liberado.')
+        .catch(e => console.error('[agendamentos] aviso equipe:', e.message));
+    }
+    res.json(publico({ ...ag, status: 'cancelado' }));
+  } catch (e) {
+    console.error('[agendamentos/publico cancelar]', e.message);
+    res.status(500).json({ erro: 'Não foi possível cancelar. Tente novamente.' });
+  }
+});
+
+// POST /api/agendamentos/publico/:token/reagendar  { data, hora }
+// Já entra confirmado — a pessoa acabou de escolher o horário.
+router.post('/publico/:token/reagendar', limiterPublico, async (req, res) => {
+  try {
+    const ag = await buscarPorToken(req.params.token);
+    if (!ag) return res.status(404).json({ erro: 'Agendamento não encontrado' });
+    const { data, hora } = req.body || {};
+    if (!(await agenda.verificarHorario(db, data, hora, ag.id))) {
+      return res.status(409).json({ erro: 'Esse horário não está mais disponível. Escolha outro.' });
+    }
+    await db.query(
+      "UPDATE agendamentos SET data = ?, hora = ?, status = 'confirmado', confirmado_em = NOW(), cancelado_em = NULL WHERE id = ?",
+      [data, hora, ag.id]);
+    const novo = { ...ag, data, hora };
+    agenda.avisarEquipe(`🔁 Reagendado — ${ag.nome}`, novo,
+      ` reagendou pela internet (antes: ${escHtml(ag.data.split('-').reverse().join('/'))} às ${escHtml(String(ag.hora).slice(0, 5))}).`)
+      .catch(e => console.error('[agendamentos] aviso equipe:', e.message));
+    res.json(publico({ ...novo, status: 'confirmado' }));
+  } catch (e) {
+    console.error('[agendamentos/publico reagendar]', e.message);
+    res.status(500).json({ erro: 'Não foi possível reagendar. Tente novamente.' });
+  }
+});
 
 router.use(auth);
 
@@ -60,8 +183,12 @@ router.post('/', async (req, res) => {
     if (!data) return res.status(400).json({ erro: 'data é obrigatória' });
     if (!hora) return res.status(400).json({ erro: 'hora é obrigatória' });
 
+    // Começa 'pendente': o cliente confirma pelo link do e-mail, ou a equipe
+    // marca como confirmado na Agenda (ex.: depois de falar no WhatsApp).
+    const token = agenda.novoToken();
     const [r] = await db.query(
-      'INSERT INTO agendamentos (cliente_id, cliente_nome, data, hora, tipo, obs, colaborador) VALUES (?,?,?,?,?,?,?)',
+      `INSERT INTO agendamentos (cliente_id, cliente_nome, data, hora, tipo, obs, colaborador, status, token, origem)
+       VALUES (?,?,?,?,?,?,?, 'pendente', ?, 'Equipe')`,
       [
         cliente_id ? parseInt(cliente_id) : null,
         cliente_nome || null,
@@ -69,31 +196,28 @@ router.post('/', async (req, res) => {
         hora,
         tipo || 'Reunião',
         obs || null,
-        colaborador || null
+        colaborador || null,
+        token,
       ]
     );
     const [novo] = await db.query('SELECT * FROM agendamentos WHERE id = ?', [r.insertId]);
 
-    // Email de confirmação para o cliente
+    // E-mail para o cliente com botão de confirmar presença
     if (cliente_id) {
       try {
         const [cli] = await db.query('SELECT nome, email FROM clientes WHERE id = ?', [parseInt(cliente_id)]);
         if (cli.length && cli[0].email) {
-          const dataFmt = new Date(data + 'T12:00:00').toLocaleDateString('pt-BR');
           await sendEmail(
             cli[0].email,
-            '📅 Agendamento confirmado — WB Assessoria',
+            '📅 Novo agendamento — WB Assessoria',
             `<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
-              <h2 style="color:#c9a84c">WB Assessoria Migratória</h2>
-              <p>Olá, <b>${cli[0].nome}</b>!</p>
-              <p>Seu agendamento foi confirmado:</p>
-              <table style="border-collapse:collapse;width:100%;margin:12px 0">
-                <tr><td style="padding:6px;color:#666">Data:</td><td style="padding:6px;font-weight:bold">${dataFmt}</td></tr>
-                <tr><td style="padding:6px;color:#666">Horário:</td><td style="padding:6px;font-weight:bold">${hora}</td></tr>
-                <tr><td style="padding:6px;color:#666">Tipo:</td><td style="padding:6px;font-weight:bold">${tipo || 'Reunião'}</td></tr>
-                ${obs ? `<tr><td style="padding:6px;color:#666">Obs:</td><td style="padding:6px">${obs}</td></tr>` : ''}
-              </table>
-              <p style="color:#888;font-size:13px">Em caso de dúvidas entre em contato pelo WhatsApp: (11) 91425-8886</p>
+              <h2 style="color:#c9a84c;margin-top:0">WB Assessoria Migratória</h2>
+              <p>Olá, <b>${escHtml(cli[0].nome)}</b>! Marcamos um atendimento para você:</p>
+              ${agenda.blocoDataHora(data, hora, tipo || 'Reunião')}
+              ${obs ? `<p style="color:#555"><b>Obs:</b> ${escHtml(obs)}</p>` : ''}
+              <p>Clique abaixo para <b>confirmar sua presença</b>:</p>
+              ${agenda.botoesConfirmacao(token)}
+              ${agenda.rodape()}
             </div>`
           );
         }
@@ -113,7 +237,10 @@ router.patch('/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ erro: 'ID inválido' });
 
-    const allowed = ['cliente_id', 'cliente_nome', 'data', 'hora', 'tipo', 'obs', 'colaborador'];
+    const allowed = ['cliente_id', 'cliente_nome', 'data', 'hora', 'tipo', 'obs', 'colaborador', 'status', 'email', 'tel'];
+    if ('status' in req.body && !['pendente', 'confirmado', 'cancelado'].includes(req.body.status)) {
+      return res.status(400).json({ erro: 'status inválido' });
+    }
     const setClauses = [];
     const params = [];
 
@@ -125,6 +252,8 @@ router.patch('/:id', async (req, res) => {
     }
 
     if (!setClauses.length) return res.status(400).json({ erro: 'Nenhum campo para atualizar' });
+    if (req.body.status === 'confirmado') setClauses.push('confirmado_em = COALESCE(confirmado_em, NOW())');
+    if (req.body.status === 'cancelado')  setClauses.push('cancelado_em = NOW()');
 
     params.push(id);
     await db.query(`UPDATE agendamentos SET ${setClauses.join(', ')} WHERE id = ?`, params);

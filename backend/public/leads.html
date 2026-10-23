@@ -76,6 +76,28 @@ select option{background:#1f2937}
 .success p{color:#9ca3af;font-size:15px}
 .success .wpp{display:inline-flex;align-items:center;gap:6px;margin-top:20px;background:#16a34a;color:#fff;padding:12px 20px;border-radius:8px;font-weight:600;font-size:14px}
 
+/* AGENDA */
+.dias{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.dia-btn{flex:0 0 auto;min-width:68px;padding:8px 6px;border-radius:10px;border:1px solid #374151;background:#1f2937;color:#d1d5db;cursor:pointer;text-align:center;font-family:inherit;transition:all .15s}
+.dia-btn:hover{border-color:#6b7280;color:#fff}
+.dia-btn .dsem{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af}
+.dia-btn .dnum{font-size:18px;font-weight:700;line-height:1.2}
+.dia-btn .dmes{font-size:11px;color:#9ca3af}
+.dia-btn.active{background:#059669;border-color:#10b981;color:#fff}
+.dia-btn.active .dsem,.dia-btn.active .dmes{color:#d1fae5}
+.horas{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;margin-top:12px}
+.hora-btn{padding:9px 4px;border-radius:8px;border:1px solid #374151;background:#1f2937;color:#d1d5db;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
+.hora-btn:hover{border-color:#6b7280;color:#fff}
+.hora-btn.active{background:#059669;border-color:#10b981;color:#fff}
+.agenda-info{font-size:13px;color:#9ca3af;margin-top:10px}
+.agenda-escolhido{margin-top:12px;background:rgba(16,185,129,.1);border:1px solid #065f46;border-radius:8px;padding:10px 12px;font-size:13px;color:#a7f3d0}
+.skip{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:#9ca3af;cursor:pointer}
+.skip input{width:auto;accent-color:#10b981}
+.agenda-box.off .dias,.agenda-box.off .horas,.agenda-box.off .agenda-escolhido{opacity:.35;pointer-events:none}
+.resumo-ag{display:inline-block;margin-top:18px;background:#111827;border:1px solid #1f2937;border-radius:12px;padding:14px 20px;text-align:left}
+.resumo-ag .l{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em}
+.resumo-ag .v{font-size:17px;font-weight:700;color:#fff;margin-bottom:6px}
+
 /* FOOTER */
 .footer{text-align:center;padding:24px 16px;border-top:1px solid #111827}
 .footer p{font-size:13px;color:#4b5563}
@@ -219,6 +241,19 @@ select option{background:#1f2937}
         </div>
       </div>
 
+      <!-- Agenda (só aparece se houver horários livres) -->
+      <div class="divider" id="agendaWrap" style="display:none">
+        <p class="divider-label">Escolha um horário para atendimento</p>
+        <div class="agenda-box" id="agendaBox">
+          <div class="dias" id="dias"></div>
+          <div class="horas" id="horas"></div>
+          <div class="agenda-escolhido" id="agendaEscolhido" style="display:none"></div>
+          <p class="agenda-info">Horários de Brasília. Você recebe um e-mail para confirmar a presença.</p>
+          <label class="skip"><input type="checkbox" id="semHorario"/> Prefiro que a equipe entre em contato para combinar</label>
+          <div class="err-msg" id="err-agenda"></div>
+        </div>
+      </div>
+
       <!-- Honeypot: invisível para humanos, bots preenchem automaticamente -->
       <div style="position:absolute;left:-9999px;opacity:0;pointer-events:none" aria-hidden="true">
         <input type="text" id="_hp" name="_hp" tabindex="-1" autocomplete="off"/>
@@ -240,8 +275,9 @@ select option{background:#1f2937}
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
       </svg>
     </div>
-    <h2>Recebemos seu contato!</h2>
-    <p>Nossa equipe entrará em contato em breve pelo WhatsApp ou e-mail informado.</p>
+    <h2 id="successTitle">Recebemos seu contato!</h2>
+    <p id="successMsg">Nossa equipe entrará em contato em breve pelo WhatsApp ou e-mail informado.</p>
+    <div id="successAg"></div>
     <p style="margin-top:8px;font-size:13px;color:#6b7280">WB Assessoria Migratória — Especialistas em regularização migratória no Brasil.</p>
     <a href="https://wa.me/5511914258886" class="wpp" target="_blank" rel="noreferrer">
       <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -256,7 +292,65 @@ select option{background:#1f2937}
 </div>
 
 <script>
-const state = { rnm: '', tempo: '' };
+const state = { rnm: '', tempo: '', data: '', hora: '' };
+let agendaDias = [];
+
+const SEM = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const dt = (iso) => new Date(iso + 'T12:00:00');
+function fmtLongo(iso) {
+  const s = dt(iso).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+async function carregarAgenda() {
+  try {
+    const r = await fetch('/api/agendamentos/publico/horarios');
+    const j = await r.json();
+    if (!r.ok || !j.ativa || !j.dias?.length) return; // sem agenda → formulário funciona como antes
+    agendaDias = j.dias;
+    document.getElementById('agendaWrap').style.display = '';
+    renderDias();
+  } catch {}
+}
+
+function renderDias() {
+  const el = document.getElementById('dias');
+  el.innerHTML = agendaDias.map(d => {
+    const x = dt(d.data);
+    return `<button type="button" class="dia-btn${state.data === d.data ? ' active' : ''}" data-data="${d.data}">
+      <div class="dsem">${SEM[x.getDay()]}</div><div class="dnum">${x.getDate()}</div><div class="dmes">${MES[x.getMonth()]}</div></button>`;
+  }).join('');
+  el.querySelectorAll('.dia-btn').forEach(b => b.addEventListener('click', () => {
+    state.data = b.dataset.data; state.hora = '';
+    renderDias();
+  }));
+  renderHoras();
+}
+
+function renderHoras() {
+  const el = document.getElementById('horas');
+  const dia = agendaDias.find(d => d.data === state.data);
+  el.innerHTML = dia ? dia.horarios.map(h =>
+    `<button type="button" class="hora-btn${state.hora === h ? ' active' : ''}" data-hora="${h}">${h}</button>`).join('') : '';
+  el.querySelectorAll('.hora-btn').forEach(b => b.addEventListener('click', () => {
+    state.hora = b.dataset.hora;
+    document.getElementById('err-agenda').textContent = '';
+    renderHoras();
+  }));
+  const esc = document.getElementById('agendaEscolhido');
+  if (state.data && state.hora) {
+    esc.style.display = '';
+    esc.textContent = `Horário escolhido: ${fmtLongo(state.data)} às ${state.hora}`;
+  } else esc.style.display = 'none';
+}
+
+document.getElementById('semHorario').addEventListener('change', (e) => {
+  document.getElementById('agendaBox').classList.toggle('off', e.target.checked);
+  document.getElementById('err-agenda').textContent = '';
+});
+
+carregarAgenda();
 
 // Toggle buttons
 document.querySelectorAll('.toggle-btn').forEach(btn => {
@@ -307,6 +401,12 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErr('email', 'E-mail inválido'); valid = false; }
   if (!cidade)  { setErr('cidade',  'Cidade obrigatória');      valid = false; }
   if (!estado)  { setErr('estado',  'Selecione o estado');      valid = false; }
+  const querHorario = agendaDias.length > 0 && !document.getElementById('semHorario').checked;
+  document.getElementById('err-agenda').textContent = '';
+  if (querHorario && !(state.data && state.hora)) {
+    document.getElementById('err-agenda').textContent = 'Escolha um dia e horário (ou marque a opção de combinar com a equipe)';
+    valid = false;
+  }
 
   if (!valid) return;
 
@@ -323,12 +423,23 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
         nome, pais, servico, tel, email, cidade, estado,
         rnm_tipo: state.rnm || null,
         tempo_no_pais: state.tempo,
+        agendamento: querHorario ? { data: state.data, hora: state.hora } : null,
         _hp: document.getElementById('_hp').value,
       })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.erro || 'Erro ao enviar');
     fbq('track', 'Lead');
+    if (data.agendado) {
+      fbq('track', 'Schedule');
+      document.getElementById('successTitle').textContent = 'Atendimento agendado!';
+      document.getElementById('successMsg').innerHTML = 'Enviamos um e-mail para <b></b>. Clique em <b>Confirmar presença</b> para garantir seu horário.';
+      document.querySelector('#successMsg b').textContent = email;
+      document.getElementById('successAg').innerHTML =
+        `<div class="resumo-ag"><div class="l">Data</div><div class="v">${fmtLongo(data.agendamento.data)}</div><div class="l">Horário</div><div class="v" style="margin:0">${data.agendamento.hora}</div></div>`;
+    } else if (data.horario_indisponivel) {
+      document.getElementById('successMsg').textContent = 'O horário escolhido acabou de ser ocupado por outra pessoa. Nossa equipe vai entrar em contato pelo WhatsApp para combinar um novo horário.';
+    }
     document.getElementById('formSection').style.display = 'none';
     document.getElementById('successSection').style.display = 'block';
   } catch (err) {

@@ -22,10 +22,10 @@ router.post('/agendamentos', auth, async (req, res) => {
 
     // Agendamentos de amanhã com email do cliente
     const [agAmanha] = await db.query(`
-      SELECT a.*, c.email, c.nome AS cli_nome
+      SELECT a.*, COALESCE(NULLIF(c.email, ''), a.email) AS email, c.nome AS cli_nome
       FROM agendamentos a
       LEFT JOIN clientes c ON c.id = a.cliente_id
-      WHERE a.data = ?
+      WHERE a.data = ? AND (a.status IS NULL OR a.status <> 'cancelado')
       ORDER BY a.hora ASC
     `, [dataAmanha]);
 
@@ -34,7 +34,7 @@ router.post('/agendamentos', auth, async (req, res) => {
       SELECT a.*, c.nome AS cli_nome
       FROM agendamentos a
       LEFT JOIN clientes c ON c.id = a.cliente_id
-      WHERE a.data = ?
+      WHERE a.data = ? AND (a.status IS NULL OR a.status <> 'cancelado')
       ORDER BY a.hora ASC
     `, [dataHoje]);
 

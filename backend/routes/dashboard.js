@@ -26,7 +26,7 @@ router.get('/stats', async (req, res) => {
 
     const hoje = new Date().toISOString().split('T')[0];
     const [[agHoje]] = await db.query(
-      'SELECT COUNT(*) AS total FROM agendamentos WHERE data = ?',
+      "SELECT COUNT(*) AS total FROM agendamentos WHERE data = ? AND (status IS NULL OR status <> 'cancelado')",
       [hoje]
     );
 
@@ -34,6 +34,7 @@ router.get('/stats', async (req, res) => {
     const [proximosAg] = await db.query(`
       SELECT * FROM agendamentos
       WHERE data >= CURDATE() AND data <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+        AND (status IS NULL OR status <> 'cancelado')
       ORDER BY data ASC, hora ASC
       LIMIT 10`);
 

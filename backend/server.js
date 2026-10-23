@@ -107,6 +107,16 @@ async function runMigrations() {
     // FITID do OFX — identificador único do banco, evita importar a mesma
     // transação duas vezes se o arquivo for importado de novo
     ['lancamentos_bancarios', 'fitid', "VARCHAR(100) DEFAULT NULL"],
+    // Agenda pública (landing page) + confirmação de presença. Os que já
+    // existiam ficam 'confirmado' (DEFAULT); novos entram como 'pendente'.
+    ['agendamentos', 'status',        "VARCHAR(20)  DEFAULT 'confirmado'"],
+    ['agendamentos', 'token',         "VARCHAR(64)  DEFAULT NULL"],
+    ['agendamentos', 'lead_id',       "INT          DEFAULT NULL"],
+    ['agendamentos', 'email',         "VARCHAR(200) DEFAULT NULL"],
+    ['agendamentos', 'tel',           "VARCHAR(30)  DEFAULT NULL"],
+    ['agendamentos', 'origem',        "VARCHAR(50)  DEFAULT NULL"],
+    ['agendamentos', 'confirmado_em', "DATETIME     DEFAULT NULL"],
+    ['agendamentos', 'cancelado_em',  "DATETIME     DEFAULT NULL"],
   ];
   for (const [table, column, definition] of alterCols) {
     await addColumnIfNotExists(table, column, definition);
@@ -297,6 +307,10 @@ async function runMigrations() {
     await db.query(
       "INSERT IGNORE INTO config_sistema (chave, valor) VALUES ('dias_cliente_parado', '50')"
     );
+    const { CONFIG_PADRAO } = require('./lib/agendaPublica');
+    for (const [chave, valor] of Object.entries(CONFIG_PADRAO)) {
+      await db.query('INSERT IGNORE INTO config_sistema (chave, valor) VALUES (?, ?)', [chave, valor]);
+    }
   } catch(e) { console.warn('[migration] seed config_sistema:', e.message.slice(0,80)); }
   // Seed dos prazos padrão por fase (acertados com o cliente; editáveis depois em Configurações)
   const prazosSeed = [
@@ -619,30 +633,38 @@ async function verificarParcelasAlertaCron() {
 
 async function lembreteAgendamentoCron() {
   const { sendEmail } = require('./lib/email');
-  const amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
-  const amanhaISO = amanha.toISOString().slice(0, 10);
+  const { agoraSP, somaDias, escHtml } = require('./lib/agendaPublica');
+  const { blocoDataHora, botoesConfirmacao, rodape, novoToken } = require('./lib/agendaServico');
+  const amanhaISO = somaDias(agoraSP().data, 1);
   try {
+    // Inclui quem marcou pela landing page (sem cliente_id, e-mail no próprio
+    // agendamento). Cancelados não recebem lembrete.
     const [ags] = await db.query(
-      `SELECT a.*, c.nome AS cli_nome, c.email AS cli_email
+      `SELECT a.id, a.hora, a.tipo, a.status, a.token, a.cliente_nome,
+              COALESCE(c.nome, a.cliente_nome) AS nome, COALESCE(NULLIF(c.email, ''), a.email) AS email_dest
        FROM agendamentos a
        LEFT JOIN clientes c ON a.cliente_id = c.id
-       WHERE a.data = ?`, [amanhaISO]
+       WHERE a.data = ? AND (a.status IS NULL OR a.status <> 'cancelado')`, [amanhaISO]
     );
     for (const ag of ags) {
-      if (!ag.cli_email) continue;
-      const dtFmt = amanha.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-      await sendEmail(ag.cli_email, '📅 Lembrete de Agendamento — WB Assessoria',
+      if (!ag.email_dest) continue;
+      // Ainda não confirmou → o lembrete leva os botões de confirmar/reagendar
+      let botoes = '';
+      if (ag.status === 'pendente') {
+        let token = ag.token;
+        if (!token) {
+          token = novoToken();
+          await db.query('UPDATE agendamentos SET token = ? WHERE id = ?', [token, ag.id]);
+        }
+        botoes = `<p>Por favor, <b>confirme sua presença</b>:</p>${botoesConfirmacao(token)}`;
+      }
+      await sendEmail(ag.email_dest, '📅 Lembrete de Agendamento — WB Assessoria',
         `<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
           <h2 style="color:#c9a84c;margin-top:0">WB Assessoria Migratória</h2>
-          <p>Olá, <b>${ag.cli_nome || ag.cliente_nome}</b>! Este é um lembrete do seu agendamento de amanhã:</p>
-          <div style="background:#fff;border-left:4px solid #c9a84c;padding:16px;border-radius:0 8px 8px 0;margin:16px 0">
-            <div style="font-size:0.9rem;color:#666">Data</div>
-            <div style="font-weight:700;font-size:1.1rem;color:#333">${dtFmt}</div>
-            <div style="font-size:0.9rem;color:#666;margin-top:8px">Horário</div>
-            <div style="font-weight:700;font-size:1.1rem;color:#333">${ag.hora}</div>
-            ${ag.tipo ? `<div style="font-size:0.9rem;color:#666;margin-top:8px">Tipo</div><div style="font-weight:600;color:#333">${ag.tipo}</div>` : ''}
-          </div>
-          <p style="color:#555;font-size:0.9rem">Dúvidas? Fale conosco: <a href="https://wa.me/5511914258886" style="color:#c9a84c">(11) 91425-8886</a></p>
+          <p>Olá, <b>${escHtml(ag.nome)}</b>! Este é um lembrete do seu agendamento de amanhã:</p>
+          ${blocoDataHora(amanhaISO, ag.hora, ag.tipo)}
+          ${botoes}
+          ${rodape()}
         </div>`
       ).catch(e => console.error('[email] lembrete agendamento:', e.message));
     }

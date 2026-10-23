@@ -577,6 +577,7 @@ async function carregarConfigAutomacoes() {
     ]);
     const diasEl = document.getElementById('cfg-dias-parado');
     if (diasEl) diasEl.value = config?.dias_cliente_parado || 50;
+    preencherConfigAgenda(config || {});
 
     const listaEl = document.getElementById('fase-prazos-lista');
     if (listaEl && Array.isArray(prazos)) {
@@ -596,6 +597,47 @@ async function carregarConfigAutomacoes() {
         </div>`).join('');
     }
   } catch(e) {}
+}
+
+function preencherConfigAgenda(config) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  const ativa = document.getElementById('cfg-ag-ativa');
+  if (!ativa) return;
+  ativa.checked = (config.agenda_publica_ativa ?? '1') !== '0';
+  const dias = String(config.agenda_dias ?? '1,2,3,4,5').split(',');
+  document.getElementById('cfg-ag-dias').innerHTML = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map((d, i) =>
+    `<label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer"><input type="checkbox" class="cfg-ag-dia" value="${i}" ${dias.includes(String(i))?'checked':''}> ${d}</label>`).join('');
+  set('cfg-ag-inicio',    config.agenda_inicio || '09:00');
+  set('cfg-ag-fim',       config.agenda_fim || '18:00');
+  set('cfg-ag-intervalo', config.agenda_intervalo || 30);
+  set('cfg-ag-pausa',     config.agenda_pausa ?? '12:00-13:00');
+  set('cfg-ag-frente',    config.agenda_dias_frente || 14);
+  set('cfg-ag-antec',     config.agenda_antecedencia_horas ?? 2);
+}
+
+async function salvarConfigAgenda() {
+  const v = (id) => document.getElementById(id)?.value.trim() || '';
+  const dias = [...document.querySelectorAll('.cfg-ag-dia:checked')].map(c => c.value).join(',');
+  if (!dias) { showToast('Marque pelo menos um dia da semana', 'warning'); return; }
+  if (!v('cfg-ag-inicio') || !v('cfg-ag-fim') || v('cfg-ag-inicio') >= v('cfg-ag-fim')) { showToast('O horário de início precisa ser antes do fim', 'warning'); return; }
+  const pausa = v('cfg-ag-pausa');
+  if (pausa && !/^\d{2}:\d{2}\s*-\s*\d{2}:\d{2}$/.test(pausa)) { showToast('Almoço no formato 12:00-13:00 (ou deixe vazio)', 'warning'); return; }
+  const valores = {
+    agenda_publica_ativa: document.getElementById('cfg-ag-ativa').checked ? '1' : '0',
+    agenda_dias: dias,
+    agenda_inicio: v('cfg-ag-inicio'),
+    agenda_fim: v('cfg-ag-fim'),
+    agenda_intervalo: v('cfg-ag-intervalo') || '30',
+    agenda_pausa: pausa,
+    agenda_dias_frente: v('cfg-ag-frente') || '14',
+    agenda_antecedencia_horas: v('cfg-ag-antec') || '0',
+  };
+  try {
+    for (const [chave, valor] of Object.entries(valores)) {
+      await apiFetch('/config', { method:'PUT', body: JSON.stringify({ chave, valor }) });
+    }
+    showToast('✅ Horários da agenda salvos!', 'success');
+  } catch(e) { showToast('Erro ao salvar: '+e.message, 'error'); }
 }
 
 async function salvarDiasClienteParado() {
@@ -932,6 +974,22 @@ function renderConfiguracoes() {
                 <span style="font-size:0.78rem;color:var(--text3)">dias</span>
                 <button class="btn btn-outline btn-sm" onclick="salvarDiasClienteParado()">Salvar</button>
               </div>
+            </div>
+
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px">
+              <div style="font-weight:700;font-size:0.82rem;margin-bottom:4px">📅 Agenda da Landing Page</div>
+              <div style="font-size:0.78rem;color:var(--text3);margin-bottom:10px">Horários que o visitante pode escolher em atendimento.wbassessoriamigratoria.com.br. Horários já ocupados na Agenda (por qualquer pessoa) somem automaticamente.</div>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;margin-bottom:10px;cursor:pointer"><input type="checkbox" id="cfg-ag-ativa"> Mostrar a agenda na landing page</label>
+              <div id="cfg-ag-dias" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
+                <div class="form-group" style="margin:0"><label>Início</label><input id="cfg-ag-inicio" type="time" class="form-input"></div>
+                <div class="form-group" style="margin:0"><label>Fim</label><input id="cfg-ag-fim" type="time" class="form-input"></div>
+                <div class="form-group" style="margin:0"><label>Duração (min)</label><input id="cfg-ag-intervalo" type="number" min="10" max="240" step="5" class="form-input"></div>
+                <div class="form-group" style="margin:0"><label>Almoço (ex: 12:00-13:00)</label><input id="cfg-ag-pausa" class="form-input" placeholder="vazio = sem pausa"></div>
+                <div class="form-group" style="margin:0"><label>Dias à frente</label><input id="cfg-ag-frente" type="number" min="1" max="60" class="form-input"></div>
+                <div class="form-group" style="margin:0"><label>Antecedência mínima (h)</label><input id="cfg-ag-antec" type="number" min="0" max="72" class="form-input"></div>
+              </div>
+              <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="salvarConfigAgenda()">Salvar horários</button>
             </div>
 
             <div id="fase-prazos-wrap" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px">
@@ -5115,6 +5173,50 @@ async function deletarParcela(pid, cid) {
   } catch(e) { showToast('Erro ao excluir parcela: '+e.message,'error'); }
 }
 
+// ── Confirmação de presença (status do agendamento) ──
+const AG_STATUS = {
+  pendente:   { label:'Aguardando confirmação', cor:'#facc15', bg:'rgba(234,179,8,0.1)',  bd:'rgba(234,179,8,0.25)' },
+  confirmado: { label:'Confirmado',             cor:'#34d399', bg:'rgba(16,185,129,0.1)', bd:'rgba(16,185,129,0.25)' },
+  cancelado:  { label:'Cancelado',              cor:'#f87171', bg:'rgba(239,68,68,0.1)',  bd:'rgba(239,68,68,0.25)' },
+};
+function agStatusBadge(a) {
+  const s = AG_STATUS[a.status || 'confirmado'] || AG_STATUS.confirmado;
+  return `<span style="background:${s.bg};color:${s.cor};border:1px solid ${s.bd};border-radius:12px;padding:2px 9px;font-size:0.66rem;font-weight:700;white-space:nowrap">${s.label}</span>`
+    + (a.origem === 'Landing Page' ? ` <span title="Marcado pelo próprio visitante na landing page" style="background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);border-radius:12px;padding:2px 8px;font-size:0.62rem;font-weight:700;white-space:nowrap">Landing</span>` : '');
+}
+function agWhatsUrl(a) {
+  const c = (clientes||[]).find(x => x.id===a.cliente_id);
+  let tel = String(a.tel || c?.tel || '').replace(/\D/g, '');
+  if (!tel) return '';
+  if (tel.length <= 11) tel = '55' + tel; // número nacional sem DDI
+  const nome = (c?.nome || a.cliente_nome || '').split(' ')[0];
+  const dataFmt = new Date(String(a.data).slice(0,10)+'T12:00').toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+  let txt = `Olá${nome?', '+nome:''}! Aqui é da WB Assessoria Migratória. Passando para confirmar seu atendimento ${dataFmt} às ${a.hora}.`;
+  txt += a.token
+    ? ` Pode confirmar por aqui: https://sistema.wbassessoriamigratoria.com.br/agendamento.html?token=${a.token} — ou é só responder esta mensagem.`
+    : ' Pode confirmar respondendo esta mensagem?';
+  return `https://wa.me/${tel}?text=${encodeURIComponent(txt)}`;
+}
+function agAcoes(a) {
+  const st = a.status || 'confirmado';
+  const b = 'border-radius:5px;padding:4px 8px;cursor:pointer;font-size:0.7rem;font-family:inherit;text-decoration:none;display:inline-block';
+  const wpp = st !== 'cancelado' ? agWhatsUrl(a) : '';
+  return `<div style="display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap">
+    ${st === 'pendente' ? `<button title="Marcar como confirmado" onclick="setAgStatus(${a.id},'confirmado')" style="${b};background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.25)">✓ Confirmar</button>` : ''}
+    ${wpp ? `<a title="Pedir confirmação pelo WhatsApp" href="${wpp}" target="_blank" rel="noreferrer" style="${b};background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.25)">💬</a>` : ''}
+    ${st !== 'cancelado' ? `<button title="Cancelar (libera o horário)" onclick="setAgStatus(${a.id},'cancelado')" style="${b};background:var(--bg3);color:var(--text3);border:1px solid var(--border)">Cancelar</button>` : `<button title="Reativar" onclick="setAgStatus(${a.id},'pendente')" style="${b};background:var(--bg3);color:var(--text3);border:1px solid var(--border)">Reativar</button>`}
+    <button title="Excluir" onclick="deletarAg(${a.id})" style="${b};background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2)">✕</button>
+  </div>`;
+}
+async function setAgStatus(id, status) {
+  try {
+    await apiFetch('/agendamentos/'+id, { method:'PATCH', body: JSON.stringify({ status }) });
+    await loadData();
+    renderPage('agendamentos');
+    showToast(status==='confirmado' ? 'Presença confirmada' : status==='cancelado' ? 'Agendamento cancelado — horário liberado' : 'Agendamento reativado', 'success');
+  } catch(e) { showToast('Erro: '+e.message, 'error'); }
+}
+
 function renderAgendamentos() {
   if (!_agCalMes) _agCalMes = new Date().toISOString().slice(0,7);
   const hoje = new Date().toISOString().split('T')[0];
@@ -5132,23 +5234,27 @@ function renderAgendamentos() {
   const rows = fut.map(a => {
     const c = (clientes||[]).find(x => x.id===a.cliente_id);
     const isHoje = a.data===hoje;
-    return `<tr style="border-bottom:1px solid var(--border);${isHoje?'background:var(--gold-dim)':''}">
+    const canc = a.status === 'cancelado';
+    return `<tr style="border-bottom:1px solid var(--border);${isHoje?'background:var(--gold-dim);':''}${canc?'opacity:0.55;':''}">
       <td style="padding:10px 14px;font-family:'DM Mono',monospace;font-size:0.8rem;${isHoje?'color:var(--gold);font-weight:700':''}">${fmtDate(a.data)}${isHoje?' hoje':''}</td>
-      <td style="padding:10px 14px;font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--gold);font-weight:700">${a.hora||'—'}</td>
+      <td style="padding:10px 14px;font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--gold);font-weight:700;${canc?'text-decoration:line-through':''}">${a.hora||'—'}</td>
       <td style="padding:10px 14px;font-weight:600;font-size:0.8rem">${c?c.nome.split(' ').slice(0,2).join(' '):a.cliente_nome||'—'}</td>
       <td style="padding:10px 14px"><span style="background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:2px 9px;font-size:0.68rem;font-weight:700">${a.tipo||'Reunião'}</span></td>
-      <td style="padding:10px 14px"><button onclick="deletarAg(${a.id})" style="background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:0.7rem">✕</button></td>
+      <td style="padding:10px 14px">${agStatusBadge(a)}</td>
+      <td style="padding:10px 14px">${agAcoes(a)}</td>
     </tr>`;
   }).join('');
+  const pend = fut.filter(a => a.status === 'pendente').length;
   return header +
-    `<div class="panel"><div class="panel-header"><span class="panel-title">Próximos (${fut.length})</span></div>
+    `<div class="panel"><div class="panel-header"><span class="panel-title">Próximos (${fut.length})</span>${pend?`<span style="font-size:0.72rem;color:#facc15;font-weight:700">${pend} aguardando confirmação</span>`:''}</div>
     <table style="width:100%;border-collapse:collapse"><thead><tr>
       <th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Data</th>
       <th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Hora</th>
       <th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Cliente</th>
       <th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Tipo</th>
+      <th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Status</th>
       <th style="padding:9px 14px;border-bottom:1px solid var(--border)"></th></tr></thead>
-    <tbody>${rows}${fut.length?'':'<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3)">Nenhum agendamento futuro</td></tr>'}</tbody></table></div>`;
+    <tbody>${rows}${fut.length?'':'<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">Nenhum agendamento futuro</td></tr>'}</tbody></table></div>`;
 }
 
 function renderAgCalendario() {
@@ -5159,7 +5265,7 @@ function renderAgCalendario() {
   const ultimoDia   = new Date(ano, mes, 0).getDate();
   const byDay = {};
   (agendamentos||[]).forEach(a => {
-    if ((a.data||'').slice(0,7) === _agCalMes) {
+    if ((a.data||'').slice(0,7) === _agCalMes && a.status !== 'cancelado') {
       const d = a.data.slice(8,10);
       if (!byDay[d]) byDay[d] = [];
       byDay[d].push(a);
@@ -5226,7 +5332,8 @@ function agCalDia(data) {
         ${a.obs?`<div style="font-size:0.72rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.obs}</div>`:''}
       </div>
       <span style="background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:2px 9px;font-size:0.68rem;font-weight:700;flex-shrink:0">${a.tipo||'Reunião'}</span>
-      <button onclick="deletarAg(${a.id})" style="background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);border-radius:5px;padding:4px 8px;cursor:pointer;font-size:0.7rem;flex-shrink:0">✕</button>
+      <span style="flex-shrink:0">${agStatusBadge(a)}</span>
+      <div style="flex-shrink:0">${agAcoes(a)}</div>
     </div>`;
   }).join('');
   box.innerHTML = `<div class="panel"><div class="panel-header"><span class="panel-title">${titulo}</span><span style="font-size:0.72rem;color:var(--text3)">${ags.length} agendamento${ags.length!==1?'s':''}</span></div>${rows}</div>`;
