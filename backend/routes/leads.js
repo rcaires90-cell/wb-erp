@@ -90,38 +90,11 @@ router.post('/publico', limiterPublico, async (req, res) => {
       leadId = r.insertId;
     }
 
-    // Horário escolhido na landing page (opcional). Se alguém pegou o mesmo
-    // horário no meio tempo, o lead fica salvo do mesmo jeito e a página
-    // avisa que a equipe vai entrar em contato pra marcar.
-    if (agendamento?.data && (agendamento?.hora || agendamento?.a_confirmar)) {
-      const { data } = agendamento;
-      // Sábado: a pessoa só escolhe o dia, a equipe define o horário depois
-      const hora = agendamento.a_confirmar ? null : agendamento.hora;
-      const valido = hora
-        ? await agenda.verificarHorario(db, data, hora)
-        : await agenda.verificarDiaAConfirmar(db, data);
-      if (!valido) {
-        return res.json({ ok: true, agendado: false, horario_indisponivel: true });
-      }
-      const token = agenda.novoToken();
-      const tipo = 'Consulta inicial';
-      const [ins] = await db.query(
-        `INSERT INTO agendamentos (cliente_nome, data, hora, tipo, obs, colaborador, status, token, lead_id, email, tel, origem)
-         VALUES (?, ?, ?, ?, ?, NULL, 'pendente', ?, ?, ?, ?, 'Landing Page')`,
-        [nomeClean, data, hora, tipo, servico || null, token, leadId, emailClean, telClean]
-      );
-      agenda.sincronizarGoogle(db, ins.insertId);
-      const ag = { nome: nomeClean, data, hora, tipo, token, email: emailClean, tel: telClean, obs: servico || null };
-      agenda.enviarPedidoConfirmacao(ag).catch(e => console.error('[leads/publico] e-mail confirmação:', e.message));
-      agenda.avisarEquipe(
-        hora ? `📅 Novo agendamento pela landing page — ${nomeClean}` : `📅 Pedido para sábado (definir horário) — ${nomeClean}`, ag,
-        hora ? ' marcou um atendimento pela landing page (aguardando confirmação).'
-             : ' pediu atendimento no sábado. <b>Defina o horário na Agenda do sistema</b> — a pessoa recebe o e-mail para confirmar.')
-        .catch(e => console.error('[leads/publico] aviso equipe:', e.message));
-      return res.json({ ok: true, agendado: true, agendamento: { data, hora, a_confirmar: !hora } });
-    }
-
-    res.json({ ok: true });
+    // Horário escolhido na landing page (opcional)
+    const ag = await agenda.agendarPeloFormulario(db, {
+      agendamento, nome: nomeClean, email: emailClean, tel: telClean, servico, leadId, origem: 'Landing Page',
+    });
+    return res.json({ ok: true, ...ag });
   } catch(e) {
     console.error('[leads/publico]', e.message);
     res.status(500).json({ erro: 'Não foi possível enviar. Tente novamente.' });
@@ -143,7 +116,7 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
     const cfg = FORMULARIOS_CONFIG[req.params.chave];
     if (!cfg) return res.status(404).json({ erro: 'Formulário não encontrado' });
 
-    const { nome, tel, email, respostas, _hp } = req.body;
+    const { nome, tel, email, respostas, agendamento, _hp } = req.body;
 
     // Honeypot: bots preenchem o campo oculto, humanos não
     if (_hp) return res.json({ ok: true });
@@ -171,7 +144,7 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
 
     const valor_estimado = VALORES_SERVICO[cfg.servico] || 0;
 
-    await db.query(
+    const [insLead] = await db.query(
       `INSERT INTO leads (nome, tel, email, servico, origem, status, obs, valor_estimado)
        VALUES (?, ?, ?, ?, 'Formulário Público', 'novo', ?, ?)`,
       [nomeClean, telClean, emailClean, cfg.servico, obs || null, valor_estimado]
@@ -201,7 +174,12 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
       );
     } catch(e) { console.error('[leads/formulario-publico] erro ao notificar equipe:', e.message); }
 
-    res.json({ ok: true });
+    // Dia/horário escolhido no formulário (opcional) — mesma agenda da landing
+    const ag = await agenda.agendarPeloFormulario(db, {
+      agendamento, nome: nomeClean, email: emailClean, tel: telClean, servico: cfg.servico,
+      leadId: insLead.insertId, origem: 'Formulário ' + cfg.titulo,
+    });
+    res.json({ ok: true, ...ag });
   } catch(e) {
     console.error('[leads/formulario-publico]', e.message);
     res.status(500).json({ erro: 'Não foi possível enviar. Tente novamente.' });

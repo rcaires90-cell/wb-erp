@@ -5217,7 +5217,7 @@ function agStatusBadge(a) {
     ? { label:'Definir horário', cor:'#fb923c', bg:'rgba(249,115,22,0.1)', bd:'rgba(249,115,22,0.3)' }
     : AG_STATUS[a.status || 'confirmado'] || AG_STATUS.confirmado;
   return `<span style="background:${s.bg};color:${s.cor};border:1px solid ${s.bd};border-radius:12px;padding:2px 9px;font-size:0.66rem;font-weight:700;white-space:nowrap">${s.label}</span>`
-    + (a.origem === 'Landing Page' ? ` <span title="Marcado pelo próprio visitante na landing page" style="background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);border-radius:12px;padding:2px 8px;font-size:0.62rem;font-weight:700;white-space:nowrap">Landing</span>` : '');
+    + (a.origem && a.origem !== 'Equipe' ? ` <span title="Marcado pelo próprio cliente — ${a.origem}" style="background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);border-radius:12px;padding:2px 8px;font-size:0.62rem;font-weight:700;white-space:nowrap">${a.origem === 'Landing Page' ? 'Landing' : 'Formulário'}</span>` : '');
 }
 function agWhatsUrl(a) {
   const c = (clientes||[]).find(x => x.id===a.cliente_id);

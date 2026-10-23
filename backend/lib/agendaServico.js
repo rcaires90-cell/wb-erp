@@ -147,7 +147,37 @@ async function avisarEquipe(assunto, ag, extra = '') {
     </div>`);
 }
 
+// Cria o agendamento pedido por um formulário público (landing page ou
+// formulários por serviço). Devolve o pedaço da resposta JSON pra página.
+// Se o horário foi ocupado no meio tempo, o lead fica salvo e a equipe liga.
+async function agendarPeloFormulario(db, { agendamento, nome, email, tel, servico, leadId, origem }) {
+  if (!(agendamento?.data && (agendamento?.hora || agendamento?.a_confirmar))) return {};
+  const { data } = agendamento;
+  // Sábado: a pessoa só escolhe o dia, a equipe define o horário depois
+  const hora = agendamento.a_confirmar ? null : agendamento.hora;
+  const valido = hora ? await verificarHorario(db, data, hora) : await verificarDiaAConfirmar(db, data);
+  if (!valido) return { agendado: false, horario_indisponivel: true };
+
+  const token = novoToken();
+  const tipo = 'Consulta inicial';
+  const [ins] = await db.query(
+    `INSERT INTO agendamentos (cliente_nome, data, hora, tipo, obs, colaborador, status, token, lead_id, email, tel, origem)
+     VALUES (?, ?, ?, ?, ?, NULL, 'pendente', ?, ?, ?, ?, ?)`,
+    [nome, data, hora, tipo, servico || null, token, leadId || null, email, tel, origem]
+  );
+  sincronizarGoogle(db, ins.insertId);
+  const ag = { nome, data, hora, tipo, token, email, tel, obs: servico || null };
+  enviarPedidoConfirmacao(ag).catch(e => console.error('[agenda] e-mail confirmação:', e.message));
+  avisarEquipe(
+    hora ? `📅 Novo agendamento (${origem}) — ${nome}` : `📅 Pedido para sábado (definir horário) — ${nome}`, ag,
+    hora ? ` marcou um atendimento pelo(a) ${escHtml(origem)} (aguardando confirmação).`
+         : ' pediu atendimento no sábado. <b>Defina o horário na Agenda do sistema</b> — a pessoa recebe o e-mail para confirmar.')
+    .catch(e => console.error('[agenda] aviso equipe:', e.message));
+  return { agendado: true, agendamento: { data, hora, a_confirmar: !hora } };
+}
+
 module.exports = {
+  agendarPeloFormulario,
   PORTAL_URL, EQUIPE_EMAIL, WHATSAPP, linkAgendamento, novoToken,
   carregarConfig, carregarOcupados, verificarHorario, verificarDiaAConfirmar, sincronizarGoogle,
   blocoDataHora, botoesConfirmacao, rodape, enviarPedidoConfirmacao, avisarEquipe,
