@@ -2,7 +2,7 @@
 // de confirmação do agendamento). Português é o padrão; o idioma escolhido
 // fica salvo no navegador e vai junto no envio (e-mails saem no mesmo idioma).
 (function () {
-  const IDIOMAS = { pt: 'Português', es: 'Español', en: 'English', fr: 'Français' };
+  const IDIOMAS = { pt: 'Português', es: 'Español', en: 'English', fr: 'Français', ht: 'Kreyòl ayisyen', fa: 'فارسی' };
 
   const T = {
     // ── Comum ──
@@ -155,7 +155,135 @@
     cfErro:      { pt: 'Algo deu errado. Tente novamente.', es: 'Algo salió mal. Intente de nuevo.', en: 'Something went wrong. Please try again.', fr: "Une erreur s'est produite. Réessayez." },
   };
 
-  const LOCALE = { pt: 'pt-BR', es: 'es', en: 'en-US', fr: 'fr-FR' };
+  // ── Persa (fa, escrito da direita pra esquerda) e crioulo haitiano (ht) ──
+  // Ficam num bloco à parte só pra facilitar revisão por quem fala a língua.
+  const EXTRA = {
+    fa: {
+      badge1: 'مشاوره تخصصی', badge2: 'همراهی ۱۰۰٪ در روند کار', badge3: 'پاسخ سریع',
+      cardTitulo: 'اطلاعات خود را وارد کنید', nome: 'نام و نام خانوادگی', nomePh: 'نام کامل شما',
+      whatsapp: 'واتس‌اپ', email: 'ایمیل', emailPh: 'you@email.com', contato: 'اطلاعات تماس',
+      selecione: 'انتخاب کنید', enviar: 'ارسال', enviando: 'در حال ارسال...',
+      privacidade: 'اطلاعات شما فقط برای پیگیری درخواستتان استفاده می‌شود و در اختیار دیگران قرار نمی‌گیرد.',
+      erroEnvio: 'ارسال با خطا مواجه شد. دوباره تلاش کنید یا از طریق واتس‌اپ با ما تماس بگیرید.',
+      errNome: 'نام الزامی است', errTel: 'شماره واتس‌اپ الزامی است', errEmail: 'ایمیل الزامی است', errEmailInv: 'ایمیل نامعتبر است',
+      wpp: 'از طریق واتس‌اپ با ما در تماس باشید',
+      rodapeSlogan: 'WB Assessoria Migratória — متخصص امور مهاجرت در برزیل.',
+      heroTitulo1: 'وضعیت اقامت خود را در برزیل قانونی کنید', heroTitulo2: 'با کمک متخصصان مهاجرت',
+      heroSub: 'فرم را پر کنید تا تیم ما با شما تماس بگیرد و شما را در مناسب‌ترین روند برای پرونده‌تان راهنمایی کند.',
+      pais: 'کشور مبدأ', paisSel: 'کشور را انتخاب کنید', paisOutro: 'سایر',
+      rnm: 'آیا کارت RNM (ثبت ملی مهاجرت) دارید؟', rnmNao: 'ندارم', rnmTemp: 'موقت', rnmPerm: 'دائم',
+      servico: 'به چه خدمتی نیاز دارید؟', servicoSel: 'خدمت را انتخاب کنید',
+      'srv:Naturalização Brasileira': 'تابعیت برزیل',
+      'srv:Naturalização Provisória (crianças/adolescentes)': 'تابعیت موقت — کودکان و نوجوانان',
+      'srv:Autorização de Residência (CPLP / Reunião Familiar / Mercosul)': 'مجوز اقامت (CPLP / پیوستن به خانواده / مرکوسور)',
+      'srv:Renovação de Autorização de Residência': 'تمدید مجوز اقامت',
+      'srv:Agendamento de Autorização de Residência': 'گرفتن نوبت برای مجوز اقامت',
+      'srv:Visto Americano de Turismo': 'ویزای توریستی آمریکا',
+      tempo: 'چه مدت است که در برزیل هستید؟',
+      'tmp:Ainda não estou no Brasil': 'هنوز در برزیل نیستم', 'tmp:Menos de 6 meses': 'کمتر از ۶ ماه',
+      'tmp:6 a 12 meses': '۶ تا ۱۲ ماه', 'tmp:1 a 2 anos': '۱ تا ۲ سال', 'tmp:2 a 5 anos': '۲ تا ۵ سال', 'tmp:Mais de 5 anos': 'بیش از ۵ سال',
+      cidade: 'شهر', cidadePh: 'شهر شما', estado: 'ایالت', solicitar: 'درخواست مشاوره',
+      errPais: 'کشور را انتخاب کنید', errServico: 'خدمت را انتخاب کنید', errTempo: 'مدت را انتخاب کنید',
+      errCidade: 'شهر الزامی است', errEstado: 'ایالت را انتخاب کنید',
+      okTitulo: 'درخواست شما دریافت شد!', okMsg: 'تیم ما به‌زودی از طریق واتس‌اپ یا ایمیل با شما تماس می‌گیرد.',
+      formTitulo: 'فرم:', formSub: 'فرم را پر کنید تا تیم ما با شما تماس بگیرد و شما را در روند {servico} راهنمایی کند.',
+      formCarregando: 'در حال بارگذاری فرم...', formNaoAchado: 'فرم پیدا نشد. لینک را با فرستنده آن بررسی کنید.',
+      formOkTitulo: 'اطلاعات شما دریافت شد!', formOkMsg: 'تیم ما اطلاعات را بررسی کرده و از طریق واتس‌اپ یا ایمیل با شما تماس می‌گیرد.',
+      agTitulo: 'یک زمان برای مشاوره انتخاب کنید', agDia: 'روز', agHora: 'ساعت',
+      agSelDia: 'روز را انتخاب کنید', agSelHora: 'ساعت را انتخاب کنید', agEscolhaDia: 'اول روز را انتخاب کنید',
+      agAConfirmar: '(ساعت بعداً تأیید می‌شود)', agEquipeConfirma: 'تیم ما تأیید می‌کند',
+      agInfo: 'به وقت برازیلیا. یک ایمیل برای تأیید حضور دریافت می‌کنید.',
+      agPular: 'ترجیح می‌دهم تیم برای هماهنگی با من تماس بگیرد',
+      agErr: 'یک روز و ساعت انتخاب کنید (یا گزینه هماهنگی با تیم را علامت بزنید)',
+      agOkTitulo: 'نوبت شما ثبت شد!',
+      agOkMsg: 'یک ایمیل به {email} فرستادیم. برای قطعی کردن نوبت روی <b>تأیید حضور</b> بزنید.',
+      agOkSabado: 'تیم ما برای <b>تأیید ساعت</b> با شما تماس می‌گیرد. جزئیات به {email} ارسال شد.',
+      agOcupado: 'ساعتی که انتخاب کردید همین الان توسط شخص دیگری گرفته شد. تیم ما برای هماهنگی زمان جدید از طریق واتس‌اپ با شما تماس می‌گیرد.',
+      agData: 'تاریخ', agHorario: 'ساعت', agHorarioBsb: 'ساعت (به وقت برازیلیا)', agTipo: 'نوع', agPelaEquipe: 'توسط تیم تأیید می‌شود',
+      cfOla: 'سلام', cfSub: 'این نوبت شما با WB Assessoria Migratória است.',
+      stADefinir: 'ساعت توسط تیم تعیین می‌شود', stPendente: 'در انتظار تأیید شما', stConfirmado: 'حضور تأیید شد', stCancelado: 'لغو شد',
+      cfConfirmar: '✅ تأیید حضور', cfReagendar: 'تغییر زمان', cfCancelar: 'نمی‌توانم بیایم — لغو',
+      cfNovo: 'انتخاب زمان جدید', cfVoltar: 'بازگشت', cfEscolhaNovo: 'زمان جدید را انتخاب کنید',
+      cfEscolhaDH: 'روز و ساعت را انتخاب کنید', cfConfirmarEm: 'تأیید {data} ساعت {hora}',
+      cfSemHorarios: 'در روزهای آینده زمان خالی وجود ندارد. از طریق واتس‌اپ با ما تماس بگیرید.',
+      cfPassou: 'این زمان گذشته است. برای نوبت جدید از طریق واتس‌اپ با ما تماس بگیرید.',
+      cfAguardaEquipe: 'تیم ما ساعت را تعیین کرده و برای تأیید، به شما ایمیل می‌زند.',
+      cfOkConfirmado: 'ممنون! حضور شما تأیید شد. به امید دیدار!',
+      cfOkCancelado: 'نوبت لغو شد. در صورت تمایل یک زمان جدید انتخاب کنید.',
+      cfOkReagendado: 'انجام شد! زمان جدید شما تأیید شد.',
+      cfCertezaCancelar: 'آیا مطمئن هستید که می‌خواهید این نوبت را لغو کنید؟',
+      cfNaoAchado: 'نوبت پیدا نشد', cfNaoAchadoMsg: 'ممکن است لینک ناقص باشد. از طریق واتس‌اپ با ما تماس بگیرید تا کمکتان کنیم.',
+      cfDuvidas: 'سؤالی دارید؟ از طریق واتس‌اپ با ما در تماس باشید', cfErro: 'مشکلی پیش آمد. دوباره تلاش کنید.',
+      'tipo:Consulta inicial': 'مشاوره اولیه',
+    },
+    ht: {
+      badge1: 'Sèvis espesyalize', badge2: 'Nou akonpaye w nan tout pwosesis la', badge3: 'Repons rapid',
+      cardTitulo: 'Ranpli enfòmasyon ou yo', nome: 'Non konplè', nomePh: 'Non konplè ou',
+      whatsapp: 'WhatsApp', email: 'Imèl', emailPh: 'ou@email.com', contato: 'Enfòmasyon pou kontakte w',
+      selecione: 'Chwazi', enviar: 'Voye', enviando: 'N ap voye...',
+      privacidade: 'Nou sèvi ak enfòmasyon ou yo sèlman pou ede w. Nou pa pataje yo ak lòt moun.',
+      erroEnvio: 'Te gen yon erè. Eseye ankò oswa ekri nou sou WhatsApp.',
+      errNome: 'Non an obligatwa', errTel: 'WhatsApp obligatwa', errEmail: 'Imèl obligatwa', errEmailInv: 'Imèl la pa bon',
+      wpp: 'Ekri nou sou WhatsApp',
+      rodapeSlogan: 'WB Assessoria Migratória — Espesyalis nan imigrasyon nan Brezil.',
+      heroTitulo1: 'Regilarize sitiyasyon w nan Brezil', heroTitulo2: 'ak moun ki konprann imigrasyon',
+      heroSub: 'Ranpli fòm nan epi ekip nou an ap kontakte w pou gide w nan pwosesis ki pi bon pou ka ou.',
+      pais: 'Peyi ou soti', paisSel: 'Chwazi peyi a', paisOutro: 'Lòt',
+      rnm: 'Èske ou gen RNM (Rejis Nasyonal Migratwa)?', rnmNao: 'Mwen pa genyen', rnmTemp: 'Tanporè', rnmPerm: 'Pèmanan',
+      servico: 'Ki sèvis ou bezwen?', servicoSel: 'Chwazi sèvis la',
+      'srv:Naturalização Brasileira': 'Natiralizasyon brezilyen',
+      'srv:Naturalização Provisória (crianças/adolescentes)': 'Natiralizasyon pwovizwa — timoun/adolesan',
+      'srv:Autorização de Residência (CPLP / Reunião Familiar / Mercosul)': 'Otorizasyon rezidans (CPLP / Reyinyon fanmi / Mercosur)',
+      'srv:Renovação de Autorização de Residência': 'Renouvèlman otorizasyon rezidans',
+      'srv:Agendamento de Autorização de Residência': 'Randevou pou otorizasyon rezidans',
+      'srv:Visto Americano de Turismo': 'Viza touris pou Etazini',
+      tempo: 'Depi konbyen tan ou nan Brezil?',
+      'tmp:Ainda não estou no Brasil': 'Mwen poko nan Brezil', 'tmp:Menos de 6 meses': 'Mwens pase 6 mwa',
+      'tmp:6 a 12 meses': '6 a 12 mwa', 'tmp:1 a 2 anos': '1 a 2 an', 'tmp:2 a 5 anos': '2 a 5 an', 'tmp:Mais de 5 anos': 'Plis pase 5 an',
+      cidade: 'Vil', cidadePh: 'Vil ou', estado: 'Eta', solicitar: 'Mande yon demann',
+      errPais: 'Chwazi peyi a', errServico: 'Chwazi sèvis la', errTempo: 'Chwazi tan an', errCidade: 'Vil la obligatwa', errEstado: 'Chwazi eta a',
+      okTitulo: 'Nou resevwa demann ou!', okMsg: 'Ekip nou an ap kontakte w byento sou WhatsApp oswa pa imèl.',
+      formTitulo: 'Fòm:', formSub: 'Ranpli fòm nan epi ekip nou an ap kontakte w pou gide w nan pwosesis {servico}.',
+      formCarregando: 'N ap chaje fòm nan...', formNaoAchado: 'Nou pa jwenn fòm nan. Verifye lyen an ak moun ki te voye l ba ou a.',
+      formOkTitulo: 'Nou resevwa enfòmasyon ou yo!', formOkMsg: 'Ekip nou an ap analize yo epi kontakte w sou WhatsApp oswa pa imèl.',
+      agTitulo: 'Chwazi yon lè pou randevou a', agDia: 'Jou', agHora: 'Lè',
+      agSelDia: 'Chwazi jou a', agSelHora: 'Chwazi lè a', agEscolhaDia: 'Chwazi jou a dabò',
+      agAConfirmar: '(lè a ap konfime)', agEquipeConfirma: 'Ekip la ap konfime',
+      agInfo: 'Lè Brasília. W ap resevwa yon imèl pou konfime prezans ou.',
+      agPular: 'Mwen pito ekip la kontakte m pou nou dakò sou yon lè',
+      agErr: 'Chwazi yon jou ak yon lè (oswa make opsyon pou ekip la kontakte w)',
+      agOkTitulo: 'Randevou a pran!',
+      agOkMsg: 'Nou voye yon imèl bay {email}. Klike sou <b>Konfime prezans</b> pou kenbe lè ou a.',
+      agOkSabado: 'Ekip nou an ap kontakte w pou <b>konfime lè a</b>. Nou voye detay yo bay {email}.',
+      agOcupado: 'Yon lòt moun fèk pran lè ou te chwazi a. Ekip nou an ap kontakte w sou WhatsApp pou chwazi yon lòt lè.',
+      agData: 'Dat', agHorario: 'Lè', agHorarioBsb: 'Lè (Brasília)', agTipo: 'Kalite', agPelaEquipe: 'Ekip la ap konfime l',
+      cfOla: 'Bonjou', cfSub: 'Sa a se randevou ou ak WB Assessoria Migratória.',
+      stADefinir: 'Ekip la ap fikse lè a', stPendente: 'N ap tann konfimasyon ou', stConfirmado: 'Prezans konfime', stCancelado: 'Anile',
+      cfConfirmar: '✅ Konfime prezans', cfReagendar: 'Chanje lè', cfCancelar: 'Mwen pa ka vini — anile',
+      cfNovo: 'Chwazi yon lòt lè', cfVoltar: 'Retounen', cfEscolhaNovo: 'Chwazi nouvo lè a',
+      cfEscolhaDH: 'Chwazi jou ak lè', cfConfirmarEm: 'Konfime {data} a {hora}',
+      cfSemHorarios: 'Pa gen lè ki lib nan jou k ap vini yo. Ekri nou sou WhatsApp.',
+      cfPassou: 'Lè sa a deja pase. Pou yon nouvo randevou, ekri nou sou WhatsApp.',
+      cfAguardaEquipe: 'Ekip nou an ap fikse lè a epi voye yon imèl pou ou konfime.',
+      cfOkConfirmado: 'Mèsi! Prezans ou konfime. N ap tann ou!',
+      cfOkCancelado: 'Randevou a anile. Si ou vle, chwazi yon lòt lè.',
+      cfOkReagendado: 'Fini! Nouvo lè ou a konfime.',
+      cfCertezaCancelar: 'Èske ou sèten ou vle anile randevou sa a?',
+      cfNaoAchado: 'Nou pa jwenn randevou a', cfNaoAchadoMsg: 'Lyen an ka pa konplè. Ekri nou sou WhatsApp, n ap ede w.',
+      cfDuvidas: 'Ou gen kesyon? Ekri nou sou WhatsApp', cfErro: 'Gen yon bagay ki pa mache. Eseye ankò.',
+      'tipo:Consulta inicial': 'Premye konsiltasyon',
+    },
+  };
+  for (const [lng, dic] of Object.entries(EXTRA)) {
+    for (const [k, v] of Object.entries(dic)) if (T[k]) T[k][lng] = v;
+  }
+
+  // fa: calendário gregoriano (o padrão do persa é o solar hijri). ht: o
+  // navegador não tem crioulo — datas montadas à mão, países em francês.
+  const LOCALE = { pt: 'pt-BR', es: 'es', en: 'en-US', fr: 'fr-FR', fa: 'fa-IR-u-ca-gregory', ht: 'fr-FR' };
+  const HT_DIAS = ['Dimanch','Lendi','Madi','Mèkredi','Jedi','Vandredi','Samdi'];
+  const HT_MESES = ['janvye','fevriye','mas','avril','me','jen','jiyè','out','septanm','oktòb','novanm','desanm'];
+  const RTL = ['fa'];
 
   function detectar() {
     const q = new URLSearchParams(location.search).get('lang');
@@ -178,12 +306,17 @@
     raiz.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
     raiz.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
     raiz.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
-    document.documentElement.lang = LOCALE[lang];
+    document.documentElement.lang = lang === 'fa' ? 'fa' : lang === 'ht' ? 'ht' : LOCALE[lang];
+    document.documentElement.dir = RTL.includes(lang) ? 'rtl' : 'ltr';
+    // telefone/e-mail sempre da esquerda pra direita, mesmo em persa
+    document.querySelectorAll('input[type=tel],input[type=email]').forEach(el => { el.dir = 'ltr'; });
+    if (_box) { _box.style.right = RTL.includes(lang) ? 'auto' : '14px'; _box.style.left = RTL.includes(lang) ? '14px' : 'auto'; }
   }
 
-  // Seletor de idioma (canto superior direito)
+  // Seletor de idioma (canto superior direito; esquerdo em persa)
+  let _box = null;
   function seletor(aoTrocar) {
-    const box = document.createElement('div');
+    const box = _box = document.createElement('div');
     box.style.cssText = 'position:absolute;top:14px;right:14px;z-index:10';
     const sel = document.createElement('select');
     sel.setAttribute('aria-label', 'Idioma / Language');
@@ -198,13 +331,16 @@
     box.appendChild(sel);
     document.body.style.position = 'relative';
     document.body.appendChild(box);
+    aplicar();
   }
 
   function dataLonga(iso) {
+    if (lang === 'ht') { const d = new Date(iso + 'T12:00:00'); return `${HT_DIAS[d.getDay()]} ${d.getDate()} ${HT_MESES[d.getMonth()]}`; }
     const s = new Date(iso + 'T12:00:00').toLocaleDateString(LOCALE[lang], { weekday: 'long', day: 'numeric', month: 'long' });
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
   function dataCurta(iso) {
+    if (lang === 'ht') { const d = new Date(iso + 'T12:00:00'); return `${HT_DIAS[d.getDay()].slice(0, 3)}. ${d.getDate()} ${HT_MESES[d.getMonth()].slice(0, 3)}.`; }
     const s = new Date(iso + 'T12:00:00').toLocaleDateString(LOCALE[lang], { weekday: 'short', day: 'numeric', month: 'short' });
     return s.charAt(0).toUpperCase() + s.slice(1);
   }

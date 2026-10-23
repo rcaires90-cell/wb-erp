@@ -86,10 +86,14 @@ async function verificarDiaAConfirmar(db, data) {
 
 // ── Textos dos e-mails ao cliente nos 4 idiomas das páginas públicas.
 // E-mails internos (pra equipe) continuam sempre em português.
-const IDIOMAS_VALIDOS = ['pt', 'es', 'en', 'fr'];
+const IDIOMAS_VALIDOS = ['pt', 'es', 'en', 'fr', 'ht', 'fa'];
 const idiomaOk = (i) => (IDIOMAS_VALIDOS.includes(i) ? i : 'pt');
-const NOME_IDIOMA = { pt: 'Português', es: 'Espanhol', en: 'Inglês', fr: 'Francês' };
-const LOCALE = { pt: 'pt-BR', es: 'es', en: 'en-US', fr: 'fr-FR' };
+const NOME_IDIOMA = { pt: 'Português', es: 'Espanhol', en: 'Inglês', fr: 'Francês', ht: 'Crioulo haitiano', fa: 'Persa' };
+// fa: calendário gregoriano (o padrão do persa é o solar hijri); ht: datas à mão
+const LOCALE = { pt: 'pt-BR', es: 'es', en: 'en-US', fr: 'fr-FR', fa: 'fa-IR-u-ca-gregory' };
+const HT_DIAS = ['Dimanch', 'Lendi', 'Madi', 'Mèkredi', 'Jedi', 'Vandredi', 'Samdi'];
+const HT_MESES = ['janvye', 'fevriye', 'mas', 'avril', 'me', 'jen', 'jiyè', 'out', 'septanm', 'oktòb', 'novanm', 'desanm'];
+const dirAttr = (idioma) => (idiomaOk(idioma) === 'fa' ? ' dir="rtl"' : '');
 
 const E = {
   data:        { pt: 'Data', es: 'Fecha', en: 'Date', fr: 'Date' },
@@ -116,10 +120,87 @@ const E = {
   porFavorConfirme:{ pt: 'Por favor, <b>confirme sua presença</b>:', es: 'Por favor, <b>confirme su asistencia</b>:', en: 'Please <b>confirm your attendance</b>:', fr: 'Merci de <b>confirmer votre présence</b> :' },
   'tipo:Consulta inicial': { pt: 'Consulta inicial', es: 'Consulta inicial', en: 'Initial consultation', fr: 'Consultation initiale' },
 };
+// Persa e crioulo haitiano (bloco separado pra facilitar revisão)
+const E_EXTRA = {
+  "data": [
+    "تاریخ",
+    "Dat"
+  ],
+  "horario": [
+    "ساعت",
+    "Lè"
+  ],
+  "tipo": [
+    "نوع",
+    "Kalite"
+  ],
+  "aConfirmar": [
+    "توسط تیم تأیید می‌شود",
+    "Ekip la ap konfime l"
+  ],
+  "btnConfirmar": [
+    "✅ تأیید حضور",
+    "✅ Konfime prezans"
+  ],
+  "btnReagendar": [
+    "تغییر زمان یا لغو",
+    "Chanje lè oswa anile"
+  ],
+  "duvidas": [
+    "سؤالی دارید؟ از طریق واتس‌اپ با ما در تماس باشید:",
+    "Ou gen kesyon? Ekri nou sou WhatsApp:"
+  ],
+  "ola": [
+    "سلام",
+    "Bonjou"
+  ],
+  "recebemos": [
+    "درخواست نوبت شما برای این زمان دریافت شد:",
+    "Nou resevwa demann randevou ou pou:"
+  ],
+  "assuntoPedido": [
+    "📅 درخواست نوبت شما دریافت شد — WB Assessoria",
+    "📅 Nou resevwa demann randevou ou — WB Assessoria"
+  ],
+  "equipeDefine": [
+    "تیم ما برای <b>تأیید ساعت</b> با شما تماس می‌گیرد. پس از تعیین ساعت، ایمیل دیگری برای تأیید حضور دریافت می‌کنید.",
+    "Ekip nou an ap kontakte w pou <b>konfime lè a</b>. Lè l fikse, w ap resevwa yon lòt imèl pou konfime prezans ou."
+  ],
+  "assuntoConfirme": [
+    "📅 نوبت خود را تأیید کنید — WB Assessoria",
+    "📅 Konfime randevou ou — WB Assessoria"
+  ],
+  "cliqueConfirmar": [
+    "برای <b>تأیید حضور</b> روی دکمه زیر بزنید. اگر این زمان برایتان مناسب نیست، می‌توانید زمان را تغییر دهید.",
+    "Klike anba a pou <b>konfime prezans ou</b>. Si lè sa a pa bon pou ou, ou ka chanje l."
+  ],
+  "assuntoLembrete": [
+    "📅 یادآوری نوبت — WB Assessoria",
+    "📅 Rapèl randevou — WB Assessoria"
+  ],
+  "lembrete": [
+    "این یادآوری نوبت فردای شماست:",
+    "Sa a se yon rapèl pou randevou ou demen:"
+  ],
+  "porFavorConfirme": [
+    "لطفاً <b>حضور خود را تأیید کنید</b>:",
+    "Tanpri <b>konfime prezans ou</b>:"
+  ],
+  "tipo:Consulta inicial": [
+    "مشاوره اولیه",
+    "Premye konsiltasyon"
+  ]
+};
+for (const [k, [fa, ht]] of Object.entries(E_EXTRA)) Object.assign(E[k], { fa, ht });
+
 const tx = (k, idioma) => E[k]?.[idiomaOk(idioma)] ?? E[k]?.pt ?? k;
 const tipoTx = (tipo, idioma) => (E['tipo:' + tipo] ? tx('tipo:' + tipo, idioma) : tipo);
 
 function fmtData(dataISO, idioma = 'pt') {
+  if (idiomaOk(idioma) === 'ht') {
+    const d = new Date(dataISO + 'T12:00:00Z');
+    return `${HT_DIAS[d.getUTCDay()]} ${d.getUTCDate()} ${HT_MESES[d.getUTCMonth()]}`;
+  }
   const s = new Date(dataISO + 'T12:00:00Z').toLocaleDateString(LOCALE[idiomaOk(idioma)], { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' });
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -155,7 +236,7 @@ async function enviarPedidoConfirmacao(ag) {
         <p>${tx('ola', i)}, <b>${escHtml(ag.nome)}</b>! ${tx('recebemos', i)}</p>`;
   if (!ag.hora) {
     await sendEmail(ag.email, tx('assuntoPedido', i),
-      `<div style="font-family:Arial,sans-serif;max-width:520px;padding:24px;background:#f9f9f9;border-radius:8px">
+      `<div${dirAttr(i)} style="font-family:Arial,sans-serif;max-width:520px;padding:24px;background:#f9f9f9;border-radius:8px">
         ${topo}
         ${blocoDataHora(ag.data, null, ag.tipo, i)}
         <p>${tx('equipeDefine', i)}</p>
@@ -164,7 +245,7 @@ async function enviarPedidoConfirmacao(ag) {
     return;
   }
   await sendEmail(ag.email, tx('assuntoConfirme', i),
-    `<div style="font-family:Arial,sans-serif;max-width:520px;padding:24px;background:#f9f9f9;border-radius:8px">
+    `<div${dirAttr(i)} style="font-family:Arial,sans-serif;max-width:520px;padding:24px;background:#f9f9f9;border-radius:8px">
       ${topo}
       ${blocoDataHora(ag.data, ag.hora, ag.tipo, i)}
       <p>${tx('cliqueConfirmar', i)}</p>
@@ -222,7 +303,7 @@ async function agendarPeloFormulario(db, { agendamento, nome, email, tel, servic
 }
 
 module.exports = {
-  agendarPeloFormulario, idiomaOk, NOME_IDIOMA, tx,
+  agendarPeloFormulario, idiomaOk, NOME_IDIOMA, tx, dirAttr,
   PORTAL_URL, EQUIPE_EMAIL, WHATSAPP, linkAgendamento, novoToken,
   carregarConfig, carregarOcupados, verificarHorario, verificarDiaAConfirmar, sincronizarGoogle,
   blocoDataHora, botoesConfirmacao, rodape, enviarPedidoConfirmacao, avisarEquipe,

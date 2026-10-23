@@ -100,7 +100,7 @@ function render() {
   }
   const st = !ag.hora && ag.status !== 'cancelado' ? 'a_definir' : ag.status;
   card.innerHTML = `
-    <h1>${t('cfOla')}${primeiro ? ', ' + primeiro : ''}!</h1>
+    <h1>${t('cfOla')}${primeiro ? (WBI18N.lang === 'fa' ? '، ' : ', ') + primeiro : ''}!</h1>
     <p class="sub">${t('cfSub')}</p>
     <span class="status st-${ag.status}">${t(STATUS[st] || 'stPendente')}</span>
     <div class="info">

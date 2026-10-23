@@ -30,6 +30,8 @@ const ERROS = {
   indisponivel:  { pt: 'Esse horário não está mais disponível. Escolha outro.', es: 'Ese horario ya no está disponible. Elija otro.', en: 'That time is no longer available. Please choose another.', fr: "Ce créneau n'est plus disponible. Choisissez-en un autre." },
   falha:         { pt: 'Não foi possível concluir. Tente novamente.', es: 'No se pudo completar. Intente de nuevo.', en: 'Could not complete. Please try again.', fr: "L'opération n'a pas pu aboutir. Réessayez." },
 };
+// Persa e crioulo haitiano
+for (const [k, [fa, ht]] of Object.entries({"naoEncontrado":["نوبت پیدا نشد","Nou pa jwenn randevou a"],"cancelado":["این نوبت لغو شده است. یک زمان جدید انتخاب کنید.","Randevou sa a te anile. Chwazi yon lòt lè."],"semHorario":["تیم ما هنوز ساعت را تعیین نکرده است. پس از تأیید، ایمیل دریافت می‌کنید.","Ekip nou an poko fikse lè a. W ap resevwa yon imèl lè l konfime."],"passou":["این زمان گذشته است.","Lè sa a deja pase."],"indisponivel":["این زمان دیگر در دسترس نیست. زمان دیگری انتخاب کنید.","Lè sa a pa disponib ankò. Chwazi yon lòt."],"falha":["انجام نشد. دوباره تلاش کنید.","Sa pa t mache. Eseye ankò."]})) Object.assign(ERROS[k], { fa, ht });
 const msgErro = (chave, req, ag) => {
   const i = agenda.idiomaOk(req.body?.idioma || ag?.idioma);
   return ERROS[chave][i] || ERROS[chave].pt;

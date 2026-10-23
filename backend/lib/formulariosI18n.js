@@ -1,7 +1,9 @@
-// Traduções dos formulários públicos (espanhol, inglês, francês).
+// Traduções dos formulários públicos (espanhol, inglês, francês, crioulo haitiano, persa).
 // Só muda o que o CLIENTE vê: as respostas continuam sendo gravadas com a
 // pergunta e a opção em português, pra equipe ler tudo igual no Pipeline.
 // Pergunta sem tradução aqui aparece em português (nunca quebra).
+
+const IDIOMAS_TRAD = ['es', 'en', 'fr', 'ht', 'fa'];
 
 // Opções de resposta (valor gravado em português → texto exibido)
 const OPCOES = {
@@ -131,6 +133,146 @@ const FORMULARIOS_I18N = {
   },
 };
 
+
+// ── Persa (fa) e crioulo haitiano (ht) ──
+// Bloco separado pra facilitar a revisão por quem fala cada língua.
+const EXTRA_OPCOES = {
+  'Sim':            { fa: 'بله', ht: 'Wi' },
+  'Não':            { fa: 'خیر', ht: 'Non' },
+  'Permanente':     { fa: 'دائم', ht: 'Pèmanan' },
+  'Temporário':     { fa: 'موقت', ht: 'Tanporè' },
+  'Ainda não tem':  { fa: 'هنوز ندارم', ht: 'Mwen poko genyen' },
+  'Não preciso (tenho vínculo brasileiro)': { fa: 'لازم ندارم (همسر یا فرزند برزیلی دارم)', ht: 'Mwen pa bezwen (mwen gen yon lyen fanmi brezilyen)' },
+  'Não tenho filho brasileiro': { fa: 'فرزند برزیلی ندارم', ht: 'Mwen pa gen pitit brezilyen' },
+  'Não sou casado(a)': { fa: 'متأهل نیستم', ht: 'Mwen pa marye' },
+  'CPLP':           { fa: 'CPLP', ht: 'CPLP' },
+  'Reunião Familiar': { fa: 'پیوستن به خانواده', ht: 'Reyinyon fanmi' },
+  'Mercosul':       { fa: 'مرکوسور', ht: 'Mercosur' },
+  'Não sei — preciso de orientação': { fa: 'نمی‌دانم — به راهنمایی نیاز دارم', ht: 'Mwen pa konnen — mwen bezwen konsèy' },
+  'Solteiro(a)':    { fa: 'مجرد', ht: 'Selibatè' },
+  'Casado(a)':      { fa: 'متأهل', ht: 'Marye' },
+  'União estável':  { fa: 'زندگی مشترک ثبت‌شده', ht: 'Plasaj (inyon estab)' },
+  'Divorciado(a)':  { fa: 'مطلقه / جداشده', ht: 'Divòse' },
+  'Viúvo(a)':       { fa: 'همسر فوت‌شده', ht: 'Vèv' },
+};
+
+const EXTRA_FORMS = {
+  naturalizacao: {
+    titulo: { fa: 'تابعیت برزیل', ht: 'Natiralizasyon brezilyen' },
+    secoes: [
+      { fa: '۰۱ · اطلاعات شخصی', ht: '01 · Enfòmasyon pèsonèl' },
+      { fa: '۰۲ · وضعیت مهاجرتی و شرایط', ht: '02 · Sitiyasyon imigrasyon ak kondisyon' },
+      { fa: '۰۳ · مدارکی که دارید', ht: '03 · Dokiman ou deja genyen' },
+      { fa: '۰۴ · مراحل بعدی', ht: '04 · Pwochen etap yo' },
+    ],
+    perguntas: {
+      nacionalidade:      { fa: 'ملیت / کشور مبدأ', ht: 'Nasyonalite / peyi ou soti' },
+      data_entrada:       { fa: 'تاریخ ورود به برزیل', ht: 'Dat ou antre nan Brezil' },
+      rnm_tipo:           { fa: 'نوع کارت RNM شما', ht: 'Ki kalite RNM ou genyen' },
+      rnm_data_emissao:   { fa: 'تاریخ صدور RNM', ht: 'Dat yo bay RNM nan',
+        dica: { fa: 'پشت کارت RNM، کنار کلمه «EMISSÃO» نوشته شده — با «VALIDADE» (تاریخ انقضا) اشتباه نگیرید.',
+                ht: 'Li dèyè kat RNM nan, bò kote ki ekri "EMISSÃO" — pa konfonn li ak "VALIDADE" (dat ekspirasyon).' } },
+      vinculo_brasileiro: { fa: 'آیا با یک برزیلی ازدواج کرده‌اید یا فرزند برزیلی دارید؟', ht: 'Èske ou marye ak yon brezilyen oswa ou gen yon pitit brezilyen?' },
+      curso_portugues:    { fa: 'آیا دوره زبان پرتغالی گذرانده‌اید؟ کدام؟', ht: 'Èske ou te fè yon kou pòtigè? Kilès?' },
+      doc_rnm:            { fa: 'RNM/RNE', ht: 'RNM/RNE' },
+      doc_cpf:            { fa: 'CPF (شماره مالیاتی برزیل)', ht: 'CPF' },
+      doc_endereco:       { fa: 'مدرک آدرس جدید', ht: 'Prèv adrès ki resan' },
+      doc_passaporte:     { fa: 'پاسپورت / مدرک ورود به کشور', ht: 'Paspò / papye antre nan peyi a' },
+      doc_4anos:          { fa: 'مدارک ۴ سال اخیر اقامت در برزیل', ht: 'Prèv 4 dènye ane ou nan Brezil' },
+      doc_antecedente:    { fa: 'گواهی عدم سوء پیشینه از کشور مبدأ (آپوستیل‌شده)', ht: 'Sètifika kasye jidisyè peyi ou (ak apostiy)' },
+      doc_antecedente_validade: { fa: 'تاریخ انقضای گواهی عدم سوء پیشینه', ht: 'Dat ekspirasyon sètifika kasye jidisyè a',
+        dica: { fa: 'فقط اگر گواهی آپوستیل‌شده را دارید.', ht: 'Sèlman si ou deja gen sètifika a ak apostiy.' } },
+      doc_portugues:      { fa: 'مدرک زبان پرتغالی', ht: 'Sètifika lang pòtigè' },
+      doc_prova:          { fa: 'گواهی آزمون حضوری', ht: 'Sètifika egzamen an prezansyèl' },
+      doc_filho:          { fa: 'شناسنامه یا RG فرزند برزیلی', ht: 'Batistè oswa RG pitit brezilyen an' },
+      doc_casamento:      { fa: 'سند ازدواج یا زندگی مشترک', ht: 'Papye maryaj oswa inyon estab' },
+      doc_trabalho:       { fa: 'دفترچه کار (Carteira de Trabalho) / CNPJ', ht: 'Kanè travay (Carteira de Trabalho) / CNPJ' },
+      urgencia:           { fa: 'چه زمانی می‌خواهید روند را شروع کنید؟', ht: 'Kilè ou vle kòmanse pwosesis la?' },
+    },
+  },
+  residencia: {
+    titulo: { fa: 'مجوز اقامت', ht: 'Otorizasyon rezidans' },
+    secoes: [
+      { fa: '۰۱ · اطلاعات شخصی', ht: '01 · Enfòmasyon pèsonèl' },
+      { fa: '۰۲ · پیوند خانوادگی و وضعیت', ht: '02 · Lyen fanmi ak sitiyasyon' },
+      { fa: '۰۳ · محل و زمان', ht: '03 · Kote ak delè' },
+    ],
+    perguntas: {
+      nacionalidade:      { fa: 'ملیت / کشور مبدأ', ht: 'Nasyonalite / peyi ou soti' },
+      visto:              { fa: 'چه ویزایی دارید؟', ht: 'Ki viza ou genyen?' },
+      data_entrada:       { fa: 'تاریخ ورود به برزیل', ht: 'Dat ou antre nan Brezil' },
+      vinculo_brasileiro: { fa: 'آیا فرزند برزیلی دارید یا با یک برزیلی ازدواج کرده‌اید؟', ht: 'Èske ou gen yon pitit brezilyen oswa ou marye ak yon brezilyen?' },
+      base_legal:         { fa: 'بر اساس کدام مبنای قانونی درخواست می‌دهید؟', ht: 'Ki baz legal ou vle itilize?' },
+      localizacao:        { fa: 'شهر/ایالتی که می‌خواهید در آن ساکن شوید', ht: 'Vil/Eta kote ou vle rete' },
+      urgencia:           { fa: 'زمان / فوریت مورد نظر', ht: 'Delè / ijans ou vle' },
+    },
+  },
+  visto_eua: {
+    titulo: { fa: 'ویزای آمریکا (توریستی/تجاری B1/B2)', ht: 'Viza Etazini (Touris/Biznis B1/B2)' },
+    secoes: [
+      { fa: '۰۱ · اطلاعات شخصی و پاسپورت', ht: '01 · Enfòmasyon pèsonèl ak paspò' },
+      { fa: '۰۲ · راه‌های تماس', ht: '02 · Kijan pou kontakte w' },
+      { fa: '۰۳ · آدرس‌ها', ht: '03 · Adrès yo' },
+      { fa: '۰۴ · خانواده و وضعیت تأهل', ht: '04 · Fanmi ak sitiyasyon matrimonyal' },
+      { fa: '۰۵ · کار یا تحصیل', ht: '05 · Travay oswa lekòl' },
+      { fa: '۰۶ · تحصیلات و زبان‌ها', ht: '06 · Etid ak lang' },
+      { fa: '۰۷ · سفرها و سلامت', ht: '07 · Vwayaj ak sante' },
+    ],
+    perguntas: {
+      nome_passaporte:      { fa: 'نام کامل دقیقاً مطابق پاسپورت', ht: 'Non konplè egzakteman jan li ekri nan paspò a' },
+      data_nascimento:      { fa: 'تاریخ تولد', ht: 'Dat nesans' },
+      local_nascimento:     { fa: 'شهر / استان محل تولد', ht: 'Vil / Eta kote ou fèt' },
+      passaporte_num:       { fa: 'شماره پاسپورت', ht: 'Nimewo paspò' },
+      passaporte_emissao:   { fa: 'تاریخ صدور', ht: 'Dat yo bay li' },
+      passaporte_venc:      { fa: 'تاریخ انقضا', ht: 'Dat ekspirasyon' },
+      nome_pai:             { fa: 'نام کامل پدر', ht: 'Non konplè papa w' },
+      nome_mae:             { fa: 'نام کامل مادر', ht: 'Non konplè manman w' },
+      visto_negado:         { fa: 'آیا تاکنون ویزای شما رد شده است؟', ht: 'Èske yo te janm refize w yon viza?' },
+      visto_negado_detalhe: { fa: 'اگر بله: کدام کشور و به چه دلیل', ht: 'Si wi: ki peyi epi poukisa' },
+      mudou_nome:           { fa: 'آیا تاکنون نام خود را تغییر داده‌اید؟', ht: 'Èske ou te janm chanje non?' },
+      nome_anterior:        { fa: 'اگر بله: نام قبلی', ht: 'Si wi: ansyen non an' },
+      tel_celular:          { fa: 'تلفن همراه', ht: 'Telefòn selilè' },
+      tel_comercial:        { fa: 'تلفن محل کار', ht: 'Telefòn travay' },
+      tel_residencial:      { fa: 'تلفن منزل', ht: 'Telefòn lakay' },
+      redes_sociais:        { fa: 'شبکه‌های اجتماعی (اینستاگرام، فیسبوک، X، لینکدین...)', ht: 'Rezo sosyal (Instagram, Facebook, X, LinkedIn...)' },
+      endereco_brasil:      { fa: 'آدرس کامل در برزیل (خیابان، پلاک، واحد، محله، شهر، ایالت و کد پستی CEP)', ht: 'Adrès konplè nan Brezil (ri, nimewo, konpleman, katye, vil, eta ak CEP)' },
+      endereco_eua:         { fa: 'محل اقامت در آمریکا (هتل یا منزل اقوام)', ht: 'Kote w ap rete Ozetazini (otèl oswa lakay fanmi)' },
+      estado_civil:         { fa: 'وضعیت تأهل', ht: 'Sitiyasyon matrimonyal' },
+      conjuge_nome:         { fa: 'نام کامل همسر', ht: 'Non konplè mari/madanm ou' },
+      conjuge_nacionalidade:{ fa: 'ملیت همسر', ht: 'Nasyonalite mari/madanm ou' },
+      conjuge_nascimento:   { fa: 'تاریخ تولد همسر', ht: 'Dat nesans mari/madanm ou' },
+      conjuge_cidade_nasc:  { fa: 'شهر محل تولد همسر', ht: 'Vil kote mari/madanm ou fèt' },
+      parentes_eua:         { fa: 'آیا در آمریکا خویشاوند دارید؟', ht: 'Èske ou gen fanmi Ozetazini?' },
+      parentes_eua_detalhe: { fa: 'اگر بله: نام و نسبت', ht: 'Si wi: non ak ki fanmi' },
+      empresa_escola:       { fa: 'نام شرکت یا مدرسه', ht: 'Non konpayi oswa lekòl la' },
+      empresa_endereco:     { fa: 'آدرس', ht: 'Adrès' },
+      empresa_telefone:     { fa: 'تلفن', ht: 'Telefòn' },
+      cargo:                { fa: 'سمت یا شغل', ht: 'Pòs oswa fonksyon' },
+      renda_mensal:         { fa: 'درآمد ماهانه', ht: 'Revni chak mwa' },
+      tempo_emprego:        { fa: 'مدت اشتغال در کار فعلی', ht: 'Konbyen tan ou genyen nan travay sa a' },
+      emprego_anterior:     { fa: 'شغل قبلی — فقط اگر کمتر از ۵ سال در کار فعلی هستید (شرکت، سمت و مدت)', ht: 'Travay anvan — sèlman si ou gen mwens pase 5 an nan travay kounye a (konpayi, pòs ak peryòd)' },
+      graduacao:            { fa: 'مدرک دانشگاهی (رشته و دانشگاه)', ht: 'Etid inivèsitè (kou ak enstitisyon)' },
+      pos_graduacao:        { fa: 'MBA / تحصیلات تکمیلی، در صورت وجود', ht: 'MBA / Etid apre lisans, si genyen' },
+      idiomas:              { fa: 'زبان‌ها به جز پرتغالی', ht: 'Lang ou pale apa pòtigè' },
+      viagens_5anos:        { fa: 'سفرهای خارجی در ۵ سال گذشته، به جز آمریکا — کدام کشورها', ht: 'Vwayaj entènasyonal nan 5 dènye ane yo, apa Etazini — ki peyi' },
+      doenca_risco:         { fa: 'بیماری مسری خطرناک برای سلامت عمومی (مثلاً سل)؟', ht: 'Maladi ki atrapan ki danjere pou sante piblik (egz.: tibèkiloz)?' },
+      doenca_risco_detalhe: { fa: 'اگر بله: کدام بیماری', ht: 'Si wi: ki maladi' },
+    },
+  },
+};
+
+for (const [o, tr] of Object.entries(EXTRA_OPCOES)) Object.assign(OPCOES[o], tr);
+for (const [k, ex] of Object.entries(EXTRA_FORMS)) {
+  const f = FORMULARIOS_I18N[k];
+  Object.assign(f.titulo, ex.titulo);
+  ex.secoes.forEach((s, i) => Object.assign(f.secoes[i], s));
+  for (const [id, tr] of Object.entries(ex.perguntas)) {
+    const p = f.perguntas[id];
+    for (const lng of ['fa', 'ht']) p[lng] = tr[lng];
+    if (tr.dica) p.dica = { ...(p.dica || {}), ...tr.dica };
+  }
+}
+
 // Junta as traduções no config (sem alterar o original). Cada pergunta
 // ganha `t: { es: {label, dica, opcoes:[...]}, ... }`; opções sem tradução
 // repetem o texto em português.
@@ -147,7 +289,7 @@ function comTraducoes(config) {
         perguntas: sec.perguntas.map(p => {
           const tp = (tr.perguntas || {})[p.id] || {};
           const t = {};
-          for (const lang of ['es', 'en', 'fr']) {
+          for (const lang of IDIOMAS_TRAD) {
             t[lang] = {
               label: tp[lang] || p.label,
               dica: tp.dica?.[lang] || p.dica,
@@ -162,4 +304,4 @@ function comTraducoes(config) {
   return out;
 }
 
-module.exports = { FORMULARIOS_I18N, OPCOES, comTraducoes };
+module.exports = { FORMULARIOS_I18N, OPCOES, comTraducoes, IDIOMAS_TRAD };

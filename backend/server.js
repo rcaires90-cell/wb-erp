@@ -640,7 +640,7 @@ async function verificarParcelasAlertaCron() {
 async function lembreteAgendamentoCron() {
   const { sendEmail } = require('./lib/email');
   const { agoraSP, somaDias, escHtml } = require('./lib/agendaPublica');
-  const { blocoDataHora, botoesConfirmacao, rodape, novoToken, tx } = require('./lib/agendaServico');
+  const { blocoDataHora, botoesConfirmacao, rodape, novoToken, tx, dirAttr } = require('./lib/agendaServico');
   const amanhaISO = somaDias(agoraSP().data, 1);
   try {
     // Inclui quem marcou pela landing page (sem cliente_id, e-mail no próprio
@@ -665,7 +665,7 @@ async function lembreteAgendamentoCron() {
         botoes = `<p>${tx('porFavorConfirme', ag.idioma)}</p>${botoesConfirmacao(token, ag.idioma)}`;
       }
       await sendEmail(ag.email_dest, tx('assuntoLembrete', ag.idioma),
-        `<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
+        `<div${dirAttr(ag.idioma)} style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
           <h2 style="color:#c9a84c;margin-top:0">WB Assessoria Migratória</h2>
           <p>${tx('ola', ag.idioma)}, <b>${escHtml(ag.nome)}</b>! ${tx('lembrete', ag.idioma)}</p>
           ${blocoDataHora(amanhaISO, ag.hora, ag.tipo, ag.idioma)}
