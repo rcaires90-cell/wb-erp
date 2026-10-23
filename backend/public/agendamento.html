@@ -64,7 +64,7 @@ const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','
 const dt = (iso) => new Date(iso + 'T12:00:00');
 const longo = (iso) => { const s = dt(iso).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }); return s.charAt(0).toUpperCase() + s.slice(1); };
 const esc$ = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-const STATUS = { pendente: 'Aguardando sua confirmação', confirmado: 'Presença confirmada', cancelado: 'Cancelado' };
+const STATUS = { a_definir: 'Horário a definir pela equipe', pendente: 'Aguardando sua confirmação', confirmado: 'Presença confirmada', cancelado: 'Cancelado' };
 
 async function api(path, body) {
   const r = await fetch(API + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
@@ -91,17 +91,18 @@ function render() {
   } else if (ag.status === 'cancelado') {
     acoes = `<button class="btn btn-ok" onclick="abrirReagendar()">Escolher novo horário</button>`;
   } else {
-    acoes = `${ag.status !== 'confirmado' ? `<button class="btn btn-ok" onclick="confirmar()">✅ Confirmar presença</button>` : ''}
+    acoes = `${!ag.hora ? `<p class="sub" style="margin:0 0 6px">Nossa equipe vai definir o horário e te avisar por e-mail para você confirmar.</p>` : ''}
+      ${ag.status !== 'confirmado' && ag.hora ? `<button class="btn btn-ok" onclick="confirmar()">✅ Confirmar presença</button>` : ''}
       <button class="btn btn-sec" onclick="abrirReagendar()">Reagendar</button>
       <button class="btn btn-link" onclick="cancelar()">Não vou poder ir — cancelar</button>`;
   }
   card.innerHTML = `
     <h1>Olá${primeiro ? ', ' + primeiro : ''}!</h1>
     <p class="sub">Este é o seu atendimento com a WB Assessoria Migratória.</p>
-    <span class="status st-${ag.status}">${STATUS[ag.status] || ag.status}</span>
+    <span class="status st-${ag.status}">${STATUS[!ag.hora && ag.status !== 'cancelado' ? 'a_definir' : ag.status] || ag.status}</span>
     <div class="info">
       <div class="l">Data</div><div class="v">${longo(ag.data)}</div>
-      <div class="l">Horário (Brasília)</div><div class="v">${esc$(ag.hora)}</div>
+      <div class="l">Horário (Brasília)</div><div class="v">${ag.hora ? esc$(ag.hora) : 'A confirmar pela equipe'}</div>
       ${ag.tipo ? `<div class="l">Tipo</div><div class="v">${esc$(ag.tipo)}</div>` : ''}
     </div>
     ${acoes}
@@ -128,7 +129,7 @@ async function abrirReagendar() {
   try {
     const r = await fetch('/api/agendamentos/publico/horarios?token=' + encodeURIComponent(token));
     const j = await r.json();
-    dias = (r.ok && j.ativa && j.dias) || [];
+    dias = ((r.ok && j.ativa && j.dias) || []).filter(d => !d.aConfirmar); // reagendar exige horário
   } catch { dias = []; }
   esc = { data: dias[0]?.data || '', hora: '' };
   modoReagendar = true;
@@ -153,7 +154,7 @@ async function reagendar() {
 (async () => {
   try {
     ag = await api('');
-    if (acaoInicial === 'confirmar' && ag.status === 'pendente' && !ag.passou) return confirmar();
+    if (acaoInicial === 'confirmar' && ag.status === 'pendente' && ag.hora && !ag.passou) return confirmar();
     render();
   } catch (e) {
     card.innerHTML = `<h1>Agendamento não encontrado</h1><p class="sub" style="margin:8px 0 0">O link pode estar incompleto. Fale com a gente pelo WhatsApp que ajudamos você.</p>`;

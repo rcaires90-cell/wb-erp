@@ -1,7 +1,7 @@
 // Parte da agenda pública que fala com o banco e manda e-mail — usada pela
 // landing page (leads.js), pela página de confirmação (agendamentos.js) e
 // pelo lembrete diário (server.js).
-const { lerConfig, agoraSP, somaDias, horarioDisponivel, horariosDoDia, novoToken, escHtml, fmtDataBR } = require('./agendaPublica');
+const { lerConfig, agoraSP, somaDias, horarioDisponivel, diaAConfirmarDisponivel, horariosDoDia, novoToken, escHtml, fmtDataBR } = require('./agendaPublica');
 const google = require('./googleCalendar');
 const { sendEmail } = require('./email');
 
@@ -61,7 +61,8 @@ async function sincronizarGoogle(db, id) {
               COALESCE(NULLIF(c.email, ''), a.email) AS email, COALESCE(NULLIF(a.tel, ''), c.tel) AS tel
        FROM agendamentos a LEFT JOIN clientes c ON a.cliente_id = c.id WHERE a.id = ?`, [id]);
     if (!a) return;
-    if (a.status === 'cancelado') {
+    if (a.status === 'cancelado' || !a.hora) {
+      // Sem horário (sábado a confirmar) ainda não entra no Google
       await google.removerEvento(a.google_event_id);
       if (a.google_event_id) await db.query('UPDATE agendamentos SET google_event_id = NULL WHERE id = ?', [id]);
     } else {
@@ -79,12 +80,16 @@ async function verificarHorario(db, data, hora, excetoId = null) {
   return horarioDisponivel(conf, data, hora, ocupados);
 }
 
+async function verificarDiaAConfirmar(db, data) {
+  return diaAConfirmarDisponivel(await carregarConfig(db), data);
+}
+
 function blocoDataHora(data, hora, tipo) {
   return `<div style="background:#fff;border-left:4px solid #c9a84c;padding:16px;border-radius:0 8px 8px 0;margin:16px 0">
     <div style="font-size:0.9rem;color:#666">Data</div>
     <div style="font-weight:700;font-size:1.1rem;color:#333">${escHtml(fmtDataBR(data))}</div>
     <div style="font-size:0.9rem;color:#666;margin-top:8px">Horário</div>
-    <div style="font-weight:700;font-size:1.1rem;color:#333">${escHtml(hora)}</div>
+    <div style="font-weight:700;font-size:1.1rem;color:#333">${hora ? escHtml(String(hora).slice(0, 5)) : 'A confirmar pela equipe'}</div>
     ${tipo ? `<div style="font-size:0.9rem;color:#666;margin-top:8px">Tipo</div><div style="font-weight:600;color:#333">${escHtml(tipo)}</div>` : ''}
   </div>`;
 }
@@ -104,6 +109,17 @@ function rodape() {
 // E-mail logo depois de marcar pela landing page: pede pra confirmar.
 async function enviarPedidoConfirmacao(ag) {
   if (!ag.email) return;
+  if (!ag.hora) {
+    await sendEmail(ag.email, '📅 Recebemos seu pedido de atendimento — WB Assessoria',
+      `<div style="font-family:Arial,sans-serif;max-width:520px;padding:24px;background:#f9f9f9;border-radius:8px">
+        <h2 style="color:#c9a84c;margin-top:0">WB Assessoria Migratória</h2>
+        <p>Olá, <b>${escHtml(ag.nome)}</b>! Recebemos seu pedido de atendimento para:</p>
+        ${blocoDataHora(ag.data, null, ag.tipo)}
+        <p>Nossa equipe vai entrar em contato para <b>confirmar o horário</b>. Assim que estiver definido, você recebe outro e-mail para confirmar sua presença.</p>
+        ${rodape()}
+      </div>`);
+    return;
+  }
   await sendEmail(ag.email, '📅 Confirme seu atendimento — WB Assessoria',
     `<div style="font-family:Arial,sans-serif;max-width:520px;padding:24px;background:#f9f9f9;border-radius:8px">
       <h2 style="color:#c9a84c;margin-top:0">WB Assessoria Migratória</h2>
@@ -133,6 +149,6 @@ async function avisarEquipe(assunto, ag, extra = '') {
 
 module.exports = {
   PORTAL_URL, EQUIPE_EMAIL, WHATSAPP, linkAgendamento, novoToken,
-  carregarConfig, carregarOcupados, verificarHorario, sincronizarGoogle,
+  carregarConfig, carregarOcupados, verificarHorario, verificarDiaAConfirmar, sincronizarGoogle,
   blocoDataHora, botoesConfirmacao, rodape, enviarPedidoConfirmacao, avisarEquipe,
 };

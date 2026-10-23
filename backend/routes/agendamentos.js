@@ -49,9 +49,10 @@ async function buscarPorToken(token) {
 }
 const jaPassou = (ag) => {
   const agora = agoraSP();
-  return ag.data < agora.data || (ag.data === agora.data && String(ag.hora).slice(0, 5) < agora.hora);
+  const hora = ag.hora ? String(ag.hora).slice(0, 5) : '23:59'; // sem horário = vale o dia todo
+  return ag.data < agora.data || (ag.data === agora.data && hora < agora.hora);
 };
-const publico = (ag) => ({ nome: ag.nome, data: ag.data, hora: String(ag.hora).slice(0, 5), tipo: ag.tipo, status: ag.status || 'confirmado', passou: jaPassou(ag) });
+const publico = (ag) => ({ nome: ag.nome, data: ag.data, hora: ag.hora ? String(ag.hora).slice(0, 5) : null, tipo: ag.tipo, status: ag.status || 'confirmado', passou: jaPassou(ag) });
 
 // GET /api/agendamentos/publico/:token
 router.get('/publico/:token', limiterPublico, async (req, res) => {
@@ -71,6 +72,7 @@ router.post('/publico/:token/confirmar', limiterPublico, async (req, res) => {
     const ag = await buscarPorToken(req.params.token);
     if (!ag) return res.status(404).json({ erro: 'Agendamento não encontrado' });
     if (ag.status === 'cancelado') return res.status(409).json({ erro: 'Este agendamento foi cancelado. Escolha um novo horário.' });
+    if (!ag.hora) return res.status(409).json({ erro: 'O horário ainda vai ser definido pela nossa equipe. Você recebe um e-mail quando estiver confirmado.' });
     if (jaPassou(ag)) return res.status(409).json({ erro: 'Este horário já passou.' });
     if (ag.status !== 'confirmado') {
       await db.query("UPDATE agendamentos SET status = 'confirmado', confirmado_em = NOW() WHERE id = ?", [ag.id]);
@@ -292,12 +294,29 @@ router.patch('/:id', async (req, res) => {
     if (req.body.status === 'confirmado') setClauses.push('confirmado_em = COALESCE(confirmado_em, NOW())');
     if (req.body.status === 'cancelado')  setClauses.push('cancelado_em = NOW()');
 
+    // Pedido de sábado sem horário: quando a equipe define o horário, a pessoa
+    // recebe o e-mail com o botão de confirmar presença
+    const [[antes]] = await db.query('SELECT hora FROM agendamentos WHERE id = ?', [id]);
+    const definiuHorario = antes && !antes.hora && req.body.hora;
+
     params.push(id);
     await db.query(`UPDATE agendamentos SET ${setClauses.join(', ')} WHERE id = ?`, params);
 
     const [up] = await db.query('SELECT * FROM agendamentos WHERE id = ?', [id]);
     if (!up.length) return res.status(404).json({ erro: 'Agendamento não encontrado' });
     agenda.sincronizarGoogle(db, id);
+    if (definiuHorario && up[0].status === 'pendente') {
+      try {
+        let token = up[0].token;
+        if (!token) { token = agenda.novoToken(); await db.query('UPDATE agendamentos SET token = ? WHERE id = ?', [token, id]); }
+        const [[c]] = await db.query(
+          `SELECT COALESCE(c.nome, a.cliente_nome) AS nome, COALESCE(NULLIF(c.email, ''), a.email) AS email,
+                  DATE_FORMAT(a.data, '%Y-%m-%d') AS data_iso, a.hora
+           FROM agendamentos a LEFT JOIN clientes c ON a.cliente_id = c.id WHERE a.id = ?`, [id]);
+        agenda.enviarPedidoConfirmacao({ nome: c.nome, email: c.email, data: c.data_iso, hora: c.hora, tipo: up[0].tipo, token })
+          .catch(e => console.error('[agendamentos] e-mail horário definido:', e.message));
+      } catch (e) { console.error('[agendamentos] horário definido:', e.message); }
+    }
     res.json(up[0]);
   } catch (e) {
     console.error('[agendamentos PATCH]', e);

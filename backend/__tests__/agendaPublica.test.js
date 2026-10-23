@@ -90,3 +90,33 @@ test('fmtDataBR e escHtml', () => {
   expect(fmtDataBR('2026-10-26')).toBe('Segunda-feira, 26 de outubro');
   expect(escHtml('<b>"x"</b>')).toBe('&lt;b&gt;&quot;x&quot;&lt;/b&gt;');
 });
+
+describe('sábado com horário a confirmar', () => {
+  const { diaAConfirmarDisponivel } = require('../lib/agendaPublica');
+  const conf = lerConfig({ agenda_inicio: '09:30', agenda_fim: '19:00', agenda_sabado_a_confirmar: '1', agenda_dias_frente: '8' });
+
+  test('seg-sex 09:30 até o último horário que termina às 19:00', () => {
+    const h = horariosDoDia(conf);
+    expect(h[0]).toBe('09:30');
+    expect(h[h.length - 1]).toBe('18:30');
+    expect(h).not.toContain('12:00');
+  });
+
+  test('sábado aparece sem horários e marcado como a confirmar; domingo não aparece', () => {
+    const dias = gerarDisponibilidade(conf, new Set(), SEXTA_8H);
+    const sab = dias.find(d => d.data === '2026-10-24');
+    expect(sab).toEqual({ data: '2026-10-24', horarios: [], aConfirmar: true });
+    expect(dias.find(d => d.data === '2026-10-25')).toBeUndefined();
+  });
+
+  test('sábado aceita pedido de dia, mas não horário específico', () => {
+    expect(diaAConfirmarDisponivel(conf, '2026-10-24', SEXTA_8H)).toBe(true);
+    expect(diaAConfirmarDisponivel(conf, '2026-10-26', SEXTA_8H)).toBe(false); // segunda tem horários normais
+    expect(horarioDisponivel(conf, '2026-10-24', '10:00', new Set(), SEXTA_8H)).toBe(false);
+  });
+
+  test('desligado: sábado não aparece', () => {
+    const c = lerConfig({ agenda_sabado_a_confirmar: '0' });
+    expect(gerarDisponibilidade(c, new Set(), SEXTA_8H).some(d => d.aConfirmar)).toBe(false);
+  });
+});

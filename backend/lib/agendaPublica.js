@@ -13,6 +13,7 @@ const CONFIG_PADRAO = {
   agenda_pausa:              '12:00-13:00', // almoço (vazio = sem pausa)
   agenda_dias_frente:        '14',          // quantos dias pra frente aparecem
   agenda_antecedencia_horas: '2',           // não deixa marcar em cima da hora
+  agenda_sabado_a_confirmar: '0',           // 1 = sábado aparece, mas a equipe define o horário
 };
 
 const HORA_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -44,6 +45,8 @@ function lerConfig(cfg = {}) {
     pausa,
     diasFrente:    int('agenda_dias_frente', 1, 60),
     antecedencia:  int('agenda_antecedencia_horas', 0, 72),
+    // Dias em que a pessoa só pede o dia e a equipe confirma o horário depois
+    diasAConfirmar: v('agenda_sabado_a_confirmar') === '1' && !dias.includes(6) ? [6] : [],
   };
 }
 
@@ -71,7 +74,8 @@ function horariosDoDia(conf) {
 }
 
 // ocupados: Set de "YYYY-MM-DD HH:MM" já marcados (não cancelados).
-// Devolve [{data, horarios:[...]}] só com dias que têm algum horário livre.
+// Devolve [{data, horarios:[...]}] só com dias que têm algum horário livre,
+// mais os dias "a confirmar" como {data, horarios: [], aConfirmar: true}.
 function gerarDisponibilidade(conf, ocupados = new Set(), agora = agoraSP()) {
   if (!conf.ativa) return [];
   const limite = paraMin(agora.hora) + conf.antecedencia * 60; // em minutos a partir de hoje 00:00
@@ -79,6 +83,10 @@ function gerarDisponibilidade(conf, ocupados = new Set(), agora = agoraSP()) {
   const dias = [];
   for (let i = 0; i <= conf.diasFrente; i++) {
     const data = somaDias(agora.data, i);
+    if ((conf.diasAConfirmar || []).includes(diaSemana(data))) {
+      if (i >= 1) dias.push({ data, horarios: [], aConfirmar: true }); // hoje não: a equipe precisa de tempo
+      continue;
+    }
     if (!conf.dias.includes(diaSemana(data))) continue;
     const horarios = base.filter(h => {
       if (ocupados.has(`${data} ${h}`)) return false;
@@ -96,6 +104,12 @@ function horarioDisponivel(conf, data, hora, ocupados, agora = agoraSP()) {
   return !!dia && dia.horarios.includes(hora);
 }
 
+// Dia em que a pessoa só escolhe a data (ex.: sábado) — a equipe define o horário.
+function diaAConfirmarDisponivel(conf, data, agora = agoraSP()) {
+  if (!DATA_RE.test(data || '')) return false;
+  return gerarDisponibilidade(conf, new Set(), agora).some(d => d.data === data && d.aConfirmar);
+}
+
 const novoToken = () => crypto.randomBytes(24).toString('hex');
 
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -107,5 +121,5 @@ function fmtDataBR(dataISO) {
 
 module.exports = {
   CONFIG_PADRAO, lerConfig, agoraSP, somaDias, horariosDoDia,
-  gerarDisponibilidade, horarioDisponivel, novoToken, escHtml, fmtDataBR,
+  gerarDisponibilidade, horarioDisponivel, diaAConfirmarDisponivel, novoToken, escHtml, fmtDataBR,
 };

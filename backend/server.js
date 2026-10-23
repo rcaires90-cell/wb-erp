@@ -651,7 +651,7 @@ async function lembreteAgendamentoCron() {
       if (!ag.email_dest) continue;
       // Ainda não confirmou → o lembrete leva os botões de confirmar/reagendar
       let botoes = '';
-      if (ag.status === 'pendente') {
+      if (ag.status === 'pendente' && ag.hora) {
         let token = ag.token;
         if (!token) {
           token = novoToken();

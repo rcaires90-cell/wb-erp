@@ -83,6 +83,7 @@ select option{background:#1a1a1a}
 .skip{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:#9ca3af;cursor:pointer}
 .skip input{width:auto;accent-color:#c9a84c}
 .agenda-box.off .grid-2{opacity:.35;pointer-events:none}
+@media(max-width:480px){.agenda-box .grid-2{grid-template-columns:1fr}}
 select:disabled{opacity:.5}
 .resumo-ag{display:inline-block;margin-top:18px;background:#111111;border:1px solid #2a2a2a;border-radius:12px;padding:14px 20px;text-align:left}
 .resumo-ag .l{font-size:12px;color:#808080;text-transform:uppercase;letter-spacing:.06em}
@@ -311,7 +312,7 @@ async function carregarAgenda() {
 function renderDias() {
   document.getElementById('agDia').innerHTML = '<option value="">Selecione o dia</option>' + agendaDias.map(d => {
     const x = dt(d.data);
-    return `<option value="${d.data}">${SEM[x.getDay()]}, ${x.getDate()} de ${MES[x.getMonth()]}</option>`;
+    return `<option value="${d.data}">${SEM[x.getDay()]}, ${x.getDate()} de ${MES[x.getMonth()]}${d.aConfirmar ? ' (horário a confirmar)' : ''}</option>`;
   }).join('');
 }
 
@@ -319,6 +320,14 @@ document.getElementById('agDia').addEventListener('change', (e) => {
   state.data = e.target.value; state.hora = '';
   const sel = document.getElementById('agHora');
   const dia = agendaDias.find(d => d.data === state.data);
+  state.aConfirmar = !!dia?.aConfirmar;
+  document.getElementById('err-agenda').textContent = '';
+  if (state.aConfirmar) {
+    // Sábado: a pessoa só escolhe o dia, a equipe define o horário
+    sel.disabled = true;
+    sel.innerHTML = '<option value="">A equipe confirma</option>';
+    return;
+  }
   sel.disabled = !dia;
   sel.innerHTML = dia
     ? '<option value="">Selecione o horário</option>' + dia.horarios.map(h => `<option>${h}</option>`).join('')
@@ -387,7 +396,7 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
   if (!estado)  { setErr('estado',  'Selecione o estado');      valid = false; }
   const querHorario = agendaDias.length > 0 && !document.getElementById('semHorario').checked;
   document.getElementById('err-agenda').textContent = '';
-  if (querHorario && !(state.data && state.hora)) {
+  if (querHorario && !(state.data && (state.hora || state.aConfirmar))) {
     document.getElementById('err-agenda').textContent = 'Escolha um dia e horário (ou marque a opção de combinar com a equipe)';
     valid = false;
   }
@@ -407,7 +416,7 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
         nome, pais, servico, tel, email, cidade, estado,
         rnm_tipo: state.rnm || null,
         tempo_no_pais: state.tempo,
-        agendamento: querHorario ? { data: state.data, hora: state.hora } : null,
+        agendamento: querHorario ? { data: state.data, hora: state.aConfirmar ? null : state.hora, a_confirmar: !!state.aConfirmar } : null,
         _hp: document.getElementById('_hp').value,
       })
     });
@@ -417,10 +426,12 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
     if (data.agendado) {
       fbq('track', 'Schedule');
       document.getElementById('successTitle').textContent = 'Atendimento agendado!';
-      document.getElementById('successMsg').innerHTML = 'Enviamos um e-mail para <b></b>. Clique em <b>Confirmar presença</b> para garantir seu horário.';
-      document.querySelector('#successMsg b').textContent = email;
+      document.getElementById('successMsg').innerHTML = data.agendamento.a_confirmar
+        ? 'Nossa equipe vai entrar em contato para <b>confirmar o horário</b>. Enviamos os detalhes para <b id="okEmail"></b>.'
+        : 'Enviamos um e-mail para <b id="okEmail"></b>. Clique em <b>Confirmar presença</b> para garantir seu horário.';
+      document.getElementById('okEmail').textContent = email;
       document.getElementById('successAg').innerHTML =
-        `<div class="resumo-ag"><div class="l">Data</div><div class="v">${fmtLongo(data.agendamento.data)}</div><div class="l">Horário</div><div class="v" style="margin:0">${data.agendamento.hora}</div></div>`;
+        `<div class="resumo-ag"><div class="l">Data</div><div class="v">${fmtLongo(data.agendamento.data)}</div><div class="l">Horário</div><div class="v" style="margin:0">${data.agendamento.hora || 'A confirmar pela equipe'}</div></div>`;
     } else if (data.horario_indisponivel) {
       document.getElementById('successMsg').textContent = 'O horário escolhido acabou de ser ocupado por outra pessoa. Nossa equipe vai entrar em contato pelo WhatsApp para combinar um novo horário.';
     }

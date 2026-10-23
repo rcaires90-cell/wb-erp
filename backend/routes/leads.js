@@ -93,9 +93,14 @@ router.post('/publico', limiterPublico, async (req, res) => {
     // Horário escolhido na landing page (opcional). Se alguém pegou o mesmo
     // horário no meio tempo, o lead fica salvo do mesmo jeito e a página
     // avisa que a equipe vai entrar em contato pra marcar.
-    if (agendamento?.data && agendamento?.hora) {
-      const { data, hora } = agendamento;
-      if (!(await agenda.verificarHorario(db, data, hora))) {
+    if (agendamento?.data && (agendamento?.hora || agendamento?.a_confirmar)) {
+      const { data } = agendamento;
+      // Sábado: a pessoa só escolhe o dia, a equipe define o horário depois
+      const hora = agendamento.a_confirmar ? null : agendamento.hora;
+      const valido = hora
+        ? await agenda.verificarHorario(db, data, hora)
+        : await agenda.verificarDiaAConfirmar(db, data);
+      if (!valido) {
         return res.json({ ok: true, agendado: false, horario_indisponivel: true });
       }
       const token = agenda.novoToken();
@@ -108,9 +113,12 @@ router.post('/publico', limiterPublico, async (req, res) => {
       agenda.sincronizarGoogle(db, ins.insertId);
       const ag = { nome: nomeClean, data, hora, tipo, token, email: emailClean, tel: telClean, obs: servico || null };
       agenda.enviarPedidoConfirmacao(ag).catch(e => console.error('[leads/publico] e-mail confirmação:', e.message));
-      agenda.avisarEquipe(`📅 Novo agendamento pela landing page — ${nomeClean}`, ag, ' marcou um atendimento pela landing page (aguardando confirmação).')
+      agenda.avisarEquipe(
+        hora ? `📅 Novo agendamento pela landing page — ${nomeClean}` : `📅 Pedido para sábado (definir horário) — ${nomeClean}`, ag,
+        hora ? ' marcou um atendimento pela landing page (aguardando confirmação).'
+             : ' pediu atendimento no sábado. <b>Defina o horário na Agenda do sistema</b> — a pessoa recebe o e-mail para confirmar.')
         .catch(e => console.error('[leads/publico] aviso equipe:', e.message));
-      return res.json({ ok: true, agendado: true, agendamento: { data, hora } });
+      return res.json({ ok: true, agendado: true, agendamento: { data, hora, a_confirmar: !hora } });
     }
 
     res.json({ ok: true });
