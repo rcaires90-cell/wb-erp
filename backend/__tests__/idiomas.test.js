@@ -30,11 +30,10 @@ describe('traduções dos formulários', () => {
     expect(p.t.fr.opcoes[2]).toBe("Je n'en ai pas encore");
   });
 
-  test('naturalização tem a seção do checklist de documentos, sem pedir senha', () => {
-    const sec = FORMULARIOS_CONFIG.naturalizacao.secoes.find(s => s.titulo.includes('Documentos'));
-    expect(sec.perguntas.length).toBe(12);
-    const tudo = JSON.stringify(FORMULARIOS_CONFIG.naturalizacao).toLowerCase();
-    expect(tudo).not.toMatch(/senha/);
+  test('naturalização tem 3 partes, sem a seção de documentos', () => {
+    const titulos = FORMULARIOS_CONFIG.naturalizacao.secoes.map(s => s.titulo);
+    expect(titulos).toEqual(['01 · Dados Pessoais', '02 · Situação Migratória e Elegibilidade', '03 · Próximos Passos']);
+    expect(FORMULARIOS_I18N.naturalizacao.secoes[2].en).toBe('03 · Next steps');
   });
 });
 
