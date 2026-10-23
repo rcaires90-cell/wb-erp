@@ -12,38 +12,40 @@ fbq('track', 'PageView');
 </script>
 <noscript><img height="1" width="1" src="https://www.facebook.com/tr?id=994718143071883&ev=PageView&noscript=1"/></noscript>
 <!-- End Facebook Pixel Code -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/img/logo-wb.png">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#030712;color:#fff;min-height:100vh}
+body{font-family:'Syne',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#000000;color:#fff;min-height:100vh}
 a{color:inherit;text-decoration:none}
 
 /* HERO */
-.hero{background:linear-gradient(180deg,rgba(6,78,59,.5) 0%,#030712 100%);border-bottom:1px solid #1f2937;padding:40px 16px 36px}
+.hero{background:linear-gradient(180deg,rgba(201,168,76,.10) 0%,#000000 100%);border-bottom:1px solid #1a1a1a;padding:40px 16px 36px}
 .hero-inner{max-width:680px;margin:0 auto;text-align:center}
-.brand{display:inline-flex;align-items:center;gap:8px;margin-bottom:16px}
-.brand-wb{font-size:28px;font-weight:900;color:#10b981;letter-spacing:-1px}
-.brand-name{font-size:28px;font-weight:700;color:#fff;letter-spacing:-1px}
+.brand{width:130px;height:130px;border-radius:50%;overflow:hidden;margin:0 auto 16px;display:block}
+.brand img{width:100%;height:100%;display:block;transform:scale(1.55)}
 h1{font-size:clamp(20px,4vw,28px);font-weight:700;line-height:1.3;color:#fff}
-h1 span{color:#10b981}
+h1 span{color:#c9a84c}
 .sub{margin-top:12px;color:#9ca3af;font-size:15px;max-width:520px;margin-left:auto;margin-right:auto}
 .badges{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:20px}
 .badge{display:flex;align-items:center;gap:6px;font-size:13px;color:#9ca3af}
-.badge svg{color:#10b981;flex-shrink:0}
+.badge svg{color:#c9a84c;flex-shrink:0}
 
 /* FORM CARD */
 .container{max-width:640px;margin:0 auto;padding:32px 16px 64px}
-.card{background:#111827;border:1px solid #1f2937;border-radius:16px;padding:28px}
+.card{background:#111111;border:1px solid #1a1a1a;border-radius:16px;padding:28px}
 .card h2{font-size:16px;font-weight:600;color:#fff;margin-bottom:24px}
 
 .field{margin-bottom:18px}
 label{display:block;font-size:13px;font-weight:500;color:#d1d5db;margin-bottom:6px}
-label .req{color:#10b981}
-input,select{width:100%;background:#1f2937;border:1px solid #374151;border-radius:8px;padding:10px 12px;font-size:14px;color:#fff;outline:none;transition:border-color .15s}
-input::placeholder{color:#6b7280}
-input:focus,select:focus{border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.1)}
+label .req{color:#c9a84c}
+input,select{width:100%;background:#1a1a1a;border:1px solid #333333;border-radius:8px;padding:10px 12px;font-size:14px;color:#fff;outline:none;transition:border-color .15s}
+input::placeholder{color:#808080}
+input:focus,select:focus{border-color:#c9a84c;box-shadow:0 0 0 3px rgba(201,168,76,.1)}
 input.err,select.err{border-color:#ef4444}
 .err-msg{font-size:12px;color:#f87171;margin-top:4px}
-select option{background:#1f2937}
+select option{background:#1a1a1a}
 
 /* TOGGLE BUTTONS */
 .toggle-group{display:grid;gap:8px}
@@ -51,60 +53,48 @@ select option{background:#1f2937}
 .toggle-group.cols-2{grid-template-columns:repeat(2,1fr)}
 .toggle-group.cols-3-md{grid-template-columns:repeat(2,1fr)}
 @media(min-width:480px){.toggle-group.cols-3-md{grid-template-columns:repeat(3,1fr)}}
-.toggle-btn{padding:10px 8px;border-radius:8px;border:1px solid #374151;background:#1f2937;color:#d1d5db;font-size:13px;font-weight:500;cursor:pointer;text-align:left;transition:all .15s;line-height:1.3}
-.toggle-btn:hover{border-color:#6b7280;color:#fff}
-.toggle-btn.active{background:#059669;border-color:#10b981;color:#fff}
+.toggle-btn{padding:10px 8px;border-radius:8px;border:1px solid #333333;background:#1a1a1a;color:#d1d5db;font-size:13px;font-weight:500;cursor:pointer;text-align:left;transition:all .15s;line-height:1.3}
+.toggle-btn:hover{border-color:#808080;color:#fff}
+.toggle-btn.active{background:#c9a84c;border-color:#c9a84c;color:#000;font-weight:700}
 
 /* GRID */
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
 /* DIVIDER */
-.divider{border-top:1px solid #1f2937;padding-top:20px;margin-top:4px}
-.divider-label{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px}
+.divider{border-top:1px solid #1a1a1a;padding-top:20px;margin-top:4px}
+.divider-label{font-size:11px;font-weight:600;color:#808080;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px}
 
 /* SUBMIT */
-.btn-submit{width:100%;padding:14px;background:#059669;border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s;margin-top:20px}
-.btn-submit:hover:not(:disabled){background:#10b981}
-.btn-submit:disabled{background:#064e3b;cursor:not-allowed;opacity:.7}
-.privacy{font-size:12px;color:#4b5563;text-align:center;margin-top:12px}
+.btn-submit{width:100%;padding:14px;background:#c9a84c;border:none;border-radius:10px;color:#000;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s;margin-top:20px}
+.btn-submit:hover:not(:disabled){background:#d9bb62}
+.btn-submit:disabled{background:#5c4d22;cursor:not-allowed;opacity:.7}
+.privacy{font-size:12px;color:#606060;text-align:center;margin-top:12px}
 .alert-err{background:rgba(239,68,68,.1);border:1px solid #991b1b;border-radius:8px;padding:12px;font-size:13px;color:#fca5a5;margin-top:16px}
 
 /* SUCCESS */
 .success{display:none;text-align:center;padding:48px 16px}
-.success-icon{width:72px;height:72px;border-radius:50%;background:rgba(16,185,129,.15);display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
+.success-icon{width:72px;height:72px;border-radius:50%;background:rgba(201,168,76,.15);display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
 .success h2{font-size:22px;font-weight:700;color:#fff;margin-bottom:8px}
 .success p{color:#9ca3af;font-size:15px}
 .success .wpp{display:inline-flex;align-items:center;gap:6px;margin-top:20px;background:#16a34a;color:#fff;padding:12px 20px;border-radius:8px;font-weight:600;font-size:14px}
 
 /* AGENDA */
-.dias{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
-.dia-btn{flex:0 0 auto;min-width:68px;padding:8px 6px;border-radius:10px;border:1px solid #374151;background:#1f2937;color:#d1d5db;cursor:pointer;text-align:center;font-family:inherit;transition:all .15s}
-.dia-btn:hover{border-color:#6b7280;color:#fff}
-.dia-btn .dsem{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af}
-.dia-btn .dnum{font-size:18px;font-weight:700;line-height:1.2}
-.dia-btn .dmes{font-size:11px;color:#9ca3af}
-.dia-btn.active{background:#059669;border-color:#10b981;color:#fff}
-.dia-btn.active .dsem,.dia-btn.active .dmes{color:#d1fae5}
-.horas{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;margin-top:12px}
-.hora-btn{padding:9px 4px;border-radius:8px;border:1px solid #374151;background:#1f2937;color:#d1d5db;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
-.hora-btn:hover{border-color:#6b7280;color:#fff}
-.hora-btn.active{background:#059669;border-color:#10b981;color:#fff}
-.agenda-info{font-size:13px;color:#9ca3af;margin-top:10px}
-.agenda-escolhido{margin-top:12px;background:rgba(16,185,129,.1);border:1px solid #065f46;border-radius:8px;padding:10px 12px;font-size:13px;color:#a7f3d0}
-.skip{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:#9ca3af;cursor:pointer}
-.skip input{width:auto;accent-color:#10b981}
-.agenda-box.off .dias,.agenda-box.off .horas,.agenda-box.off .agenda-escolhido{opacity:.35;pointer-events:none}
-.resumo-ag{display:inline-block;margin-top:18px;background:#111827;border:1px solid #1f2937;border-radius:12px;padding:14px 20px;text-align:left}
-.resumo-ag .l{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em}
-.resumo-ag .v{font-size:17px;font-weight:700;color:#fff;margin-bottom:6px}
+.agenda-info{font-size:12px;color:#808080;margin-top:8px}
+.skip{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:#9ca3af;cursor:pointer}
+.skip input{width:auto;accent-color:#c9a84c}
+.agenda-box.off .grid-2{opacity:.35;pointer-events:none}
+select:disabled{opacity:.5}
+.resumo-ag{display:inline-block;margin-top:18px;background:#111111;border:1px solid #2a2a2a;border-radius:12px;padding:14px 20px;text-align:left}
+.resumo-ag .l{font-size:12px;color:#808080;text-transform:uppercase;letter-spacing:.06em}
+.resumo-ag .v{font-size:17px;font-weight:700;color:#c9a84c;margin-bottom:6px}
 
 /* FOOTER */
-.footer{text-align:center;padding:24px 16px;border-top:1px solid #111827}
-.footer p{font-size:13px;color:#4b5563}
-.footer a{color:#059669}
+.footer{text-align:center;padding:24px 16px;border-top:1px solid #111111}
+.footer p{font-size:13px;color:#606060}
+.footer a{color:#c9a84c}
 
 /* SPINNER */
-.spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+.spin{width:16px;height:16px;border:2px solid rgba(0,0,0,.25);border-top-color:#000;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
@@ -113,10 +103,7 @@ select option{background:#1f2937}
 <!-- HERO -->
 <div class="hero">
   <div class="hero-inner">
-    <div class="brand">
-      <span class="brand-wb">WB</span>
-      <span class="brand-name">Assessoria Migratória</span>
-    </div>
+    <div class="brand"><img src="/img/logo-wb.png" alt="WB Assessoria Migratória"/></div>
     <h1>Regularize sua situação no Brasil<br><span>com quem entende de migração</span></h1>
     <p class="sub">Preencha o formulário e nossa equipe entrará em contato para orientar você no processo mais adequado ao seu caso.</p>
     <div class="badges">
@@ -245,9 +232,16 @@ select option{background:#1f2937}
       <div class="divider" id="agendaWrap" style="display:none">
         <p class="divider-label">Escolha um horário para atendimento</p>
         <div class="agenda-box" id="agendaBox">
-          <div class="dias" id="dias"></div>
-          <div class="horas" id="horas"></div>
-          <div class="agenda-escolhido" id="agendaEscolhido" style="display:none"></div>
+          <div class="grid-2">
+            <div class="field" style="margin:0">
+              <label>Dia</label>
+              <select id="agDia"><option value="">Selecione o dia</option></select>
+            </div>
+            <div class="field" style="margin:0">
+              <label>Horário</label>
+              <select id="agHora" disabled><option value="">Escolha o dia</option></select>
+            </div>
+          </div>
           <p class="agenda-info">Horários de Brasília. Você recebe um e-mail para confirmar a presença.</p>
           <label class="skip"><input type="checkbox" id="semHorario"/> Prefiro que a equipe entre em contato para combinar</label>
           <div class="err-msg" id="err-agenda"></div>
@@ -271,7 +265,7 @@ select option{background:#1f2937}
   <!-- SUCCESS -->
   <div id="successSection" class="success">
     <div class="success-icon">
-      <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#10b981" stroke-width="2.5">
+      <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#c9a84c" stroke-width="2.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
       </svg>
     </div>
@@ -315,35 +309,25 @@ async function carregarAgenda() {
 }
 
 function renderDias() {
-  const el = document.getElementById('dias');
-  el.innerHTML = agendaDias.map(d => {
+  document.getElementById('agDia').innerHTML = '<option value="">Selecione o dia</option>' + agendaDias.map(d => {
     const x = dt(d.data);
-    return `<button type="button" class="dia-btn${state.data === d.data ? ' active' : ''}" data-data="${d.data}">
-      <div class="dsem">${SEM[x.getDay()]}</div><div class="dnum">${x.getDate()}</div><div class="dmes">${MES[x.getMonth()]}</div></button>`;
+    return `<option value="${d.data}">${SEM[x.getDay()]}, ${x.getDate()} de ${MES[x.getMonth()]}</option>`;
   }).join('');
-  el.querySelectorAll('.dia-btn').forEach(b => b.addEventListener('click', () => {
-    state.data = b.dataset.data; state.hora = '';
-    renderDias();
-  }));
-  renderHoras();
 }
 
-function renderHoras() {
-  const el = document.getElementById('horas');
+document.getElementById('agDia').addEventListener('change', (e) => {
+  state.data = e.target.value; state.hora = '';
+  const sel = document.getElementById('agHora');
   const dia = agendaDias.find(d => d.data === state.data);
-  el.innerHTML = dia ? dia.horarios.map(h =>
-    `<button type="button" class="hora-btn${state.hora === h ? ' active' : ''}" data-hora="${h}">${h}</button>`).join('') : '';
-  el.querySelectorAll('.hora-btn').forEach(b => b.addEventListener('click', () => {
-    state.hora = b.dataset.hora;
-    document.getElementById('err-agenda').textContent = '';
-    renderHoras();
-  }));
-  const esc = document.getElementById('agendaEscolhido');
-  if (state.data && state.hora) {
-    esc.style.display = '';
-    esc.textContent = `Horário escolhido: ${fmtLongo(state.data)} às ${state.hora}`;
-  } else esc.style.display = 'none';
-}
+  sel.disabled = !dia;
+  sel.innerHTML = dia
+    ? '<option value="">Selecione o horário</option>' + dia.horarios.map(h => `<option>${h}</option>`).join('')
+    : '<option value="">Escolha o dia</option>';
+});
+document.getElementById('agHora').addEventListener('change', (e) => {
+  state.hora = e.target.value;
+  document.getElementById('err-agenda').textContent = '';
+});
 
 document.getElementById('semHorario').addEventListener('change', (e) => {
   document.getElementById('agendaBox').classList.toggle('off', e.target.checked);

@@ -5,53 +5,49 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <meta name="robots" content="noindex"/>
 <title>Seu Agendamento — WB Assessoria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/img/logo-wb.png">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#030712;color:#fff;min-height:100vh}
+body{font-family:'Syne',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#000000;color:#fff;min-height:100vh}
 .wrap{max-width:560px;margin:0 auto;padding:40px 16px 64px}
-.brand{text-align:center;margin-bottom:24px}
-.brand-wb{font-size:24px;font-weight:900;color:#10b981;letter-spacing:-1px}
-.brand-name{font-size:24px;font-weight:700;color:#fff;letter-spacing:-1px;margin-left:6px}
-.card{background:#111827;border:1px solid #1f2937;border-radius:16px;padding:28px}
+.brand{width:130px;height:130px;border-radius:50%;overflow:hidden;margin:0 auto 16px;display:block}
+.brand img{width:100%;height:100%;display:block;transform:scale(1.55)}
+.card{background:#111111;border:1px solid #1a1a1a;border-radius:16px;padding:28px}
 h1{font-size:20px;font-weight:700;margin-bottom:6px}
 .sub{color:#9ca3af;font-size:14px;margin-bottom:20px}
-.info{background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:16px 18px;margin-bottom:20px}
-.info .l{font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em}
+.info{background:#0a0a0a;border:1px solid #1a1a1a;border-radius:12px;padding:16px 18px;margin-bottom:20px}
+.info .l{font-size:12px;color:#808080;text-transform:uppercase;letter-spacing:.06em}
 .info .v{font-size:17px;font-weight:700;margin-bottom:8px}
 .info .v:last-child{margin-bottom:0}
 .status{display:inline-block;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;margin-bottom:16px}
 .st-pendente{background:rgba(234,179,8,.12);color:#facc15;border:1px solid #854d0e}
-.st-confirmado{background:rgba(16,185,129,.12);color:#34d399;border:1px solid #065f46}
+.st-confirmado{background:rgba(201,168,76,.12);color:#c9a84c;border:1px solid #5c4d22}
 .st-cancelado{background:rgba(239,68,68,.12);color:#f87171;border:1px solid #991b1b}
 .btn{width:100%;padding:13px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid transparent;margin-top:10px;transition:background .15s}
 .btn:disabled{opacity:.6;cursor:not-allowed}
-.btn-ok{background:#059669;color:#fff}
-.btn-ok:hover:not(:disabled){background:#10b981}
-.btn-sec{background:#1f2937;color:#e5e7eb;border-color:#374151}
-.btn-sec:hover:not(:disabled){border-color:#6b7280}
+.btn-ok{background:#c9a84c;color:#000;font-weight:700}
+.btn-ok:hover:not(:disabled){background:#d9bb62}
+.btn-sec{background:#1a1a1a;color:#e5e7eb;border-color:#333333}
+.btn-sec:hover:not(:disabled){border-color:#808080}
 .btn-link{background:none;color:#f87171;font-size:14px;font-weight:500}
 .msg{font-size:14px;border-radius:8px;padding:12px;margin-top:14px}
 .msg-err{background:rgba(239,68,68,.1);border:1px solid #991b1b;color:#fca5a5}
-.msg-ok{background:rgba(16,185,129,.1);border:1px solid #065f46;color:#a7f3d0}
-.dias{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch}
-.dia-btn{flex:0 0 auto;min-width:68px;padding:8px 6px;border-radius:10px;border:1px solid #374151;background:#1f2937;color:#d1d5db;cursor:pointer;text-align:center;font-family:inherit}
-.dia-btn .dsem,.dia-btn .dmes{font-size:11px;color:#9ca3af}
-.dia-btn .dsem{text-transform:uppercase;letter-spacing:.06em}
-.dia-btn .dnum{font-size:18px;font-weight:700;line-height:1.2}
-.dia-btn.active{background:#059669;border-color:#10b981;color:#fff}
-.dia-btn.active .dsem,.dia-btn.active .dmes{color:#d1fae5}
-.horas{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;margin-top:12px}
-.hora-btn{padding:9px 4px;border-radius:8px;border:1px solid #374151;background:#1f2937;color:#d1d5db;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
-.hora-btn.active{background:#059669;border-color:#10b981;color:#fff}
+.msg-ok{background:rgba(201,168,76,.1);border:1px solid #5c4d22;color:#e8d9a8}
+.sel-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sel-grid label{display:block;font-size:13px;color:#d1d5db;margin-bottom:6px}
+.sel-grid select{width:100%;background:#1a1a1a;border:1px solid #333333;border-radius:8px;padding:10px 12px;font-size:14px;color:#fff;font-family:inherit;outline:none}
+.sel-grid select:focus{border-color:#c9a84c}
 .sec-title{font-size:13px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;margin:22px 0 12px}
-.wpp{display:block;text-align:center;margin-top:22px;color:#34d399;font-size:14px;text-decoration:none}
-.spin{width:28px;height:28px;border:3px solid rgba(255,255,255,.2);border-top-color:#10b981;border-radius:50%;animation:spin .7s linear infinite;margin:30px auto}
+.wpp{display:block;text-align:center;margin-top:22px;color:#c9a84c;font-size:14px;text-decoration:none}
+.spin{width:28px;height:28px;border:3px solid rgba(255,255,255,.2);border-top-color:#c9a84c;border-radius:50%;animation:spin .7s linear infinite;margin:30px auto}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><span class="brand-wb">WB</span><span class="brand-name">Assessoria Migratória</span></div>
+  <div class="brand"><img src="/img/logo-wb.png" alt="WB Assessoria Migratória"/></div>
   <div class="card" id="card"><div class="spin"></div></div>
   <a class="wpp" href="https://wa.me/5511914258886" target="_blank" rel="noreferrer">Dúvidas? Fale conosco pelo WhatsApp</a>
 </div>
@@ -85,8 +81,10 @@ function render() {
     acoes = `<p class="sub" style="margin:0">Este horário já passou. Para um novo atendimento, fale com a gente pelo WhatsApp.</p>`;
   } else if (modoReagendar) {
     acoes = `<div class="sec-title">Escolha o novo horário</div>
-      ${dias.length ? `<div class="dias">${dias.map(d => { const x = dt(d.data); return `<button class="dia-btn${esc.data===d.data?' active':''}" onclick="escolherDia('${d.data}')"><div class="dsem">${SEM[x.getDay()]}</div><div class="dnum">${x.getDate()}</div><div class="dmes">${MES[x.getMonth()]}</div></button>`; }).join('')}</div>
-      <div class="horas">${(dias.find(d => d.data === esc.data)?.horarios || []).map(h => `<button class="hora-btn${esc.hora===h?' active':''}" onclick="escolherHora('${h}')">${h}</button>`).join('')}</div>
+      ${dias.length ? `<div class="sel-grid">
+        <div><label>Dia</label><select onchange="escolherDia(this.value)">${dias.map(d => { const x = dt(d.data); return `<option value="${d.data}"${esc.data===d.data?' selected':''}>${SEM[x.getDay()]}, ${x.getDate()} de ${MES[x.getMonth()]}</option>`; }).join('')}</select></div>
+        <div><label>Horário</label><select onchange="escolherHora(this.value)"><option value="">Selecione</option>${(dias.find(d => d.data === esc.data)?.horarios || []).map(h => `<option${esc.hora===h?' selected':''}>${h}</option>`).join('')}</select></div>
+      </div>
       <button class="btn btn-ok" onclick="reagendar()" ${esc.data && esc.hora ? '' : 'disabled'}>${esc.data && esc.hora ? `Confirmar ${longo(esc.data)} às ${esc.hora}` : 'Escolha dia e horário'}</button>`
       : `<p class="sub">Não há horários livres nos próximos dias. Fale com a gente pelo WhatsApp.</p>`}
       <button class="btn btn-sec" onclick="modoReagendar=false;msg=null;render()">Voltar</button>`;

@@ -578,6 +578,7 @@ async function carregarConfigAutomacoes() {
     const diasEl = document.getElementById('cfg-dias-parado');
     if (diasEl) diasEl.value = config?.dias_cliente_parado || 50;
     preencherConfigAgenda(config || {});
+    carregarStatusGoogle();
 
     const listaEl = document.getElementById('fase-prazos-lista');
     if (listaEl && Array.isArray(prazos)) {
@@ -613,6 +614,31 @@ function preencherConfigAgenda(config) {
   set('cfg-ag-pausa',     config.agenda_pausa ?? '12:00-13:00');
   set('cfg-ag-frente',    config.agenda_dias_frente || 14);
   set('cfg-ag-antec',     config.agenda_antecedencia_horas ?? 2);
+}
+
+async function carregarStatusGoogle() {
+  const el = document.getElementById('cfg-google-status');
+  if (!el) return;
+  try {
+    const s = await apiFetch('/agendamentos/google/status');
+    if (!s.ativo) {
+      el.innerHTML = 'Não conectado. Os agendamentos ficam só na Agenda do sistema. Para ligar, configure <b>GOOGLE_SERVICE_ACCOUNT_JSON</b> e <b>GOOGLE_CALENDAR_ID</b> no Railway.';
+    } else if (s.ok) {
+      el.innerHTML = `<span style="color:var(--green);font-weight:700">● Conectado</span> à agenda <b>${s.calendario}</b>. Agendamentos entram no Google automaticamente e compromissos do Google bloqueiam esses horários na landing page.
+        <div style="margin-top:8px"><button class="btn btn-outline btn-sm" onclick="sincronizarGoogleTudo(this)">Enviar agendamentos futuros para o Google</button></div>`;
+    } else {
+      el.innerHTML = `<span style="color:var(--red);font-weight:700">● Erro na conexão:</span> ${String(s.erro||'').replace(/</g,'&lt;')}<br>Confira se a agenda foi compartilhada com <b>${s.conta||'a conta de serviço'}</b> com permissão "Fazer alterações nos eventos".`;
+    }
+  } catch(e) { el.textContent = 'Não foi possível verificar.'; }
+}
+
+async function sincronizarGoogleTudo(btn) {
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    const r = await apiFetch('/agendamentos/google/sincronizar', { method:'POST' });
+    showToast(`✅ ${r.total} agendamento(s) enviados para o Google Agenda`, 'success');
+  } catch(e) { showToast('Erro: '+e.message, 'error'); }
+  btn.disabled = false; btn.textContent = 'Enviar agendamentos futuros para o Google';
 }
 
 async function salvarConfigAgenda() {
@@ -990,6 +1016,10 @@ function renderConfiguracoes() {
                 <div class="form-group" style="margin:0"><label>Antecedência mínima (h)</label><input id="cfg-ag-antec" type="number" min="0" max="72" class="form-input"></div>
               </div>
               <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="salvarConfigAgenda()">Salvar horários</button>
+              <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
+                <div style="font-weight:700;font-size:0.8rem;margin-bottom:4px">🔗 Google Agenda da empresa</div>
+                <div id="cfg-google-status" style="font-size:0.78rem;color:var(--text3)">Verificando...</div>
+              </div>
             </div>
 
             <div id="fase-prazos-wrap" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px">

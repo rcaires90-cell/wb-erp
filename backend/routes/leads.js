@@ -100,11 +100,12 @@ router.post('/publico', limiterPublico, async (req, res) => {
       }
       const token = agenda.novoToken();
       const tipo = 'Consulta inicial';
-      await db.query(
+      const [ins] = await db.query(
         `INSERT INTO agendamentos (cliente_nome, data, hora, tipo, obs, colaborador, status, token, lead_id, email, tel, origem)
          VALUES (?, ?, ?, ?, ?, NULL, 'pendente', ?, ?, ?, ?, 'Landing Page')`,
         [nomeClean, data, hora, tipo, servico || null, token, leadId, emailClean, telClean]
       );
+      agenda.sincronizarGoogle(db, ins.insertId);
       const ag = { nome: nomeClean, data, hora, tipo, token, email: emailClean, tel: telClean, obs: servico || null };
       agenda.enviarPedidoConfirmacao(ag).catch(e => console.error('[leads/publico] e-mail confirmação:', e.message));
       agenda.avisarEquipe(`📅 Novo agendamento pela landing page — ${nomeClean}`, ag, ' marcou um atendimento pela landing page (aguardando confirmação).')

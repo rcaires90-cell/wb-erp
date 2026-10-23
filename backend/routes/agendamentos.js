@@ -74,6 +74,7 @@ router.post('/publico/:token/confirmar', limiterPublico, async (req, res) => {
     if (jaPassou(ag)) return res.status(409).json({ erro: 'Este horário já passou.' });
     if (ag.status !== 'confirmado') {
       await db.query("UPDATE agendamentos SET status = 'confirmado', confirmado_em = NOW() WHERE id = ?", [ag.id]);
+      agenda.sincronizarGoogle(db, ag.id);
       agenda.avisarEquipe(`✅ Presença confirmada — ${ag.nome}`, ag, ' confirmou presença.')
         .catch(e => console.error('[agendamentos] aviso equipe:', e.message));
     }
@@ -92,6 +93,7 @@ router.post('/publico/:token/cancelar', limiterPublico, async (req, res) => {
     if (jaPassou(ag)) return res.status(409).json({ erro: 'Este horário já passou.' });
     if (ag.status !== 'cancelado') {
       await db.query("UPDATE agendamentos SET status = 'cancelado', cancelado_em = NOW() WHERE id = ?", [ag.id]);
+      agenda.sincronizarGoogle(db, ag.id);
       agenda.avisarEquipe(`❌ Agendamento cancelado — ${ag.nome}`, ag, ' cancelou o atendimento pela internet. O horário foi liberado.')
         .catch(e => console.error('[agendamentos] aviso equipe:', e.message));
     }
@@ -115,6 +117,7 @@ router.post('/publico/:token/reagendar', limiterPublico, async (req, res) => {
     await db.query(
       "UPDATE agendamentos SET data = ?, hora = ?, status = 'confirmado', confirmado_em = NOW(), cancelado_em = NULL WHERE id = ?",
       [data, hora, ag.id]);
+    agenda.sincronizarGoogle(db, ag.id);
     const novo = { ...ag, data, hora };
     agenda.avisarEquipe(`🔁 Reagendado — ${ag.nome}`, novo,
       ` reagendou pela internet (antes: ${escHtml(ag.data.split('-').reverse().join('/'))} às ${escHtml(String(ag.hora).slice(0, 5))}).`)
@@ -127,6 +130,39 @@ router.post('/publico/:token/reagendar', limiterPublico, async (req, res) => {
 });
 
 router.use(auth);
+
+// ── Google Agenda da empresa ─────────────────────
+// GET /api/agendamentos/google/status — testa a conexão de verdade
+router.get('/google/status', async (_req, res) => {
+  const google = require('../lib/googleCalendar');
+  if (!google.ativo()) return res.json({ ativo: false });
+  try {
+    const hoje = agoraSP().data;
+    google.limparCacheOcupados();
+    await google.periodosOcupados(hoje, hoje);
+    let conta = null;
+    try { conta = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON).client_email; } catch {}
+    res.json({ ativo: true, ok: true, calendario: process.env.GOOGLE_CALENDAR_ID, conta });
+  } catch (e) {
+    res.json({ ativo: true, ok: false, erro: e.message });
+  }
+});
+
+// POST /api/agendamentos/google/sincronizar — manda pro Google todos os
+// agendamentos de hoje em diante (usado uma vez ao conectar a agenda)
+router.post('/google/sincronizar', async (_req, res) => {
+  const google = require('../lib/googleCalendar');
+  if (!google.ativo()) return res.status(400).json({ erro: 'Google Agenda não configurado' });
+  try {
+    const [rows] = await db.query(
+      "SELECT id FROM agendamentos WHERE data >= ? AND (status IS NULL OR status <> 'cancelado') ORDER BY data, hora",
+      [agoraSP().data]);
+    for (const r of rows) await agenda.sincronizarGoogle(db, r.id);
+    res.json({ ok: true, total: rows.length });
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
 
 // ── GET /api/agendamentos ─────────────────────────
 // Query params: ?data=YYYY-MM-DD&cliente_id=&page=1&limit=100
@@ -201,6 +237,7 @@ router.post('/', async (req, res) => {
       ]
     );
     const [novo] = await db.query('SELECT * FROM agendamentos WHERE id = ?', [r.insertId]);
+    agenda.sincronizarGoogle(db, r.insertId);
 
     // E-mail para o cliente com botão de confirmar presença
     if (cliente_id) {
@@ -260,6 +297,7 @@ router.patch('/:id', async (req, res) => {
 
     const [up] = await db.query('SELECT * FROM agendamentos WHERE id = ?', [id]);
     if (!up.length) return res.status(404).json({ erro: 'Agendamento não encontrado' });
+    agenda.sincronizarGoogle(db, id);
     res.json(up[0]);
   } catch (e) {
     console.error('[agendamentos PATCH]', e);
@@ -273,7 +311,12 @@ router.delete('/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ erro: 'ID inválido' });
 
+    const [[antes]] = await db.query('SELECT google_event_id FROM agendamentos WHERE id = ?', [id]);
     const [result] = await db.query('DELETE FROM agendamentos WHERE id = ?', [id]);
+    if (antes?.google_event_id) {
+      require('../lib/googleCalendar').removerEvento(antes.google_event_id)
+        .catch(e => console.error('[google] remover evento:', e.message));
+    }
     if (result.affectedRows === 0) return res.status(404).json({ erro: 'Agendamento não encontrado' });
     res.json({ ok: true });
   } catch (e) {

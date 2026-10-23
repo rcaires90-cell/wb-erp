@@ -117,6 +117,7 @@ async function runMigrations() {
     ['agendamentos', 'origem',        "VARCHAR(50)  DEFAULT NULL"],
     ['agendamentos', 'confirmado_em', "DATETIME     DEFAULT NULL"],
     ['agendamentos', 'cancelado_em',  "DATETIME     DEFAULT NULL"],
+    ['agendamentos', 'google_event_id', "VARCHAR(255) DEFAULT NULL"],
   ];
   for (const [table, column, definition] of alterCols) {
     await addColumnIfNotExists(table, column, definition);

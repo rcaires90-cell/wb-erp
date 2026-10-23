@@ -1,7 +1,8 @@
 // Parte da agenda pública que fala com o banco e manda e-mail — usada pela
 // landing page (leads.js), pela página de confirmação (agendamentos.js) e
 // pelo lembrete diário (server.js).
-const { lerConfig, agoraSP, somaDias, horarioDisponivel, novoToken, escHtml, fmtDataBR } = require('./agendaPublica');
+const { lerConfig, agoraSP, somaDias, horarioDisponivel, horariosDoDia, novoToken, escHtml, fmtDataBR } = require('./agendaPublica');
+const google = require('./googleCalendar');
 const { sendEmail } = require('./email');
 
 const PORTAL_URL   = 'https://sistema.wbassessoriamigratoria.com.br';
@@ -26,7 +27,50 @@ async function carregarOcupados(db, conf, excetoId = null) {
      WHERE data BETWEEN ? AND ? AND (status IS NULL OR status <> 'cancelado') AND id <> ?`,
     [hoje, somaDias(hoje, conf.diasFrente), excetoId || 0]
   );
-  return new Set(rows.map(r => `${r.d} ${String(r.hora || '').slice(0, 5)}`));
+  const ocupados = new Set(rows.map(r => `${r.d} ${String(r.hora || '').slice(0, 5)}`));
+
+  // Compromissos do Google Agenda da empresa também bloqueiam horários.
+  // Se o Google falhar, a landing continua funcionando só com a agenda do sistema.
+  if (google.ativo()) {
+    try {
+      const fim = somaDias(hoje, conf.diasFrente);
+      const busy = await google.periodosOcupados(hoje, fim);
+      if (busy.length) {
+        const grade = horariosDoDia(conf);
+        for (let i = 0; i <= conf.diasFrente; i++) {
+          const d = somaDias(hoje, i);
+          for (const h of grade) {
+            const ini = Date.parse(google.isoSP(d, h)), f = ini + conf.intervalo * 60000;
+            if (busy.some(([a, b]) => a < f && b > ini)) ocupados.add(`${d} ${h}`);
+          }
+        }
+      }
+    } catch (e) { console.error('[google] freeBusy:', e.message); }
+  }
+  return ocupados;
+}
+
+// Espelha um agendamento no Google Agenda (cria/atualiza, ou apaga se
+// cancelado). Nunca lança erro — Google fora do ar não pode travar a agenda.
+async function sincronizarGoogle(db, id) {
+  if (!google.ativo()) return;
+  try {
+    const [[a]] = await db.query(
+      `SELECT a.id, DATE_FORMAT(a.data, '%Y-%m-%d') AS data, a.hora, a.tipo, a.status, a.obs, a.origem, a.token,
+              a.google_event_id, COALESCE(c.nome, a.cliente_nome) AS nome,
+              COALESCE(NULLIF(c.email, ''), a.email) AS email, COALESCE(NULLIF(a.tel, ''), c.tel) AS tel
+       FROM agendamentos a LEFT JOIN clientes c ON a.cliente_id = c.id WHERE a.id = ?`, [id]);
+    if (!a) return;
+    if (a.status === 'cancelado') {
+      await google.removerEvento(a.google_event_id);
+      if (a.google_event_id) await db.query('UPDATE agendamentos SET google_event_id = NULL WHERE id = ?', [id]);
+    } else {
+      const conf = await carregarConfig(db);
+      const evId = await google.salvarEvento({ ...a, link: a.token ? linkAgendamento(a.token) : null }, a.google_event_id, conf.intervalo);
+      if (evId && evId !== a.google_event_id) await db.query('UPDATE agendamentos SET google_event_id = ? WHERE id = ?', [evId, id]);
+    }
+    google.limparCacheOcupados();
+  } catch (e) { console.error(`[google] sincronizar agendamento ${id}:`, e.message); }
 }
 
 async function verificarHorario(db, data, hora, excetoId = null) {
@@ -48,7 +92,7 @@ function blocoDataHora(data, hora, tipo) {
 function botoesConfirmacao(token) {
   const url = linkAgendamento(token);
   return `<p style="margin:20px 0 8px">
-      <a href="${url}&acao=confirmar" style="background:#16a34a;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:700;display:inline-block;margin:0 6px 8px 0">✅ Confirmar presença</a>
+      <a href="${url}&acao=confirmar" style="background:#c9a84c;color:#000;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:700;display:inline-block;margin:0 6px 8px 0">✅ Confirmar presença</a>
       <a href="${url}" style="background:#fff;color:#555;border:1px solid #ccc;padding:11px 18px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;margin:0 0 8px">Reagendar ou cancelar</a>
     </p>`;
 }
@@ -89,6 +133,6 @@ async function avisarEquipe(assunto, ag, extra = '') {
 
 module.exports = {
   PORTAL_URL, EQUIPE_EMAIL, WHATSAPP, linkAgendamento, novoToken,
-  carregarConfig, carregarOcupados, verificarHorario,
+  carregarConfig, carregarOcupados, verificarHorario, sincronizarGoogle,
   blocoDataHora, botoesConfirmacao, rodape, enviarPedidoConfirmacao, avisarEquipe,
 };
