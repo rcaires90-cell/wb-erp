@@ -20,6 +20,21 @@ const limiterPublico = rateLimit({
 
 const TOKEN_RE = /^[a-f0-9]{48}$/;
 
+// Mensagens de erro das rotas públicas no idioma da pessoa (vem no corpo do
+// POST ou fica salvo no agendamento)
+const ERROS = {
+  naoEncontrado: { pt: 'Agendamento não encontrado', es: 'Cita no encontrada', en: 'Appointment not found', fr: 'Rendez-vous introuvable' },
+  cancelado:     { pt: 'Este agendamento foi cancelado. Escolha um novo horário.', es: 'Esta cita fue cancelada. Elija un nuevo horario.', en: 'This appointment was cancelled. Please choose a new time.', fr: 'Ce rendez-vous a été annulé. Choisissez un nouveau créneau.' },
+  semHorario:    { pt: 'O horário ainda vai ser definido pela nossa equipe. Você recebe um e-mail quando estiver confirmado.', es: 'Nuestro equipo todavía va a definir el horario. Recibirá un correo cuando esté confirmado.', en: 'Our team has not set the time yet. You will get an email once it is confirmed.', fr: "Notre équipe n'a pas encore fixé l'heure. Vous recevrez un e-mail dès qu'elle sera confirmée." },
+  passou:        { pt: 'Este horário já passou.', es: 'Este horario ya pasó.', en: 'This time has already passed.', fr: 'Ce créneau est déjà passé.' },
+  indisponivel:  { pt: 'Esse horário não está mais disponível. Escolha outro.', es: 'Ese horario ya no está disponible. Elija otro.', en: 'That time is no longer available. Please choose another.', fr: "Ce créneau n'est plus disponible. Choisissez-en un autre." },
+  falha:         { pt: 'Não foi possível concluir. Tente novamente.', es: 'No se pudo completar. Intente de nuevo.', en: 'Could not complete. Please try again.', fr: "L'opération n'a pas pu aboutir. Réessayez." },
+};
+const msgErro = (chave, req, ag) => {
+  const i = agenda.idiomaOk(req.body?.idioma || ag?.idioma);
+  return ERROS[chave][i] || ERROS[chave].pt;
+};
+
 // GET /api/agendamentos/publico/horarios — dias e horários livres
 router.get('/publico/horarios', limiterPublico, async (req, res) => {
   try {
@@ -41,7 +56,7 @@ router.get('/publico/horarios', limiterPublico, async (req, res) => {
 async function buscarPorToken(token) {
   if (!TOKEN_RE.test(token || '')) return null;
   const [[ag]] = await db.query(
-    `SELECT a.id, DATE_FORMAT(a.data, '%Y-%m-%d') AS data, a.hora, a.tipo, a.status, a.obs, a.tel,
+    `SELECT a.id, DATE_FORMAT(a.data, '%Y-%m-%d') AS data, a.hora, a.tipo, a.status, a.obs, a.tel, a.idioma,
             COALESCE(c.nome, a.cliente_nome) AS nome, COALESCE(NULLIF(c.email, ''), a.email) AS email
      FROM agendamentos a LEFT JOIN clientes c ON a.cliente_id = c.id
      WHERE a.token = ?`, [token]);
@@ -52,13 +67,13 @@ const jaPassou = (ag) => {
   const hora = ag.hora ? String(ag.hora).slice(0, 5) : '23:59'; // sem horário = vale o dia todo
   return ag.data < agora.data || (ag.data === agora.data && hora < agora.hora);
 };
-const publico = (ag) => ({ nome: ag.nome, data: ag.data, hora: ag.hora ? String(ag.hora).slice(0, 5) : null, tipo: ag.tipo, status: ag.status || 'confirmado', passou: jaPassou(ag) });
+const publico = (ag) => ({ nome: ag.nome, data: ag.data, hora: ag.hora ? String(ag.hora).slice(0, 5) : null, tipo: ag.tipo, status: ag.status || 'confirmado', idioma: ag.idioma || 'pt', passou: jaPassou(ag) });
 
 // GET /api/agendamentos/publico/:token
 router.get('/publico/:token', limiterPublico, async (req, res) => {
   try {
     const ag = await buscarPorToken(req.params.token);
-    if (!ag) return res.status(404).json({ erro: 'Agendamento não encontrado' });
+    if (!ag) return res.status(404).json({ erro: msgErro('naoEncontrado', req) });
     res.json(publico(ag));
   } catch (e) {
     console.error('[agendamentos/publico GET]', e.message);
@@ -70,10 +85,10 @@ router.get('/publico/:token', limiterPublico, async (req, res) => {
 router.post('/publico/:token/confirmar', limiterPublico, async (req, res) => {
   try {
     const ag = await buscarPorToken(req.params.token);
-    if (!ag) return res.status(404).json({ erro: 'Agendamento não encontrado' });
-    if (ag.status === 'cancelado') return res.status(409).json({ erro: 'Este agendamento foi cancelado. Escolha um novo horário.' });
-    if (!ag.hora) return res.status(409).json({ erro: 'O horário ainda vai ser definido pela nossa equipe. Você recebe um e-mail quando estiver confirmado.' });
-    if (jaPassou(ag)) return res.status(409).json({ erro: 'Este horário já passou.' });
+    if (!ag) return res.status(404).json({ erro: msgErro('naoEncontrado', req) });
+    if (ag.status === 'cancelado') return res.status(409).json({ erro: msgErro('cancelado', req, ag) });
+    if (!ag.hora) return res.status(409).json({ erro: msgErro('semHorario', req, ag) });
+    if (jaPassou(ag)) return res.status(409).json({ erro: msgErro('passou', req, ag) });
     if (ag.status !== 'confirmado') {
       await db.query("UPDATE agendamentos SET status = 'confirmado', confirmado_em = NOW() WHERE id = ?", [ag.id]);
       agenda.sincronizarGoogle(db, ag.id);
@@ -83,7 +98,7 @@ router.post('/publico/:token/confirmar', limiterPublico, async (req, res) => {
     res.json(publico({ ...ag, status: 'confirmado' }));
   } catch (e) {
     console.error('[agendamentos/publico confirmar]', e.message);
-    res.status(500).json({ erro: 'Não foi possível confirmar. Tente novamente.' });
+    res.status(500).json({ erro: msgErro('falha', req) });
   }
 });
 
@@ -91,8 +106,8 @@ router.post('/publico/:token/confirmar', limiterPublico, async (req, res) => {
 router.post('/publico/:token/cancelar', limiterPublico, async (req, res) => {
   try {
     const ag = await buscarPorToken(req.params.token);
-    if (!ag) return res.status(404).json({ erro: 'Agendamento não encontrado' });
-    if (jaPassou(ag)) return res.status(409).json({ erro: 'Este horário já passou.' });
+    if (!ag) return res.status(404).json({ erro: msgErro('naoEncontrado', req) });
+    if (jaPassou(ag)) return res.status(409).json({ erro: msgErro('passou', req, ag) });
     if (ag.status !== 'cancelado') {
       await db.query("UPDATE agendamentos SET status = 'cancelado', cancelado_em = NOW() WHERE id = ?", [ag.id]);
       agenda.sincronizarGoogle(db, ag.id);
@@ -102,7 +117,7 @@ router.post('/publico/:token/cancelar', limiterPublico, async (req, res) => {
     res.json(publico({ ...ag, status: 'cancelado' }));
   } catch (e) {
     console.error('[agendamentos/publico cancelar]', e.message);
-    res.status(500).json({ erro: 'Não foi possível cancelar. Tente novamente.' });
+    res.status(500).json({ erro: msgErro('falha', req) });
   }
 });
 
@@ -111,10 +126,10 @@ router.post('/publico/:token/cancelar', limiterPublico, async (req, res) => {
 router.post('/publico/:token/reagendar', limiterPublico, async (req, res) => {
   try {
     const ag = await buscarPorToken(req.params.token);
-    if (!ag) return res.status(404).json({ erro: 'Agendamento não encontrado' });
+    if (!ag) return res.status(404).json({ erro: msgErro('naoEncontrado', req) });
     const { data, hora } = req.body || {};
     if (!(await agenda.verificarHorario(db, data, hora, ag.id))) {
-      return res.status(409).json({ erro: 'Esse horário não está mais disponível. Escolha outro.' });
+      return res.status(409).json({ erro: msgErro('indisponivel', req, ag) });
     }
     await db.query(
       "UPDATE agendamentos SET data = ?, hora = ?, status = 'confirmado', confirmado_em = NOW(), cancelado_em = NULL WHERE id = ?",
@@ -127,7 +142,7 @@ router.post('/publico/:token/reagendar', limiterPublico, async (req, res) => {
     res.json(publico({ ...novo, status: 'confirmado' }));
   } catch (e) {
     console.error('[agendamentos/publico reagendar]', e.message);
-    res.status(500).json({ erro: 'Não foi possível reagendar. Tente novamente.' });
+    res.status(500).json({ erro: msgErro('falha', req) });
   }
 });
 
@@ -147,6 +162,52 @@ router.get('/google/status', async (_req, res) => {
     res.json({ ativo: true, ok: true, calendario: process.env.GOOGLE_CALENDAR_ID, conta });
   } catch (e) {
     res.json({ ativo: true, ok: false, erro: e.message });
+  }
+});
+
+// ── GET /api/agendamentos/funil?de=YYYY-MM-DD&ate=YYYY-MM-DD ──
+// Caminho de quem chega pela internet: contato → agendou → confirmou →
+// compareceu → fechou contrato. Agendamentos contam pela data do atendimento.
+router.get('/funil', async (req, res) => {
+  try {
+    const DATA = /^\d{4}-\d{2}-\d{2}$/;
+    const hoje = agoraSP().data;
+    const de  = DATA.test(req.query.de  || '') ? req.query.de  : hoje.slice(0, 8) + '01';
+    const ate = DATA.test(req.query.ate || '') ? req.query.ate : hoje;
+
+    const [[leads]] = await db.query(
+      `SELECT COUNT(*) AS total FROM leads
+       WHERE origem IN ('Landing Page', 'Formulário Público') AND DATE(created_at) BETWEEN ? AND ?`, [de, ate]);
+
+    // Pela internet = origem diferente de 'Equipe' (landing ou formulários)
+    const [porOrigem] = await db.query(
+      `SELECT CASE WHEN a.origem IS NULL OR a.origem = 'Equipe' THEN 'Equipe'
+                   WHEN a.origem = 'Landing Page' THEN 'Landing Page' ELSE 'Formulários' END AS grupo,
+              COUNT(*) AS agendaram,
+              SUM(a.status = 'confirmado' OR a.presenca = 'compareceu') AS confirmaram,
+              SUM(a.status = 'cancelado') AS cancelaram,
+              SUM(a.presenca = 'compareceu') AS compareceram,
+              SUM(a.presenca = 'faltou') AS faltaram,
+              SUM(a.presenca IS NULL AND (a.status IS NULL OR a.status <> 'cancelado') AND a.data < ?) AS sem_registro,
+              COUNT(DISTINCT CASE WHEN l.status = 'fechado' THEN l.id END) AS fecharam
+       FROM agendamentos a LEFT JOIN leads l ON l.id = a.lead_id
+       WHERE a.data BETWEEN ? AND ?
+       GROUP BY grupo`, [hoje, de, ate]);
+
+    const n = (v) => Number(v) || 0;
+    const grupos = porOrigem.map(r => ({
+      grupo: r.grupo, agendaram: n(r.agendaram), confirmaram: n(r.confirmaram), cancelaram: n(r.cancelaram),
+      compareceram: n(r.compareceram), faltaram: n(r.faltaram), sem_registro: n(r.sem_registro), fecharam: n(r.fecharam),
+    }));
+    const internet = grupos.filter(g => g.grupo !== 'Equipe').reduce((acc, g) => {
+      for (const k of Object.keys(acc)) acc[k] += g[k];
+      return acc;
+    }, { agendaram: 0, confirmaram: 0, cancelaram: 0, compareceram: 0, faltaram: 0, sem_registro: 0, fecharam: 0 });
+
+    res.json({ de, ate, contatos_internet: n(leads.total), internet, grupos });
+  } catch (e) {
+    console.error('[agendamentos/funil]', e.message);
+    res.status(500).json({ erro: e.message });
   }
 });
 
@@ -276,7 +337,10 @@ router.patch('/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ erro: 'ID inválido' });
 
-    const allowed = ['cliente_id', 'cliente_nome', 'data', 'hora', 'tipo', 'obs', 'colaborador', 'status', 'email', 'tel'];
+    const allowed = ['cliente_id', 'cliente_nome', 'data', 'hora', 'tipo', 'obs', 'colaborador', 'status', 'email', 'tel', 'presenca'];
+    if ('presenca' in req.body && ![null, 'compareceu', 'faltou'].includes(req.body.presenca)) {
+      return res.status(400).json({ erro: 'presenca inválida' });
+    }
     if ('status' in req.body && !['pendente', 'confirmado', 'cancelado'].includes(req.body.status)) {
       return res.status(400).json({ erro: 'status inválido' });
     }
@@ -293,6 +357,7 @@ router.patch('/:id', async (req, res) => {
     if (!setClauses.length) return res.status(400).json({ erro: 'Nenhum campo para atualizar' });
     if (req.body.status === 'confirmado') setClauses.push('confirmado_em = COALESCE(confirmado_em, NOW())');
     if (req.body.status === 'cancelado')  setClauses.push('cancelado_em = NOW()');
+    if ('presenca' in req.body) setClauses.push(req.body.presenca ? 'presenca_em = NOW()' : 'presenca_em = NULL');
 
     // Pedido de sábado sem horário: quando a equipe define o horário, a pessoa
     // recebe o e-mail com o botão de confirmar presença
@@ -311,9 +376,9 @@ router.patch('/:id', async (req, res) => {
         if (!token) { token = agenda.novoToken(); await db.query('UPDATE agendamentos SET token = ? WHERE id = ?', [token, id]); }
         const [[c]] = await db.query(
           `SELECT COALESCE(c.nome, a.cliente_nome) AS nome, COALESCE(NULLIF(c.email, ''), a.email) AS email,
-                  DATE_FORMAT(a.data, '%Y-%m-%d') AS data_iso, a.hora
+                  DATE_FORMAT(a.data, '%Y-%m-%d') AS data_iso, a.hora, a.idioma
            FROM agendamentos a LEFT JOIN clientes c ON a.cliente_id = c.id WHERE a.id = ?`, [id]);
-        agenda.enviarPedidoConfirmacao({ nome: c.nome, email: c.email, data: c.data_iso, hora: c.hora, tipo: up[0].tipo, token })
+        agenda.enviarPedidoConfirmacao({ nome: c.nome, email: c.email, data: c.data_iso, hora: c.hora, tipo: up[0].tipo, token, idioma: c.idioma })
           .catch(e => console.error('[agendamentos] e-mail horário definido:', e.message));
       } catch (e) { console.error('[agendamentos] horário definido:', e.message); }
     }

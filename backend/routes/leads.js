@@ -3,6 +3,7 @@ const db       = require('../db');
 const auth     = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 const { FORMULARIOS_CONFIG } = require('../lib/formularios');
+const { comTraducoes } = require('../lib/formulariosI18n');
 const { sendEmail } = require('../lib/email');
 const agenda = require('../lib/agendaServico');
 
@@ -35,7 +36,8 @@ const limiterPublico = rateLimit({
 // POST /api/leads/publico — sem autenticação (formulário público da landing page)
 router.post('/publico', limiterPublico, async (req, res) => {
   try {
-    const { nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, agendamento, _hp } = req.body;
+    const { nome, tel, email, pais, servico, rnm_tipo, tempo_no_pais, cidade, estado, agendamento, idioma, _hp } = req.body;
+    const idiomaCli = agenda.idiomaOk(idioma);
 
     // Honeypot: bots preenchem o campo oculto, humanos não
     if (_hp) return res.json({ ok: true });
@@ -70,6 +72,7 @@ router.post('/publico', limiterPublico, async (req, res) => {
       rnm_tipo            ? `RNM: ${rnm_tipo}`                       : null,
       tempo_no_pais       ? `Tempo no Brasil: ${tempo_no_pais}`      : null,
       cidadeClean && estado ? `Localização: ${cidadeClean}/${estado}` : (cidadeClean || estado || null),
+      idiomaCli !== 'pt'  ? `Idioma: ${agenda.NOME_IDIOMA[idiomaCli]}` : null,
     ].filter(Boolean).join(' | ');
 
     let leadId = null;
@@ -92,7 +95,7 @@ router.post('/publico', limiterPublico, async (req, res) => {
 
     // Horário escolhido na landing page (opcional)
     const ag = await agenda.agendarPeloFormulario(db, {
-      agendamento, nome: nomeClean, email: emailClean, tel: telClean, servico, leadId, origem: 'Landing Page',
+      agendamento, nome: nomeClean, email: emailClean, tel: telClean, servico, leadId, origem: 'Landing Page', idioma: idiomaCli,
     });
     return res.json({ ok: true, ...ag });
   } catch(e) {
@@ -105,7 +108,8 @@ router.post('/publico', limiterPublico, async (req, res) => {
 // perguntas-chave por serviço (usado tanto no formulário interno quanto
 // na página pública que o cliente preenche direto).
 router.get('/formularios', (_req, res) => {
-  res.json(FORMULARIOS_CONFIG);
+  // Inclui as traduções (es/en/fr) que a página pública usa; a tela interna ignora
+  res.json(comTraducoes(FORMULARIOS_CONFIG));
 });
 
 // POST /api/leads/formulario-publico/:chave — sem autenticação (link
@@ -116,7 +120,8 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
     const cfg = FORMULARIOS_CONFIG[req.params.chave];
     if (!cfg) return res.status(404).json({ erro: 'Formulário não encontrado' });
 
-    const { nome, tel, email, respostas, agendamento, _hp } = req.body;
+    const { nome, tel, email, respostas, agendamento, idioma, _hp } = req.body;
+    const idiomaCli = agenda.idiomaOk(idioma);
 
     // Honeypot: bots preenchem o campo oculto, humanos não
     if (_hp) return res.json({ ok: true });
@@ -137,10 +142,12 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
       if (dup.length) return res.json({ ok: true }); // retorna ok silenciosamente
     }
 
-    const obs = Object.entries(respostas || {})
-      .filter(([, v]) => v && String(v).trim())
-      .map(([pergunta, resposta]) => `${pergunta}: ${String(resposta).trim()}`)
-      .join('\n');
+    const obs = [
+      idiomaCli !== 'pt' ? `Idioma: ${agenda.NOME_IDIOMA[idiomaCli]} (preencheu o formulário nesse idioma)` : null,
+      ...Object.entries(respostas || {})
+        .filter(([, v]) => v && String(v).trim())
+        .map(([pergunta, resposta]) => `${pergunta}: ${String(resposta).trim()}`),
+    ].filter(Boolean).join('\n');
 
     const valor_estimado = VALORES_SERVICO[cfg.servico] || 0;
 
@@ -163,6 +170,7 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
         `<div style="font-family:Arial,sans-serif;max-width:600px;padding:24px;background:#f9f9f9;border-radius:8px">
           <h2 style="color:#c9a84c">WB Assessoria — Novo Lead</h2>
           <p><b>${nomeClean}</b> preencheu o formulário de <b>${cfg.titulo}</b> agora mesmo.</p>
+          ${idiomaCli !== 'pt' ? `<p>🌐 Preencheu em <b>${agenda.NOME_IDIOMA[idiomaCli]}</b> — responda nesse idioma.</p>` : ''}
           <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:14px;margin:14px 0">
             <div><b>Telefone:</b> ${telClean || '—'}</div>
             <div><b>E-mail:</b> ${emailClean || '—'}</div>
@@ -177,7 +185,7 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
     // Dia/horário escolhido no formulário (opcional) — mesma agenda da landing
     const ag = await agenda.agendarPeloFormulario(db, {
       agendamento, nome: nomeClean, email: emailClean, tel: telClean, servico: cfg.servico,
-      leadId: insLead.insertId, origem: 'Formulário ' + cfg.titulo,
+      leadId: insLead.insertId, origem: 'Formulário ' + cfg.titulo, idioma: idiomaCli,
     });
     res.json({ ok: true, ...ag });
   } catch(e) {

@@ -118,6 +118,11 @@ async function runMigrations() {
     ['agendamentos', 'confirmado_em', "DATETIME     DEFAULT NULL"],
     ['agendamentos', 'cancelado_em',  "DATETIME     DEFAULT NULL"],
     ['agendamentos', 'google_event_id', "VARCHAR(255) DEFAULT NULL"],
+    // Idioma em que a pessoa preencheu (pt/es/en/fr) — e-mails saem nele
+    ['agendamentos', 'idioma',        "VARCHAR(5)   DEFAULT 'pt'"],
+    // Compareceu/faltou — registrado pela equipe depois do horário
+    ['agendamentos', 'presenca',      "VARCHAR(15)  DEFAULT NULL"],
+    ['agendamentos', 'presenca_em',   "DATETIME     DEFAULT NULL"],
   ];
   for (const [table, column, definition] of alterCols) {
     await addColumnIfNotExists(table, column, definition);
@@ -635,13 +640,13 @@ async function verificarParcelasAlertaCron() {
 async function lembreteAgendamentoCron() {
   const { sendEmail } = require('./lib/email');
   const { agoraSP, somaDias, escHtml } = require('./lib/agendaPublica');
-  const { blocoDataHora, botoesConfirmacao, rodape, novoToken } = require('./lib/agendaServico');
+  const { blocoDataHora, botoesConfirmacao, rodape, novoToken, tx } = require('./lib/agendaServico');
   const amanhaISO = somaDias(agoraSP().data, 1);
   try {
     // Inclui quem marcou pela landing page (sem cliente_id, e-mail no próprio
     // agendamento). Cancelados não recebem lembrete.
     const [ags] = await db.query(
-      `SELECT a.id, a.hora, a.tipo, a.status, a.token, a.cliente_nome,
+      `SELECT a.id, a.hora, a.tipo, a.status, a.token, a.cliente_nome, a.idioma,
               COALESCE(c.nome, a.cliente_nome) AS nome, COALESCE(NULLIF(c.email, ''), a.email) AS email_dest
        FROM agendamentos a
        LEFT JOIN clientes c ON a.cliente_id = c.id
@@ -657,15 +662,15 @@ async function lembreteAgendamentoCron() {
           token = novoToken();
           await db.query('UPDATE agendamentos SET token = ? WHERE id = ?', [token, ag.id]);
         }
-        botoes = `<p>Por favor, <b>confirme sua presença</b>:</p>${botoesConfirmacao(token)}`;
+        botoes = `<p>${tx('porFavorConfirme', ag.idioma)}</p>${botoesConfirmacao(token, ag.idioma)}`;
       }
-      await sendEmail(ag.email_dest, '📅 Lembrete de Agendamento — WB Assessoria',
+      await sendEmail(ag.email_dest, tx('assuntoLembrete', ag.idioma),
         `<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#f9f9f9;border-radius:8px">
           <h2 style="color:#c9a84c;margin-top:0">WB Assessoria Migratória</h2>
-          <p>Olá, <b>${escHtml(ag.nome)}</b>! Este é um lembrete do seu agendamento de amanhã:</p>
-          ${blocoDataHora(amanhaISO, ag.hora, ag.tipo)}
+          <p>${tx('ola', ag.idioma)}, <b>${escHtml(ag.nome)}</b>! ${tx('lembrete', ag.idioma)}</p>
+          ${blocoDataHora(amanhaISO, ag.hora, ag.tipo, ag.idioma)}
           ${botoes}
-          ${rodape()}
+          ${rodape(ag.idioma)}
         </div>`
       ).catch(e => console.error('[email] lembrete agendamento:', e.message));
     }

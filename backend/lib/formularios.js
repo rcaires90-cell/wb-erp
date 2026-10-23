@@ -21,7 +21,25 @@ const FORMULARIOS_CONFIG = {
         { id: 'vinculo_brasileiro', label: 'É casado(a) ou tem filho(a) brasileiro(a)?', tipo: 'select', opcoes: ['Sim', 'Não'] },
         { id: 'curso_portugues',    label: 'Já fez algum curso de língua portuguesa? Qual?', tipo: 'text' },
       ] },
-      { titulo: '03 · Próximos Passos', perguntas: [
+      // Baseado no "CHECKLIST DE DOCUMENTAÇÃO PESSOAIS OBRIGATÓRIAS" da WB.
+      // A senha do gov.br do checklist fica de fora de propósito: formulário
+      // público não pede senha — a equipe pega isso no atendimento.
+      { titulo: '03 · Documentos que você já tem', perguntas: [
+        { id: 'doc_rnm',          label: 'RNM/RNE',                      tipo: 'select', opcoes: ['Sim', 'Não'] },
+        { id: 'doc_cpf',          label: 'CPF',                          tipo: 'select', opcoes: ['Sim', 'Não'] },
+        { id: 'doc_endereco',     label: 'Comprovante de endereço atualizado', tipo: 'select', opcoes: ['Sim', 'Não'] },
+        { id: 'doc_passaporte',   label: 'Passaporte / papel de entrada no país', tipo: 'select', opcoes: ['Sim', 'Não'] },
+        { id: 'doc_4anos',        label: 'Comprovantes dos últimos 4 anos no Brasil', tipo: 'select', opcoes: ['Sim', 'Não', 'Não preciso (tenho vínculo brasileiro)'] },
+        { id: 'doc_antecedente',  label: 'Antecedente criminal do país de origem (apostilado)', tipo: 'select', opcoes: ['Sim', 'Não'] },
+        { id: 'doc_antecedente_validade', label: 'Validade do antecedente criminal', tipo: 'date',
+          dica: 'Só se já tiver o antecedente apostilado.' },
+        { id: 'doc_portugues',    label: 'Certificado de língua portuguesa', tipo: 'select', opcoes: ['Sim', 'Não'] },
+        { id: 'doc_prova',        label: 'Certidão de prova presencial',  tipo: 'select', opcoes: ['Sim', 'Não'] },
+        { id: 'doc_filho',        label: 'Certidão de nascimento ou RG do filho brasileiro', tipo: 'select', opcoes: ['Sim', 'Não', 'Não tenho filho brasileiro'] },
+        { id: 'doc_casamento',    label: 'Certidão de casamento ou união estável', tipo: 'select', opcoes: ['Sim', 'Não', 'Não sou casado(a)'] },
+        { id: 'doc_trabalho',     label: 'Carteira de trabalho / CNPJ',   tipo: 'select', opcoes: ['Sim', 'Não'] },
+      ] },
+      { titulo: '04 · Próximos Passos', perguntas: [
         { id: 'urgencia', label: 'Quando pretende iniciar o processo?', tipo: 'text' },
       ] },
     ],

@@ -5237,6 +5237,19 @@ function agAcoes(a) {
   const st = a.status || 'confirmado';
   const b = 'border-radius:5px;padding:4px 8px;cursor:pointer;font-size:0.7rem;font-family:inherit;text-decoration:none;display:inline-block';
   const wpp = st !== 'cancelado' ? agWhatsUrl(a) : '';
+  if (agPassou(a) && st !== 'cancelado') {
+    // Já passou: o que importa agora é registrar se a pessoa veio
+    const pr = a.presenca;
+    const bt = (val, txt, cor, bg, bd) => {
+      const on = pr === val;
+      return `<button title="${txt}" onclick="setAgPresenca(${a.id}, ${on ? 'null' : JSON.stringify(val).replace(/"/g, '&quot;')})" style="${b};background:${on ? bg : 'var(--bg3)'};color:${on ? cor : 'var(--text3)'};border:1px solid ${on ? bd : 'var(--border)'}">${txt}</button>`;
+    };
+    return `<div style="display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap;align-items:center">
+      ${bt('compareceu', '✅ Compareceu', '#34d399', 'rgba(16,185,129,0.25)', 'rgba(16,185,129,0.5)')}
+      ${bt('faltou', '❌ Faltou', '#f87171', 'rgba(239,68,68,0.2)', 'rgba(239,68,68,0.45)')}
+      ${wpp ? `<a title="WhatsApp" href="${wpp}" target="_blank" rel="noreferrer" style="${b};background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.25)">💬</a>` : ''}
+    </div>`;
+  }
   return `<div style="display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap">
     ${!a.hora && st !== 'cancelado' ? `<button title="Definir o horário — a pessoa recebe e-mail para confirmar" onclick="definirHorarioAg(${a.id})" style="${b};background:rgba(249,115,22,0.1);color:#fb923c;border:1px solid rgba(249,115,22,0.3)">🕐 Definir horário</button>` : ''}
     ${st === 'pendente' && a.hora ? `<button title="Marcar como confirmado" onclick="setAgStatus(${a.id},'confirmado')" style="${b};background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.25)">✓ Confirmar</button>` : ''}
@@ -5261,6 +5274,93 @@ async function salvarHorarioAg(id) {
   } catch(e) { showToast('Erro: '+e.message, 'error'); }
 }
 
+function agPassou(a) {
+  const hoje = new Date().toLocaleDateString('sv-SE', { timeZone:'America/Sao_Paulo' });
+  return String(a.data||'').slice(0,10) < hoje;
+}
+async function setAgPresenca(id, presenca) {
+  try {
+    await apiFetch('/agendamentos/'+id, { method:'PATCH', body: JSON.stringify({ presenca }) });
+    await loadData();
+    renderPage('agendamentos');
+    showToast(presenca==='compareceu' ? 'Registrado: compareceu' : presenca==='faltou' ? 'Registrado: faltou' : 'Registro de presença removido', 'success');
+  } catch(e) { showToast('Erro: '+e.message, 'error'); }
+}
+
+// ── Resultados: funil de quem chega pela internet ──
+let _agFunilPeriodo = 'mes';
+function periodoFunil(k) {
+  const hoje = new Date().toLocaleDateString('sv-SE', { timeZone:'America/Sao_Paulo' });
+  const [y, m] = hoje.split('-').map(Number);
+  const iso = (d) => d.toISOString().slice(0,10);
+  if (k === 'mes_passado') return { de: iso(new Date(Date.UTC(y, m-2, 1))), ate: iso(new Date(Date.UTC(y, m-1, 0))), nome:'Mês passado' };
+  if (k === '90d') { const d = new Date(hoje+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()-89); return { de: iso(d), ate: hoje, nome:'Últimos 90 dias' }; }
+  return { de: hoje.slice(0,8)+'01', ate: hoje, nome:'Este mês' };
+}
+function setFunilPeriodo(k) { _agFunilPeriodo = k; carregarFunil(); }
+function renderAgFunil() {
+  const btn = (k, txt) => `<button data-periodo="${k}" onclick="setFunilPeriodo('${k}')" class="btn btn-sm ${_agFunilPeriodo===k?'btn-gold':'btn-ghost'}">${txt}</button>`;
+  setTimeout(carregarFunil, 0);
+  return `<div class="panel" style="margin-bottom:16px">
+    <div class="panel-header" style="flex-wrap:wrap;gap:8px">
+      <span class="panel-title">📊 Funil — quem chega pela internet</span>
+      <div style="display:flex;gap:4px">${btn('mes','Este mês')}${btn('mes_passado','Mês passado')}${btn('90d','90 dias')}</div>
+    </div>
+    <div id="ag-funil" style="padding:16px 18px;color:var(--text3);font-size:0.8rem">Carregando...</div>
+  </div>`;
+}
+async function carregarFunil() {
+  const box = document.getElementById('ag-funil');
+  if (!box) return;
+  // atualiza os botões de período sem redesenhar a página
+  box.closest('.panel').querySelectorAll('[data-periodo]').forEach(b => {
+    const ativo = b.dataset.periodo === _agFunilPeriodo;
+    b.classList.toggle('btn-gold', ativo); b.classList.toggle('btn-ghost', !ativo);
+  });
+  const p = periodoFunil(_agFunilPeriodo);
+  box.innerHTML = 'Carregando...';
+  try {
+    const f = await apiFetch(`/agendamentos/funil?de=${p.de}&ate=${p.ate}`);
+    const i = f.internet;
+    const etapas = [
+      { nome:'Contatos pela internet', v: f.contatos_internet, dica:'Formulários enviados pela landing page e pelos formulários por serviço' },
+      { nome:'Agendaram',    v: i.agendaram,    dica:'Escolheram dia/horário (data do atendimento dentro do período)' },
+      { nome:'Confirmaram',  v: i.confirmaram,  dica:'Clicaram em Confirmar presença ou a equipe confirmou' },
+      { nome:'Compareceram', v: i.compareceram, dica:'Marcados como Compareceu pela equipe' },
+      { nome:'Fecharam contrato', v: i.fecharam, dica:'O lead desse agendamento foi marcado como Fechado no Pipeline' },
+    ];
+    const max = Math.max(1, ...etapas.map(e => e.v));
+    const linhas = etapas.map((e, k) => {
+      const ant = k > 0 ? etapas[k-1].v : null;
+      const pct = ant ? Math.round(e.v / ant * 100) : null;
+      const larg = e.v ? Math.max(2, e.v / max * 100) : 0;
+      return `<div title="${e.dica}" style="display:grid;grid-template-columns:minmax(110px,150px) 1fr 80px;align-items:center;gap:12px;padding:5px 0">
+        <span style="font-size:0.8rem;color:var(--text2)">${e.nome}</span>
+        <div style="background:var(--bg3);border-radius:4px;height:22px;overflow:hidden">
+          <div style="width:${larg}%;height:100%;background:var(--gold);border-radius:0 4px 4px 0"></div>
+        </div>
+        <span style="font-size:0.85rem;color:var(--text);font-family:'DM Mono',monospace;text-align:right"><b>${e.v}</b>${pct!==null?` <span style="color:var(--text3);font-size:0.72rem">${pct}%</span>`:''}</span>
+      </div>`;
+    }).join('');
+    const extras = [];
+    if (i.faltaram) extras.push(`<span>❌ <b>${i.faltaram}</b> faltaram</span>`);
+    if (i.cancelaram) extras.push(`<span><b>${i.cancelaram}</b> cancelaram</span>`);
+    if (i.sem_registro) extras.push(`<span style="color:#facc15">⚠️ <b>${i.sem_registro}</b> já passaram sem registro de presença (aba Lista)</span>`);
+    const eq = (f.grupos||[]).find(g => g.grupo === 'Equipe');
+    const td = 'padding:6px 10px;text-align:right';
+    const porOrigem = (f.grupos||[]).filter(g => g.grupo !== 'Equipe').map(g =>
+      `<tr style="border-top:1px solid var(--border)"><td style="padding:6px 10px">${g.grupo}</td><td style="${td}">${g.agendaram}</td><td style="${td}">${g.confirmaram}</td><td style="${td}">${g.compareceram}</td><td style="${td}">${g.faltaram}</td><td style="${td}">${g.fecharam}</td></tr>`).join('');
+    const th = 'padding:6px 10px;text-align:right;font-weight:600';
+    box.innerHTML = `<div style="font-size:0.72rem;color:var(--text3);margin-bottom:8px">${p.nome} · % em relação à etapa anterior · passe o mouse numa etapa para ver o que ela conta</div>
+      ${linhas}
+      ${extras.length ? `<div style="margin-top:12px;font-size:0.78rem;color:var(--text2);display:flex;gap:16px;flex-wrap:wrap">${extras.join('')}</div>` : ''}
+      ${porOrigem ? `<table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:0.76rem;color:var(--text2)">
+        <thead><tr style="color:var(--text3);text-align:left"><th style="padding:6px 10px;font-weight:600">Origem</th><th style="${th}">Agendaram</th><th style="${th}">Confirmaram</th><th style="${th}">Compareceram</th><th style="${th}">Faltaram</th><th style="${th}">Fecharam</th></tr></thead>
+        <tbody>${porOrigem}</tbody></table>` : ''}
+      ${eq ? `<div style="margin-top:12px;font-size:0.74rem;color:var(--text3)">Marcados pela equipe no período: <b>${eq.agendaram}</b> · compareceram <b>${eq.compareceram}</b> · faltaram <b>${eq.faltaram}</b></div>` : ''}`;
+  } catch(e) { box.textContent = 'Erro ao carregar: ' + e.message; }
+}
+
 async function setAgStatus(id, status) {
   try {
     await apiFetch('/agendamentos/'+id, { method:'PATCH', body: JSON.stringify({ status }) });
@@ -5277,12 +5377,30 @@ function renderAgendamentos() {
   const viewToggle = `<div style="display:flex;gap:5px">
     <button onclick="setAgView('lista')" style="${btnBase};background:${_agView==='lista'?'var(--gold)':'var(--bg3)'};color:${_agView==='lista'?'#000':'var(--text3)'}">≡ Lista</button>
     <button onclick="setAgView('calendario')" style="${btnBase};background:${_agView==='calendario'?'var(--gold)':'var(--bg3)'};color:${_agView==='calendario'?'#000':'var(--text3)'}">📅 Calendário</button>
+    <button onclick="setAgView('resultados')" style="${btnBase};background:${_agView==='resultados'?'var(--gold)':'var(--bg3)'};color:${_agView==='resultados'?'#000':'var(--text3)'}">📊 Resultados</button>
   </div>`;
   const header = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
     <h2 style="font-size:0.9rem;font-weight:800">Agenda</h2>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${viewToggle}<button class="btn btn-gold" onclick="abrirNovoAgendamento()">+ Agendar</button></div>
   </div>`;
   if (_agView === 'calendario') return header + renderAgCalendario();
+  if (_agView === 'resultados') return header + renderAgFunil();
+
+  // Atendimentos dos últimos 30 dias que já passaram e ninguém marcou se a pessoa veio
+  const lim = new Date(Date.now() - 30*864e5).toISOString().slice(0,10);
+  const semRegistro = (agendamentos||[]).filter(a => agPassou(a) && String(a.data).slice(0,10) >= lim && a.status !== 'cancelado' && !a.presenca)
+    .sort((a,b) => String(b.data).localeCompare(String(a.data)));
+  const painelPresenca = semRegistro.length ? `<div class="panel" style="margin-bottom:16px;border-color:rgba(234,179,8,0.35)">
+    <div class="panel-header" style="flex-wrap:wrap;gap:6px"><span class="panel-title">⚠️ Registrar presença (${semRegistro.length})</span><span style="font-size:0.72rem;color:var(--text3)">atendimentos que já passaram — a pessoa veio?</span></div>
+    ${semRegistro.map(a => {
+      const c = (clientes||[]).find(x => x.id===a.cliente_id);
+      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+        <div style="font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--text2);width:120px">${fmtDate(a.data)} ${a.hora||''}</div>
+        <div style="flex:1;min-width:140px;font-weight:600;font-size:0.82rem">${c?c.nome.split(' ').slice(0,2).join(' '):a.cliente_nome||'—'}</div>
+        ${agAcoes(a)}
+      </div>`;
+    }).join('')}
+  </div>` : '';
   const fut = (agendamentos||[]).filter(a => a.data >= hoje).sort((a,b) => a.data>b.data?1:a.data<b.data?-1:a.hora>b.hora?1:-1);
   const rows = fut.map(a => {
     const c = (clientes||[]).find(x => x.id===a.cliente_id);
@@ -5298,7 +5416,7 @@ function renderAgendamentos() {
     </tr>`;
   }).join('');
   const pend = fut.filter(a => a.status === 'pendente').length;
-  return header +
+  return header + painelPresenca +
     `<div class="panel"><div class="panel-header"><span class="panel-title">Próximos (${fut.length})</span>${pend?`<span style="font-size:0.72rem;color:#facc15;font-weight:700">${pend} aguardando confirmação</span>`:''}</div>
     <table style="width:100%;border-collapse:collapse"><thead><tr>
       <th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Data</th>

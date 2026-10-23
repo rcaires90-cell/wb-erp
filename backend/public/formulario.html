@@ -94,22 +94,22 @@ select:disabled{opacity:.5}
     <h1 id="fp-titulo">Carregando...</h1>
     <p class="sub" id="fp-intro"></p>
     <div class="badges">
-      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Atendimento especializado</span>
-      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Processo 100% orientado</span>
-      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Resposta rápida</span>
+      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><span data-i18n="badge1">Atendimento especializado</span></span>
+      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><span data-i18n="badge2">Processo 100% orientado</span></span>
+      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><span data-i18n="badge3">Resposta rápida</span></span>
     </div>
   </div>
 </div>
 
 <!-- FORM -->
 <div class="container">
-  <div id="fp-loading" class="empty">Carregando formulário...</div>
+  <div id="fp-loading" class="empty" data-i18n="formCarregando">Carregando formulário...</div>
   <div id="fp-erro" class="empty" style="display:none">
-    <p>Formulário não encontrado. Confira o link com quem enviou.</p>
+    <p data-i18n="formNaoAchado">Formulário não encontrado. Confira o link com quem enviou.</p>
   </div>
 
   <div id="formSection" class="card" style="display:none">
-    <h2>Preencha seus dados para atendimento</h2>
+    <h2 data-i18n="cardTitulo">Preencha seus dados para atendimento</h2>
     <form id="fp-form" novalidate></form>
   </div>
 
@@ -120,13 +120,13 @@ select:disabled{opacity:.5}
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
       </svg>
     </div>
-    <h2 id="successTitle">Recebemos suas informações!</h2>
-    <p id="successMsg">Nossa equipe vai analisar e entrar em contato pelo WhatsApp ou e-mail informado.</p>
+    <h2 id="successTitle" data-i18n="formOkTitulo">Recebemos suas informações!</h2>
+    <p id="successMsg" data-i18n="formOkMsg">Nossa equipe vai analisar e entrar em contato pelo WhatsApp ou e-mail informado.</p>
     <div id="successAg"></div>
-    <p style="margin-top:8px;font-size:13px;color:#808080">WB Assessoria Migratória — Especialistas em regularização migratória no Brasil.</p>
+    <p style="margin-top:8px;font-size:13px;color:#808080" data-i18n="rodapeSlogan">WB Assessoria Migratória — Especialistas em regularização migratória no Brasil.</p>
     <a href="https://wa.me/5511914258886" class="wpp" target="_blank" rel="noreferrer">
       <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-      Fale conosco pelo WhatsApp
+      <span data-i18n="wpp">Fale conosco pelo WhatsApp</span>
     </a>
   </div>
 </div>
@@ -136,7 +136,9 @@ select:disabled{opacity:.5}
   <p>WB Assessoria Migratória &nbsp;·&nbsp; <a href="https://wbassessoriamigratoria.com.br">wbassessoriamigratoria.com.br</a></p>
 </div>
 
+<script src="/lib/i18n-publico.js"></script>
 <script>
+const { t } = WBI18N;
 const params = new URLSearchParams(window.location.search);
 const chave = params.get('servico') || '';
 const state = { data: '', hora: '', aConfirmar: false };
@@ -151,10 +153,14 @@ function fmtLongo(iso) {
 }
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
+// Texto da pergunta no idioma escolhido (valor gravado continua em português)
+const tr = (p) => (WBI18N.lang !== 'pt' && p.t?.[WBI18N.lang]) || { label: p.label, dica: p.dica, opcoes: p.opcoes };
+
 function campoHtml(p) {
   const id = 'fp-q-' + p.id;
   if (p.tipo === 'select') {
-    return `<select id="${id}"><option value="">Selecione</option>${p.opcoes.map(o => `<option>${esc(o)}</option>`).join('')}</select>`;
+    const txt = tr(p).opcoes || p.opcoes;
+    return `<select id="${id}"><option value="">${t('selecione')}</option>${p.opcoes.map((o, i) => `<option value="${esc(o)}">${esc(txt[i] || o)}</option>`).join('')}</select>`;
   }
   if (p.tipo === 'textarea') return `<textarea id="${id}" rows="2"></textarea>`;
   if (p.tipo === 'date') return `<input id="${id}" type="date">`;
@@ -169,29 +175,39 @@ async function carregarAgenda() {
     if (!r.ok || !j.ativa || !j.dias?.length) return;
     agendaDias = j.dias;
     document.getElementById('agendaWrap').style.display = '';
-    document.getElementById('agDia').innerHTML = '<option value="">Selecione o dia</option>' + agendaDias.map(d => {
-      const x = dt(d.data);
-      return `<option value="${d.data}">${SEM[x.getDay()]}, ${x.getDate()} de ${MES[x.getMonth()]}${d.aConfirmar ? ' (horário a confirmar)' : ''}</option>`;
-    }).join('');
+    renderDias();
   } catch {}
+}
+
+function renderDias() {
+  const sel = document.getElementById('agDia');
+  sel.innerHTML = `<option value="">${t('agSelDia')}</option>` + agendaDias.map(d =>
+    `<option value="${d.data}">${WBI18N.dataCurta(d.data)}${d.aConfirmar ? ' ' + t('agAConfirmar') : ''}</option>`).join('');
+  sel.value = state.data;
+  renderHoras();
+}
+
+function renderHoras() {
+  const sel = document.getElementById('agHora');
+  const dia = agendaDias.find(d => d.data === state.data);
+  state.aConfirmar = !!dia?.aConfirmar;
+  if (state.aConfirmar) {
+    sel.disabled = true;
+    sel.innerHTML = `<option value="">${t('agEquipeConfirma')}</option>`;
+    return;
+  }
+  sel.disabled = !dia;
+  sel.innerHTML = dia
+    ? `<option value="">${t('agSelHora')}</option>` + dia.horarios.map(h => `<option>${h}</option>`).join('')
+    : `<option value="">${t('agEscolhaDia')}</option>`;
+  sel.value = state.hora;
 }
 
 function ligarAgenda() {
   document.getElementById('agDia').addEventListener('change', (e) => {
     state.data = e.target.value; state.hora = '';
-    const sel = document.getElementById('agHora');
-    const dia = agendaDias.find(d => d.data === state.data);
-    state.aConfirmar = !!dia?.aConfirmar;
     document.getElementById('err-agenda').textContent = '';
-    if (state.aConfirmar) {
-      sel.disabled = true;
-      sel.innerHTML = '<option value="">A equipe confirma</option>';
-      return;
-    }
-    sel.disabled = !dia;
-    sel.innerHTML = dia
-      ? '<option value="">Selecione o horário</option>' + dia.horarios.map(h => `<option>${h}</option>`).join('')
-      : '<option value="">Escolha o dia</option>';
+    renderHoras();
   });
   document.getElementById('agHora').addEventListener('change', (e) => {
     state.hora = e.target.value;
@@ -203,69 +219,91 @@ function ligarAgenda() {
   });
 }
 
+// Troca os textos visíveis (título, seções, perguntas, opções) sem
+// recriar o formulário — o que a pessoa já preencheu não se perde.
+function traduzir(cfg) {
+  const titulo = (WBI18N.lang !== 'pt' && cfg.t?.titulo?.[WBI18N.lang]) || cfg.titulo;
+  document.title = 'WB Assessoria Migratória — ' + titulo;
+  document.getElementById('fp-titulo').innerHTML = `${esc(t('formTitulo'))}<br><span>${esc(titulo)}</span>`;
+  // cfg.intro é o texto interno da equipe — aqui vai um texto para o cliente
+  document.getElementById('fp-intro').textContent = t('formSub', { servico: titulo });
+  cfg.secoes.forEach((sec, i) => {
+    const el = document.getElementById('sec-' + i);
+    if (el) el.textContent = (WBI18N.lang !== 'pt' && sec.t?.[WBI18N.lang]) || sec.titulo;
+    sec.perguntas.forEach(p => {
+      const x = tr(p);
+      document.getElementById('lbl-' + p.id).textContent = x.label;
+      const d = document.getElementById('dica-' + p.id);
+      if (d) d.textContent = '💡 ' + (x.dica || p.dica);
+      if (p.tipo === 'select') {
+        const opts = document.getElementById('fp-q-' + p.id).options;
+        opts[0].textContent = t('selecione');
+        p.opcoes.forEach((o, k) => { opts[k + 1].textContent = (x.opcoes || p.opcoes)[k] || o; });
+      }
+    });
+  });
+  WBI18N.aplicar();
+  if (agendaDias.length) renderDias(); else renderHoras();
+}
+
 async function init() {
   try {
     const resp = await fetch('/api/leads/formularios');
     const config = await resp.json();
     const cfg = config[chave];
+    WBI18N.aplicar();
     if (!cfg) {
       document.getElementById('fp-loading').style.display = 'none';
       document.getElementById('fp-erro').style.display = 'block';
-      document.getElementById('fp-titulo').textContent = 'Formulário não encontrado';
+      document.getElementById('fp-titulo').textContent = t('formNaoAchado');
       return;
     }
-
-    document.title = 'WB Assessoria Migratória — ' + cfg.titulo;
-    document.getElementById('fp-titulo').innerHTML = `Formulário de<br><span>${esc(cfg.titulo)}</span>`;
-    // cfg.intro é o texto interno da equipe — aqui vai um texto para o cliente
-    document.getElementById('fp-intro').textContent =
-      `Preencha o formulário e nossa equipe entrará em contato para orientar você no processo de ${cfg.titulo}.`;
 
     const form = document.getElementById('fp-form');
     form.innerHTML = `
       <div class="field">
-        <label>Nome completo <span class="req">*</span></label>
-        <input type="text" id="fp-nome" placeholder="Seu nome completo">
+        <label><span data-i18n="nome">Nome completo</span> <span class="req">*</span></label>
+        <input type="text" id="fp-nome" data-i18n-ph="nomePh" placeholder="Seu nome completo">
         <div class="err-msg" id="err-fp-nome"></div>
       </div>
       <div class="field">
-        <label>WhatsApp <span class="req">*</span></label>
+        <label><span data-i18n="whatsapp">WhatsApp</span> <span class="req">*</span></label>
         <input type="tel" id="fp-tel" placeholder="+55 11 99999-9999">
         <div class="err-msg" id="err-fp-tel"></div>
       </div>
       <div class="field">
-        <label>E-mail <span class="req">*</span></label>
-        <input type="email" id="fp-email" placeholder="seu@email.com">
+        <label><span data-i18n="email">E-mail</span> <span class="req">*</span></label>
+        <input type="email" id="fp-email" data-i18n-ph="emailPh" placeholder="seu@email.com">
         <div class="err-msg" id="err-fp-email"></div>
       </div>
 
-      ${cfg.secoes.map(sec => `
+      ${cfg.secoes.map((sec, i) => `
         <div class="divider">
-          <p class="divider-label">${esc(sec.titulo)}</p>
+          <p class="divider-label" id="sec-${i}"></p>
           ${sec.perguntas.map(p => `
             <div class="field">
-              <label>${esc(p.label)}</label>
-              ${p.dica ? `<div class="dica">💡 ${esc(p.dica)}</div>` : ''}
+              <label for="fp-q-${p.id}" id="lbl-${p.id}"></label>
+              ${p.dica ? `<div class="dica" id="dica-${p.id}"></div>` : ''}
               ${campoHtml(p)}
             </div>`).join('')}
         </div>`).join('')}
 
       <!-- Agenda (só aparece se houver horários livres) -->
       <div class="divider" id="agendaWrap" style="display:none">
-        <p class="divider-label">Escolha um horário para atendimento</p>
+        <p class="divider-label" data-i18n="agTitulo"></p>
         <div class="agenda-box" id="agendaBox">
           <div class="grid-2">
             <div class="field" style="margin:0">
-              <label>Dia</label>
-              <select id="agDia"><option value="">Selecione o dia</option></select>
+              <label data-i18n="agDia"></label>
+              <select id="agDia"></select>
             </div>
             <div class="field" style="margin:0">
-              <label>Horário</label>
-              <select id="agHora" disabled><option value="">Escolha o dia</option></select>
+              <label data-i18n="agHora"></label>
+              <select id="agHora" disabled></select>
             </div>
           </div>
-          <p class="agenda-info">Horários de Brasília. Você recebe um e-mail para confirmar a presença.</p>
-          <label class="skip"><input type="checkbox" id="semHorario"/> Prefiro que a equipe entre em contato para combinar</label>
+          <p class="agenda-info" data-i18n="agInfo"></p>
+          <label class="skip"><input type="checkbox" id="semHorario"/> <span data-i18n="agPular"></span></label>
           <div class="err-msg" id="err-agenda"></div>
         </div>
       </div>
@@ -276,13 +314,15 @@ async function init() {
       </div>
 
       <div id="fp-alert-err" class="alert-err" style="display:none"></div>
-      <button type="submit" class="btn-submit" id="fp-btn-submit">Enviar</button>
-      <p class="privacy">Seus dados são usados exclusivamente para atendimento. Não compartilhamos com terceiros.</p>
+      <button type="submit" class="btn-submit" id="fp-btn-submit" data-i18n="enviar">Enviar</button>
+      <p class="privacy" data-i18n="privacidade"></p>
     `;
 
     document.getElementById('fp-loading').style.display = 'none';
     document.getElementById('formSection').style.display = 'block';
     ligarAgenda();
+    traduzir(cfg);
+    WBI18N.seletor(() => traduzir(cfg));
     carregarAgenda();
 
     form.addEventListener('submit', async (e) => {
@@ -298,18 +338,19 @@ async function init() {
       });
 
       let valid = true;
-      if (!nome) { marcarErro('fp-nome', 'Nome obrigatório'); valid = false; }
-      if (!tel)  { marcarErro('fp-tel', 'WhatsApp obrigatório'); valid = false; }
-      if (!email) { marcarErro('fp-email', 'E-mail obrigatório'); valid = false; }
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { marcarErro('fp-email', 'E-mail inválido'); valid = false; }
+      if (!nome) { marcarErro('fp-nome', t('errNome')); valid = false; }
+      if (!tel)  { marcarErro('fp-tel', t('errTel')); valid = false; }
+      if (!email) { marcarErro('fp-email', t('errEmail')); valid = false; }
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { marcarErro('fp-email', t('errEmailInv')); valid = false; }
       const querHorario = agendaDias.length > 0 && !document.getElementById('semHorario').checked;
       document.getElementById('err-agenda').textContent = '';
       if (querHorario && !(state.data && (state.hora || state.aConfirmar))) {
-        document.getElementById('err-agenda').textContent = 'Escolha um dia e horário (ou marque a opção de combinar com a equipe)';
+        document.getElementById('err-agenda').textContent = t('agErr');
         valid = false;
       }
       if (!valid) return;
 
+      // Respostas gravadas com a pergunta e a opção em português (equipe lê igual)
       const respostas = {};
       cfg.secoes.forEach(sec => sec.perguntas.forEach(p => {
         const el = document.getElementById('fp-q-' + p.id);
@@ -319,7 +360,7 @@ async function init() {
 
       const btn = document.getElementById('fp-btn-submit');
       btn.disabled = true;
-      btn.innerHTML = '<div class="spin"></div> Enviando...';
+      btn.innerHTML = `<div class="spin"></div> ${t('enviando')}`;
       document.getElementById('fp-alert-err').style.display = 'none';
 
       try {
@@ -328,6 +369,7 @@ async function init() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             nome, tel, email, respostas,
+            idioma: WBI18N.lang,
             agendamento: querHorario ? { data: state.data, hora: state.aConfirmar ? null : state.hora, a_confirmar: state.aConfirmar } : null,
             _hp: document.getElementById('fp-hp').value,
           }),
@@ -336,25 +378,24 @@ async function init() {
         if (!res.ok) throw new Error(data.erro || 'Erro ao enviar');
 
         if (data.agendado) {
-          document.getElementById('successTitle').textContent = 'Atendimento agendado!';
-          document.getElementById('successMsg').innerHTML = data.agendamento.a_confirmar
-            ? 'Nossa equipe vai entrar em contato para <b>confirmar o horário</b>. Enviamos os detalhes para <b id="okEmail"></b>.'
-            : 'Enviamos um e-mail para <b id="okEmail"></b>. Clique em <b>Confirmar presença</b> para garantir seu horário.';
+          document.getElementById('successTitle').textContent = t('agOkTitulo');
+          document.getElementById('successMsg').innerHTML =
+            t(data.agendamento.a_confirmar ? 'agOkSabado' : 'agOkMsg', { email: '<b id="okEmail"></b>' });
           document.getElementById('okEmail').textContent = email;
           document.getElementById('successAg').innerHTML =
-            `<div class="resumo-ag"><div class="l">Data</div><div class="v">${fmtLongo(data.agendamento.data)}</div><div class="l">Horário</div><div class="v" style="margin:0">${data.agendamento.hora || 'A confirmar pela equipe'}</div></div>`;
+            `<div class="resumo-ag"><div class="l">${t('agData')}</div><div class="v">${WBI18N.dataLonga(data.agendamento.data)}</div><div class="l">${t('agHorario')}</div><div class="v" style="margin:0">${data.agendamento.hora || t('agPelaEquipe')}</div></div>`;
         } else if (data.horario_indisponivel) {
-          document.getElementById('successMsg').textContent = 'Recebemos suas informações, mas o horário escolhido acabou de ser ocupado. Nossa equipe vai entrar em contato pelo WhatsApp para combinar um novo horário.';
+          document.getElementById('successMsg').textContent = t('agOcupado');
         }
         document.getElementById('formSection').style.display = 'none';
         document.getElementById('successSection').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch (err) {
         const alertEl = document.getElementById('fp-alert-err');
-        alertEl.textContent = 'Ocorreu um erro ao enviar. Tente novamente ou entre em contato pelo WhatsApp.';
+        alertEl.textContent = t('erroEnvio');
         alertEl.style.display = 'block';
         btn.disabled = false;
-        btn.textContent = 'Enviar';
+        btn.textContent = t('enviar');
       }
     });
   } catch (e) {

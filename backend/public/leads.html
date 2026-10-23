@@ -105,12 +105,12 @@ select:disabled{opacity:.5}
 <div class="hero">
   <div class="hero-inner">
     <div class="brand"><img src="/img/logo-wb.png" alt="WB Assessoria Migratória"/></div>
-    <h1>Regularize sua situação no Brasil<br><span>com quem entende de migração</span></h1>
-    <p class="sub">Preencha o formulário e nossa equipe entrará em contato para orientar você no processo mais adequado ao seu caso.</p>
+    <h1><span data-i18n="heroTitulo1" style="color:inherit">Regularize sua situação no Brasil</span><br><span data-i18n="heroTitulo2">com quem entende de migração</span></h1>
+    <p class="sub" data-i18n="heroSub">Preencha o formulário e nossa equipe entrará em contato para orientar você no processo mais adequado ao seu caso.</p>
     <div class="badges">
-      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Atendimento especializado</span>
-      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Processo 100% orientado</span>
-      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Resposta rápida</span>
+      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><span data-i18n="badge1">Atendimento especializado</span></span>
+      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><span data-i18n="badge2">Processo 100% orientado</span></span>
+      <span class="badge"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><span data-i18n="badge3">Resposta rápida</span></span>
     </div>
   </div>
 </div>
@@ -118,103 +118,86 @@ select:disabled{opacity:.5}
 <!-- FORM -->
 <div class="container">
   <div id="formSection" class="card">
-    <h2>Preencha seus dados para atendimento</h2>
+    <h2 data-i18n="cardTitulo">Preencha seus dados para atendimento</h2>
     <form id="leadForm" novalidate>
 
       <!-- Nome -->
       <div class="field">
-        <label>Nome completo <span class="req">*</span></label>
-        <input type="text" id="nome" placeholder="Seu nome completo"/>
+        <label><span data-i18n="nome">Nome completo</span> <span class="req">*</span></label>
+        <input type="text" id="nome" data-i18n-ph="nomePh" placeholder="Seu nome completo"/>
         <div class="err-msg" id="err-nome"></div>
       </div>
 
-      <!-- País -->
+      <!-- País (valor gravado sempre em português; o texto exibido muda com o idioma) -->
       <div class="field">
-        <label>País de origem <span class="req">*</span></label>
-        <select id="pais">
-          <option value="">Selecione o país</option>
-          <option>Afeganistão</option><option>África do Sul</option><option>Albania</option><option>Alemanha</option>
-          <option>Angola</option><option>Argentina</option><option>Bangladesh</option><option>Bolívia</option>
-          <option>Cabo Verde</option><option>Camarões</option><option>Chile</option><option>China</option>
-          <option>Colômbia</option><option>Congo (RDC)</option><option>Congo (República)</option>
-          <option>Costa do Marfim</option><option>Cuba</option><option>Equador</option><option>El Salvador</option>
-          <option>Espanha</option><option>Estados Unidos</option><option>Etiópia</option><option>França</option>
-          <option>Gana</option><option>Guatemala</option><option>Guinea-Bissau</option><option>Haiti</option>
-          <option>Honduras</option><option>India</option><option>Itália</option><option>Jamaica</option>
-          <option>Japão</option><option>Líbano</option><option>Marrocos</option><option>México</option>
-          <option>Moçambique</option><option>Namíbia</option><option>Nigéria</option><option>Pakistan</option>
-          <option>Palestina</option><option>Paraguai</option><option>Peru</option><option>Portugal</option>
-          <option>Reino Unido</option><option>República Dominicana</option><option>Rússia</option>
-          <option>Senegal</option><option>Serra Leoa</option><option>Síria</option><option>Tanzânia</option>
-          <option>Togo</option><option>Turquia</option><option>Uganda</option><option>Ucrânia</option>
-          <option>Uruguai</option><option>Venezuela</option><option>Vietnã</option><option>Outro</option>
-        </select>
+        <label><span data-i18n="pais">País de origem</span> <span class="req">*</span></label>
+        <select id="pais"></select>
         <div class="err-msg" id="err-pais"></div>
       </div>
 
       <!-- RNM -->
       <div class="field">
-        <label>Você possui RNM (Registro Nacional Migratório)?</label>
+        <label data-i18n="rnm">Você possui RNM (Registro Nacional Migratório)?</label>
         <div class="toggle-group cols-3">
-          <button type="button" class="toggle-btn" data-group="rnm" data-value="nenhum">Não possuo</button>
-          <button type="button" class="toggle-btn" data-group="rnm" data-value="temporario">Temporário</button>
-          <button type="button" class="toggle-btn" data-group="rnm" data-value="permanente">Permanente</button>
+          <button type="button" class="toggle-btn" data-group="rnm" data-value="nenhum" data-i18n="rnmNao">Não possuo</button>
+          <button type="button" class="toggle-btn" data-group="rnm" data-value="temporario" data-i18n="rnmTemp">Temporário</button>
+          <button type="button" class="toggle-btn" data-group="rnm" data-value="permanente" data-i18n="rnmPerm">Permanente</button>
         </div>
       </div>
 
       <!-- Serviço -->
       <div class="field">
-        <label>Qual serviço você precisa? <span class="req">*</span></label>
+        <label><span data-i18n="servico">Qual serviço você precisa?</span> <span class="req">*</span></label>
         <select id="servico">
-          <option value="">Selecione o serviço</option>
-          <option value="Naturalização Brasileira">Naturalização Brasileira</option>
-          <option value="Naturalização Provisória (crianças/adolescentes)">Naturalização Provisória — crianças/adolescentes</option>
-          <option value="Autorização de Residência (CPLP / Reunião Familiar / Mercosul)">Autorização de Residência (CPLP / Reunião Familiar / Mercosul)</option>
-          <option value="Renovação de Autorização de Residência">Renovação de Autorização de Residência</option>
-          <option value="Agendamento de Autorização de Residência">Agendamento de Autorização de Residência</option>
-          <option value="Visto Americano de Turismo">Visto Americano de Turismo</option>
+          <option value="" data-i18n="servicoSel">Selecione o serviço</option>
+          <option value="Naturalização Brasileira" data-i18n="srv:Naturalização Brasileira">Naturalização Brasileira</option>
+          <option value="Naturalização Provisória (crianças/adolescentes)" data-i18n="srv:Naturalização Provisória (crianças/adolescentes)">Naturalização Provisória — crianças/adolescentes</option>
+          <option value="Autorização de Residência (CPLP / Reunião Familiar / Mercosul)" data-i18n="srv:Autorização de Residência (CPLP / Reunião Familiar / Mercosul)">Autorização de Residência (CPLP / Reunião Familiar / Mercosul)</option>
+          <option value="Renovação de Autorização de Residência" data-i18n="srv:Renovação de Autorização de Residência">Renovação de Autorização de Residência</option>
+          <option value="Agendamento de Autorização de Residência" data-i18n="srv:Agendamento de Autorização de Residência">Agendamento de Autorização de Residência</option>
+          <option value="Visto Americano de Turismo" data-i18n="srv:Visto Americano de Turismo">Visto Americano de Turismo</option>
         </select>
         <div class="err-msg" id="err-servico"></div>
       </div>
 
       <!-- Tempo no país -->
       <div class="field">
-        <label>Há quanto tempo você está no Brasil? <span class="req">*</span></label>
+        <label><span data-i18n="tempo">Há quanto tempo você está no Brasil?</span> <span class="req">*</span></label>
         <div class="toggle-group cols-3-md">
-          <button type="button" class="toggle-btn" data-group="tempo" data-value="Ainda não estou no Brasil">Ainda não estou no Brasil</button>
-          <button type="button" class="toggle-btn" data-group="tempo" data-value="Menos de 6 meses">Menos de 6 meses</button>
-          <button type="button" class="toggle-btn" data-group="tempo" data-value="6 a 12 meses">6 a 12 meses</button>
-          <button type="button" class="toggle-btn" data-group="tempo" data-value="1 a 2 anos">1 a 2 anos</button>
-          <button type="button" class="toggle-btn" data-group="tempo" data-value="2 a 5 anos">2 a 5 anos</button>
-          <button type="button" class="toggle-btn" data-group="tempo" data-value="Mais de 5 anos">Mais de 5 anos</button>
+          <button type="button" class="toggle-btn" data-group="tempo" data-value="Ainda não estou no Brasil" data-i18n="tmp:Ainda não estou no Brasil">Ainda não estou no Brasil</button>
+          <button type="button" class="toggle-btn" data-group="tempo" data-value="Menos de 6 meses" data-i18n="tmp:Menos de 6 meses">Menos de 6 meses</button>
+          <button type="button" class="toggle-btn" data-group="tempo" data-value="6 a 12 meses" data-i18n="tmp:6 a 12 meses">6 a 12 meses</button>
+          <button type="button" class="toggle-btn" data-group="tempo" data-value="1 a 2 anos" data-i18n="tmp:1 a 2 anos">1 a 2 anos</button>
+          <button type="button" class="toggle-btn" data-group="tempo" data-value="2 a 5 anos" data-i18n="tmp:2 a 5 anos">2 a 5 anos</button>
+          <button type="button" class="toggle-btn" data-group="tempo" data-value="Mais de 5 anos" data-i18n="tmp:Mais de 5 anos">Mais de 5 anos</button>
         </div>
         <div class="err-msg" id="err-tempo"></div>
       </div>
 
       <!-- Contato -->
       <div class="divider">
-        <p class="divider-label">Dados de contato</p>
+        <p class="divider-label" data-i18n="contato">Dados de contato</p>
 
         <div class="field">
-          <label>WhatsApp <span class="req">*</span></label>
+          <label><span data-i18n="whatsapp">WhatsApp</span> <span class="req">*</span></label>
           <input type="tel" id="tel" placeholder="+55 11 99999-9999"/>
           <div class="err-msg" id="err-tel"></div>
         </div>
 
         <div class="field">
-          <label>E-mail <span class="req">*</span></label>
-          <input type="email" id="email" placeholder="seu@email.com"/>
+          <label><span data-i18n="email">E-mail</span> <span class="req">*</span></label>
+          <input type="email" id="email" data-i18n-ph="emailPh" placeholder="seu@email.com"/>
           <div class="err-msg" id="err-email"></div>
         </div>
 
         <div class="grid-2">
           <div class="field">
-            <label>Cidade <span class="req">*</span></label>
-            <input type="text" id="cidade" placeholder="Sua cidade"/>
+            <label><span data-i18n="cidade">Cidade</span> <span class="req">*</span></label>
+            <input type="text" id="cidade" data-i18n-ph="cidadePh" placeholder="Sua cidade"/>
             <div class="err-msg" id="err-cidade"></div>
           </div>
           <div class="field">
-            <label>Estado <span class="req">*</span></label>
+            <label><span data-i18n="estado">Estado</span> <span class="req">*</span></label>
             <select id="estado">
               <option value="">UF</option>
               <option>AC</option><option>AL</option><option>AM</option><option>AP</option><option>BA</option>
@@ -231,20 +214,20 @@ select:disabled{opacity:.5}
 
       <!-- Agenda (só aparece se houver horários livres) -->
       <div class="divider" id="agendaWrap" style="display:none">
-        <p class="divider-label">Escolha um horário para atendimento</p>
+        <p class="divider-label" data-i18n="agTitulo">Escolha um horário para atendimento</p>
         <div class="agenda-box" id="agendaBox">
           <div class="grid-2">
             <div class="field" style="margin:0">
-              <label>Dia</label>
-              <select id="agDia"><option value="">Selecione o dia</option></select>
+              <label data-i18n="agDia">Dia</label>
+              <select id="agDia"></select>
             </div>
             <div class="field" style="margin:0">
-              <label>Horário</label>
-              <select id="agHora" disabled><option value="">Escolha o dia</option></select>
+              <label data-i18n="agHora">Horário</label>
+              <select id="agHora" disabled></select>
             </div>
           </div>
-          <p class="agenda-info">Horários de Brasília. Você recebe um e-mail para confirmar a presença.</p>
-          <label class="skip"><input type="checkbox" id="semHorario"/> Prefiro que a equipe entre em contato para combinar</label>
+          <p class="agenda-info" data-i18n="agInfo">Horários de Brasília. Você recebe um e-mail para confirmar a presença.</p>
+          <label class="skip"><input type="checkbox" id="semHorario"/> <span data-i18n="agPular">Prefiro que a equipe entre em contato para combinar</span></label>
           <div class="err-msg" id="err-agenda"></div>
         </div>
       </div>
@@ -256,10 +239,8 @@ select:disabled{opacity:.5}
 
       <div id="alertErr" class="alert-err" style="display:none"></div>
 
-      <button type="submit" class="btn-submit" id="btnSubmit">
-        Solicitar atendimento
-      </button>
-      <p class="privacy">Seus dados são usados exclusivamente para atendimento. Não compartilhamos com terceiros.</p>
+      <button type="submit" class="btn-submit" id="btnSubmit" data-i18n="solicitar">Solicitar atendimento</button>
+      <p class="privacy" data-i18n="privacidade">Seus dados são usados exclusivamente para atendimento. Não compartilhamos com terceiros.</p>
     </form>
   </div>
 
@@ -270,13 +251,13 @@ select:disabled{opacity:.5}
         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
       </svg>
     </div>
-    <h2 id="successTitle">Recebemos seu contato!</h2>
-    <p id="successMsg">Nossa equipe entrará em contato em breve pelo WhatsApp ou e-mail informado.</p>
+    <h2 id="successTitle" data-i18n="okTitulo">Recebemos seu contato!</h2>
+    <p id="successMsg" data-i18n="okMsg">Nossa equipe entrará em contato em breve pelo WhatsApp ou e-mail informado.</p>
     <div id="successAg"></div>
-    <p style="margin-top:8px;font-size:13px;color:#6b7280">WB Assessoria Migratória — Especialistas em regularização migratória no Brasil.</p>
+    <p style="margin-top:8px;font-size:13px;color:#808080" data-i18n="rodapeSlogan">WB Assessoria Migratória — Especialistas em regularização migratória no Brasil.</p>
     <a href="https://wa.me/5511914258886" class="wpp" target="_blank" rel="noreferrer">
       <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-      Fale conosco pelo WhatsApp
+      <span data-i18n="wpp">Fale conosco pelo WhatsApp</span>
     </a>
   </div>
 </div>
@@ -286,18 +267,36 @@ select:disabled{opacity:.5}
   <p>WB Assessoria Migratória &nbsp;·&nbsp; <a href="https://wbassessoriamigratoria.com.br">wbassessoriamigratoria.com.br</a></p>
 </div>
 
+<script src="/lib/i18n-publico.js"></script>
 <script>
-const state = { rnm: '', tempo: '', data: '', hora: '' };
+const { t } = WBI18N;
+const state = { rnm: '', tempo: '', data: '', hora: '', aConfirmar: false };
 let agendaDias = [];
 
-const SEM = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-const dt = (iso) => new Date(iso + 'T12:00:00');
-function fmtLongo(iso) {
-  const s = dt(iso).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-  return s.charAt(0).toUpperCase() + s.slice(1);
+// Países: valor gravado em português (equipe lê igual); texto no idioma escolhido
+const PAISES = [
+  ['Afeganistão','AF'],['África do Sul','ZA'],['Albania','AL'],['Alemanha','DE'],['Angola','AO'],['Argentina','AR'],
+  ['Bangladesh','BD'],['Bolívia','BO'],['Cabo Verde','CV'],['Camarões','CM'],['Chile','CL'],['China','CN'],
+  ['Colômbia','CO'],['Congo (RDC)','CD'],['Congo (República)','CG'],['Costa do Marfim','CI'],['Cuba','CU'],
+  ['Equador','EC'],['El Salvador','SV'],['Espanha','ES'],['Estados Unidos','US'],['Etiópia','ET'],['França','FR'],
+  ['Gana','GH'],['Guatemala','GT'],['Guinea-Bissau','GW'],['Haiti','HT'],['Honduras','HN'],['India','IN'],
+  ['Itália','IT'],['Jamaica','JM'],['Japão','JP'],['Líbano','LB'],['Marrocos','MA'],['México','MX'],
+  ['Moçambique','MZ'],['Namíbia','NA'],['Nigéria','NG'],['Pakistan','PK'],['Palestina','PS'],['Paraguai','PY'],
+  ['Peru','PE'],['Portugal','PT'],['Reino Unido','GB'],['República Dominicana','DO'],['Rússia','RU'],
+  ['Senegal','SN'],['Serra Leoa','SL'],['Síria','SY'],['Tanzânia','TZ'],['Togo','TG'],['Turquia','TR'],
+  ['Uganda','UG'],['Ucrânia','UA'],['Uruguai','UY'],['Venezuela','VE'],['Vietnã','VN'],
+];
+function renderPaises() {
+  const sel = document.getElementById('pais'), atual = sel.value;
+  const lista = PAISES.map(([pt, iso]) => [pt, WBI18N.lang === 'pt' ? pt : WBI18N.nomePais(iso, pt)])
+    .sort((a, b) => a[1].localeCompare(b[1], WBI18N.lang));
+  sel.innerHTML = `<option value="">${t('paisSel')}</option>` +
+    lista.map(([v, txt]) => `<option value="${v}">${txt}</option>`).join('') +
+    `<option value="Outro">${t('paisOutro')}</option>`;
+  sel.value = atual;
 }
 
+// ── Agenda ──
 async function carregarAgenda() {
   try {
     const r = await fetch('/api/agendamentos/publico/horarios');
@@ -310,39 +309,49 @@ async function carregarAgenda() {
 }
 
 function renderDias() {
-  document.getElementById('agDia').innerHTML = '<option value="">Selecione o dia</option>' + agendaDias.map(d => {
-    const x = dt(d.data);
-    return `<option value="${d.data}">${SEM[x.getDay()]}, ${x.getDate()} de ${MES[x.getMonth()]}${d.aConfirmar ? ' (horário a confirmar)' : ''}</option>`;
-  }).join('');
+  const sel = document.getElementById('agDia');
+  sel.innerHTML = `<option value="">${t('agSelDia')}</option>` + agendaDias.map(d =>
+    `<option value="${d.data}">${WBI18N.dataCurta(d.data)}${d.aConfirmar ? ' ' + t('agAConfirmar') : ''}</option>`).join('');
+  sel.value = state.data;
+  renderHoras();
 }
 
-document.getElementById('agDia').addEventListener('change', (e) => {
-  state.data = e.target.value; state.hora = '';
+function renderHoras() {
   const sel = document.getElementById('agHora');
   const dia = agendaDias.find(d => d.data === state.data);
   state.aConfirmar = !!dia?.aConfirmar;
-  document.getElementById('err-agenda').textContent = '';
   if (state.aConfirmar) {
     // Sábado: a pessoa só escolhe o dia, a equipe define o horário
     sel.disabled = true;
-    sel.innerHTML = '<option value="">A equipe confirma</option>';
+    sel.innerHTML = `<option value="">${t('agEquipeConfirma')}</option>`;
     return;
   }
   sel.disabled = !dia;
   sel.innerHTML = dia
-    ? '<option value="">Selecione o horário</option>' + dia.horarios.map(h => `<option>${h}</option>`).join('')
-    : '<option value="">Escolha o dia</option>';
+    ? `<option value="">${t('agSelHora')}</option>` + dia.horarios.map(h => `<option>${h}</option>`).join('')
+    : `<option value="">${t('agEscolhaDia')}</option>`;
+  sel.value = state.hora;
+}
+
+document.getElementById('agDia').addEventListener('change', (e) => {
+  state.data = e.target.value; state.hora = '';
+  document.getElementById('err-agenda').textContent = '';
+  renderHoras();
 });
 document.getElementById('agHora').addEventListener('change', (e) => {
   state.hora = e.target.value;
   document.getElementById('err-agenda').textContent = '';
 });
-
 document.getElementById('semHorario').addEventListener('change', (e) => {
   document.getElementById('agendaBox').classList.toggle('off', e.target.checked);
   document.getElementById('err-agenda').textContent = '';
 });
 
+// Idioma
+WBI18N.seletor(() => { renderPaises(); if (agendaDias.length) renderDias(); });
+WBI18N.aplicar();
+renderPaises();
+renderHoras();
 carregarAgenda();
 
 // Toggle buttons
@@ -385,19 +394,19 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
   const cidade  = document.getElementById('cidade').value.trim();
   const estado  = document.getElementById('estado').value;
 
-  if (!nome)    { setErr('nome',    'Nome obrigatório');        valid = false; }
-  if (!pais)    { setErr('pais',    'Selecione o país');        valid = false; }
-  if (!servico) { setErr('servico', 'Selecione o serviço');     valid = false; }
-  if (!state.tempo) { document.getElementById('err-tempo').textContent = 'Selecione o tempo'; valid = false; }
-  if (!tel)     { setErr('tel',     'WhatsApp obrigatório');    valid = false; }
-  if (!email)   { setErr('email',   'E-mail obrigatório');      valid = false; }
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErr('email', 'E-mail inválido'); valid = false; }
-  if (!cidade)  { setErr('cidade',  'Cidade obrigatória');      valid = false; }
-  if (!estado)  { setErr('estado',  'Selecione o estado');      valid = false; }
+  if (!nome)    { setErr('nome',    t('errNome'));    valid = false; }
+  if (!pais)    { setErr('pais',    t('errPais'));    valid = false; }
+  if (!servico) { setErr('servico', t('errServico')); valid = false; }
+  if (!state.tempo) { document.getElementById('err-tempo').textContent = t('errTempo'); valid = false; }
+  if (!tel)     { setErr('tel',     t('errTel'));     valid = false; }
+  if (!email)   { setErr('email',   t('errEmail'));   valid = false; }
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErr('email', t('errEmailInv')); valid = false; }
+  if (!cidade)  { setErr('cidade',  t('errCidade'));  valid = false; }
+  if (!estado)  { setErr('estado',  t('errEstado'));  valid = false; }
   const querHorario = agendaDias.length > 0 && !document.getElementById('semHorario').checked;
   document.getElementById('err-agenda').textContent = '';
   if (querHorario && !(state.data && (state.hora || state.aConfirmar))) {
-    document.getElementById('err-agenda').textContent = 'Escolha um dia e horário (ou marque a opção de combinar com a equipe)';
+    document.getElementById('err-agenda').textContent = t('agErr');
     valid = false;
   }
 
@@ -405,7 +414,7 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
 
   const btn = document.getElementById('btnSubmit');
   btn.disabled = true;
-  btn.innerHTML = '<div class="spin"></div> Enviando...';
+  btn.innerHTML = `<div class="spin"></div> ${t('enviando')}`;
   document.getElementById('alertErr').style.display = 'none';
 
   try {
@@ -416,6 +425,7 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
         nome, pais, servico, tel, email, cidade, estado,
         rnm_tipo: state.rnm || null,
         tempo_no_pais: state.tempo,
+        idioma: WBI18N.lang,
         agendamento: querHorario ? { data: state.data, hora: state.aConfirmar ? null : state.hora, a_confirmar: !!state.aConfirmar } : null,
         _hp: document.getElementById('_hp').value,
       })
@@ -425,24 +435,23 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
     fbq('track', 'Lead');
     if (data.agendado) {
       fbq('track', 'Schedule');
-      document.getElementById('successTitle').textContent = 'Atendimento agendado!';
-      document.getElementById('successMsg').innerHTML = data.agendamento.a_confirmar
-        ? 'Nossa equipe vai entrar em contato para <b>confirmar o horário</b>. Enviamos os detalhes para <b id="okEmail"></b>.'
-        : 'Enviamos um e-mail para <b id="okEmail"></b>. Clique em <b>Confirmar presença</b> para garantir seu horário.';
+      document.getElementById('successTitle').textContent = t('agOkTitulo');
+      document.getElementById('successMsg').innerHTML =
+        t(data.agendamento.a_confirmar ? 'agOkSabado' : 'agOkMsg', { email: '<b id="okEmail"></b>' });
       document.getElementById('okEmail').textContent = email;
       document.getElementById('successAg').innerHTML =
-        `<div class="resumo-ag"><div class="l">Data</div><div class="v">${fmtLongo(data.agendamento.data)}</div><div class="l">Horário</div><div class="v" style="margin:0">${data.agendamento.hora || 'A confirmar pela equipe'}</div></div>`;
+        `<div class="resumo-ag"><div class="l">${t('agData')}</div><div class="v">${WBI18N.dataLonga(data.agendamento.data)}</div><div class="l">${t('agHorario')}</div><div class="v" style="margin:0">${data.agendamento.hora || t('agPelaEquipe')}</div></div>`;
     } else if (data.horario_indisponivel) {
-      document.getElementById('successMsg').textContent = 'O horário escolhido acabou de ser ocupado por outra pessoa. Nossa equipe vai entrar em contato pelo WhatsApp para combinar um novo horário.';
+      document.getElementById('successMsg').textContent = t('agOcupado');
     }
     document.getElementById('formSection').style.display = 'none';
     document.getElementById('successSection').style.display = 'block';
   } catch (err) {
     const alertEl = document.getElementById('alertErr');
-    alertEl.textContent = 'Ocorreu um erro ao enviar. Tente novamente ou entre em contato pelo WhatsApp.';
+    alertEl.textContent = t('erroEnvio');
     alertEl.style.display = 'block';
     btn.disabled = false;
-    btn.innerHTML = 'Solicitar atendimento';
+    btn.textContent = t('solicitar');
   }
 });
 </script>

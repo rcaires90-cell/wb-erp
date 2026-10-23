@@ -49,78 +49,81 @@ h1{font-size:20px;font-weight:700;margin-bottom:6px}
 <div class="wrap">
   <div class="brand"><img src="/img/logo-wb.png" alt="WB Assessoria Migratória"/></div>
   <div class="card" id="card"><div class="spin"></div></div>
-  <a class="wpp" href="https://wa.me/5511914258886" target="_blank" rel="noreferrer">Dúvidas? Fale conosco pelo WhatsApp</a>
+  <a class="wpp" href="https://wa.me/5511914258886" target="_blank" rel="noreferrer" data-i18n="cfDuvidas">Dúvidas? Fale conosco pelo WhatsApp</a>
 </div>
 
+<script src="/lib/i18n-publico.js"></script>
 <script>
+const { t } = WBI18N;
 const token = new URLSearchParams(location.search).get('token') || '';
 const acaoInicial = new URLSearchParams(location.search).get('acao');
 const card = document.getElementById('card');
 const API = '/api/agendamentos/publico/' + encodeURIComponent(token);
-let ag = null, msg = null, modoReagendar = false, dias = [], esc = { data: '', hora: '' };
+let ag = null, msg = null, modoReagendar = false, dias = [], esc = { data: '', hora: '' }, naoAchado = false;
 
-const SEM = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-const dt = (iso) => new Date(iso + 'T12:00:00');
-const longo = (iso) => { const s = dt(iso).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }); return s.charAt(0).toUpperCase() + s.slice(1); };
 const esc$ = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-const STATUS = { a_definir: 'Horário a definir pela equipe', pendente: 'Aguardando sua confirmação', confirmado: 'Presença confirmada', cancelado: 'Cancelado' };
+const STATUS = { a_definir: 'stADefinir', pendente: 'stPendente', confirmado: 'stConfirmado', cancelado: 'stCancelado' };
 
 async function api(path, body) {
-  const r = await fetch(API + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+  const r = await fetch(API + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, idioma: WBI18N.lang }) } : {});
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.erro || 'Algo deu errado. Tente novamente.');
+  if (!r.ok) throw new Error(j.erro || t('cfErro'));
   return j;
 }
 
 function render() {
+  if (naoAchado) {
+    card.innerHTML = `<h1>${t('cfNaoAchado')}</h1><p class="sub" style="margin:8px 0 0">${t('cfNaoAchadoMsg')}</p>`;
+    return;
+  }
   if (!ag) return;
   const primeiro = ag.nome ? esc$(ag.nome.split(' ')[0]) : '';
   let acoes = '';
   if (ag.passou) {
-    acoes = `<p class="sub" style="margin:0">Este horário já passou. Para um novo atendimento, fale com a gente pelo WhatsApp.</p>`;
+    acoes = `<p class="sub" style="margin:0">${t('cfPassou')}</p>`;
   } else if (modoReagendar) {
-    acoes = `<div class="sec-title">Escolha o novo horário</div>
+    acoes = `<div class="sec-title">${t('cfEscolhaNovo')}</div>
       ${dias.length ? `<div class="sel-grid">
-        <div><label>Dia</label><select onchange="escolherDia(this.value)">${dias.map(d => { const x = dt(d.data); return `<option value="${d.data}"${esc.data===d.data?' selected':''}>${SEM[x.getDay()]}, ${x.getDate()} de ${MES[x.getMonth()]}</option>`; }).join('')}</select></div>
-        <div><label>Horário</label><select onchange="escolherHora(this.value)"><option value="">Selecione</option>${(dias.find(d => d.data === esc.data)?.horarios || []).map(h => `<option${esc.hora===h?' selected':''}>${h}</option>`).join('')}</select></div>
+        <div><label>${t('agDia')}</label><select onchange="escolherDia(this.value)">${dias.map(d => `<option value="${d.data}"${esc.data===d.data?' selected':''}>${WBI18N.dataCurta(d.data)}</option>`).join('')}</select></div>
+        <div><label>${t('agHora')}</label><select onchange="escolherHora(this.value)"><option value="">${t('selecione')}</option>${(dias.find(d => d.data === esc.data)?.horarios || []).map(h => `<option${esc.hora===h?' selected':''}>${h}</option>`).join('')}</select></div>
       </div>
-      <button class="btn btn-ok" onclick="reagendar()" ${esc.data && esc.hora ? '' : 'disabled'}>${esc.data && esc.hora ? `Confirmar ${longo(esc.data)} às ${esc.hora}` : 'Escolha dia e horário'}</button>`
-      : `<p class="sub">Não há horários livres nos próximos dias. Fale com a gente pelo WhatsApp.</p>`}
-      <button class="btn btn-sec" onclick="modoReagendar=false;msg=null;render()">Voltar</button>`;
+      <button class="btn btn-ok" onclick="reagendar()" ${esc.data && esc.hora ? '' : 'disabled'}>${esc.data && esc.hora ? t('cfConfirmarEm', { data: WBI18N.dataLonga(esc.data), hora: esc.hora }) : t('cfEscolhaDH')}</button>`
+      : `<p class="sub">${t('cfSemHorarios')}</p>`}
+      <button class="btn btn-sec" onclick="modoReagendar=false;msg=null;render()">${t('cfVoltar')}</button>`;
   } else if (ag.status === 'cancelado') {
-    acoes = `<button class="btn btn-ok" onclick="abrirReagendar()">Escolher novo horário</button>`;
+    acoes = `<button class="btn btn-ok" onclick="abrirReagendar()">${t('cfNovo')}</button>`;
   } else {
-    acoes = `${!ag.hora ? `<p class="sub" style="margin:0 0 6px">Nossa equipe vai definir o horário e te avisar por e-mail para você confirmar.</p>` : ''}
-      ${ag.status !== 'confirmado' && ag.hora ? `<button class="btn btn-ok" onclick="confirmar()">✅ Confirmar presença</button>` : ''}
-      <button class="btn btn-sec" onclick="abrirReagendar()">Reagendar</button>
-      <button class="btn btn-link" onclick="cancelar()">Não vou poder ir — cancelar</button>`;
+    acoes = `${!ag.hora ? `<p class="sub" style="margin:0 0 6px">${t('cfAguardaEquipe')}</p>` : ''}
+      ${ag.status !== 'confirmado' && ag.hora ? `<button class="btn btn-ok" onclick="confirmar()">${t('cfConfirmar')}</button>` : ''}
+      <button class="btn btn-sec" onclick="abrirReagendar()">${t('cfReagendar')}</button>
+      <button class="btn btn-link" onclick="cancelar()">${t('cfCancelar')}</button>`;
   }
+  const st = !ag.hora && ag.status !== 'cancelado' ? 'a_definir' : ag.status;
   card.innerHTML = `
-    <h1>Olá${primeiro ? ', ' + primeiro : ''}!</h1>
-    <p class="sub">Este é o seu atendimento com a WB Assessoria Migratória.</p>
-    <span class="status st-${ag.status}">${STATUS[!ag.hora && ag.status !== 'cancelado' ? 'a_definir' : ag.status] || ag.status}</span>
+    <h1>${t('cfOla')}${primeiro ? ', ' + primeiro : ''}!</h1>
+    <p class="sub">${t('cfSub')}</p>
+    <span class="status st-${ag.status}">${t(STATUS[st] || 'stPendente')}</span>
     <div class="info">
-      <div class="l">Data</div><div class="v">${longo(ag.data)}</div>
-      <div class="l">Horário (Brasília)</div><div class="v">${ag.hora ? esc$(ag.hora) : 'A confirmar pela equipe'}</div>
-      ${ag.tipo ? `<div class="l">Tipo</div><div class="v">${esc$(ag.tipo)}</div>` : ''}
+      <div class="l">${t('agData')}</div><div class="v">${WBI18N.dataLonga(ag.data)}</div>
+      <div class="l">${t('agHorarioBsb')}</div><div class="v">${ag.hora ? esc$(ag.hora) : t('agPelaEquipe')}</div>
+      ${ag.tipo ? `<div class="l">${t('agTipo')}</div><div class="v">${esc$(WBI18N.tipo(ag.tipo))}</div>` : ''}
     </div>
     ${acoes}
-    ${msg ? `<div class="msg msg-${msg.tipo}">${esc$(msg.texto)}</div>` : ''}`;
+    ${msg ? `<div class="msg msg-${msg.tipo}">${esc$(msg.chave ? t(msg.chave) : msg.texto)}</div>` : ''}`;
 }
 
 function travar() { card.querySelectorAll('button').forEach(b => b.disabled = true); }
 
 async function confirmar() {
   travar();
-  try { ag = await api('/confirmar', {}); msg = { tipo: 'ok', texto: 'Obrigado! Sua presença está confirmada. Até lá!' }; }
+  try { ag = await api('/confirmar', {}); msg = { tipo: 'ok', chave: 'cfOkConfirmado' }; }
   catch (e) { msg = { tipo: 'err', texto: e.message }; }
   render();
 }
 async function cancelar() {
-  if (!confirm('Tem certeza que deseja cancelar este atendimento?')) return;
+  if (!confirm(t('cfCertezaCancelar'))) return;
   travar();
-  try { ag = await api('/cancelar', {}); msg = { tipo: 'ok', texto: 'Atendimento cancelado. Se quiser, escolha um novo horário.' }; }
+  try { ag = await api('/cancelar', {}); msg = { tipo: 'ok', chave: 'cfOkCancelado' }; }
   catch (e) { msg = { tipo: 'err', texto: e.message }; }
   render();
 }
@@ -142,14 +145,18 @@ async function reagendar() {
   try {
     ag = await api('/reagendar', esc);
     modoReagendar = false;
-    msg = { tipo: 'ok', texto: 'Pronto! Seu novo horário está confirmado.' };
+    msg = { tipo: 'ok', chave: 'cfOkReagendado' };
   } catch (e) {
-    msg = { tipo: 'err', texto: e.message };
+    const texto = e.message;
     await abrirReagendar(); // recarrega os horários (o escolhido pode ter sido ocupado)
-    msg = { tipo: 'err', texto: e.message };
+    msg = { tipo: 'err', texto };
   }
   render();
 }
+
+// Idioma: o do link (?lang=, vindo do e-mail), o salvo, ou o do navegador
+WBI18N.seletor(() => render());
+WBI18N.aplicar();
 
 (async () => {
   try {
@@ -157,7 +164,8 @@ async function reagendar() {
     if (acaoInicial === 'confirmar' && ag.status === 'pendente' && ag.hora && !ag.passou) return confirmar();
     render();
   } catch (e) {
-    card.innerHTML = `<h1>Agendamento não encontrado</h1><p class="sub" style="margin:8px 0 0">O link pode estar incompleto. Fale com a gente pelo WhatsApp que ajudamos você.</p>`;
+    naoAchado = true;
+    render();
   }
 })();
 </script>
