@@ -3141,9 +3141,11 @@ function renderDashboard() {
 
   setTimeout(() => finPosicionarScroll(), 60);
   setTimeout(() => carregarLeadsCarrosselDashboard(), 80);
+  setTimeout(() => carregarPedidosDashboard(), 90);
 
   return `
     <h2 style="margin-bottom:20px">Dashboard</h2>
+    <div id="dash-pedidos"></div>
 
     <div class="stat-card" style="max-width:260px;margin-bottom:20px">
       <div class="stat-label">Agenda Hoje</div>
@@ -3163,6 +3165,92 @@ function renderDashboard() {
       </div>
       <div id="dash-leads-carrossel"><div style="padding:24px 20px;color:var(--text3);font-size:0.82rem">Carregando leads...</div></div>
     </div>`;
+}
+
+// ── Dashboard: pedidos de clientes feitos pela internet ainda sem resposta ──
+// Os de quem disse ser cliente mas não foi achado no cadastro pedem ação:
+// vincular ao cadastro certo ou mandar pra prospecção.
+async function carregarPedidosDashboard() {
+  const box = document.getElementById('dash-pedidos');
+  if (!box) return;
+  let lista = [];
+  try { lista = await apiFetch('/pedidos'); } catch(e) { return; }
+  if (!Array.isArray(lista) || !lista.length) { box.innerHTML = ''; return; }
+  const esc = (v) => String(v ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const semCad = lista.filter(p => !p.cliente_id);
+  const linhas = lista.map(p => {
+    const quando = p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }) : '';
+    const horas = p.created_at ? Math.floor((Date.now() - new Date(p.created_at).getTime()) / 36e5) : 0;
+    const atrasado = horas >= 24;
+    const contato = [p.tel, p.email].filter(Boolean).map(esc).join(' · ');
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div style="font-weight:700;font-size:0.84rem">${esc(p.nome)} ${p.cliente_id
+          ? '<span style="font-size:0.62rem;font-weight:700;color:#93c5fd;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);border-radius:10px;padding:1px 7px">👤 Cliente WB</span>'
+          : '<span title="Disse que é cliente, mas o e-mail/telefone não bate com nenhum cadastro" style="font-size:0.62rem;font-weight:700;color:#facc15;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:10px;padding:1px 7px">⚠️ Não achado no cadastro</span>'}</div>
+        <div style="font-size:0.74rem;color:var(--text3);margin-top:2px">${esc(p.motivo_label)}${p.servico ? ' — ' + esc(p.servico) : ''}${p.assunto ? ' · "' + esc(p.assunto.slice(0, 80)) + (p.assunto.length > 80 ? '…' : '') + '"' : ''}</div>
+        <div style="font-size:0.7rem;color:var(--text3);margin-top:2px">${contato}</div>
+      </div>
+      <span style="font-size:0.7rem;color:${atrasado ? '#f87171' : 'var(--text3)'};white-space:nowrap">${quando}${atrasado ? ` · há ${Math.floor(horas/24)}d sem resposta` : ''}</span>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        ${p.cliente_id
+          ? `<button class="btn btn-outline btn-sm" onclick="openCliente(${p.cliente_id})">Abrir ficha</button>`
+          : `<button class="btn btn-gold btn-sm" onclick="abrirVincularPedido(${p.id}, '${esc(p.nome).replace(/'/g, "\\'")}')">👤 Vincular a um cliente</button>
+             <button class="btn btn-ghost btn-sm" onclick="pedidoParaProspeccao(${p.id})" title="Não é cliente — vira lead na prospecção">Não é cliente</button>`}
+      </div>
+    </div>`;
+  }).join('');
+  box.innerHTML = `<div class="panel" style="margin-bottom:20px;border-color:${semCad.length ? 'rgba(234,179,8,0.45)' : 'rgba(201,168,76,0.35)'}">
+    <div class="panel-header" style="flex-wrap:wrap;gap:6px">
+      <span class="panel-title">📨 Pedidos de clientes aguardando resposta (${lista.length})</span>
+      ${semCad.length ? `<span style="font-size:0.72rem;color:#facc15;font-weight:700">${semCad.length} sem cadastro identificado — confira quem é</span>` : ''}
+    </div>
+    ${linhas}
+  </div>`;
+}
+
+function abrirVincularPedido(pedidoId, nome) {
+  const opts = (clientes||[]).slice().sort((a,b) => (a.nome||'').localeCompare(b.nome||''))
+    .map(c => `<option value="${c.id}">${(c.nome||'').replace(/</g,'&lt;')}${c.tel ? ' — ' + c.tel : ''}</option>`).join('');
+  openModal(`<div class="modal-header"><span style="font-weight:700">Vincular pedido a um cliente</span><button class="btn btn-ghost btn-sm" onclick="closeModal()">x</button></div>
+    <div style="padding:18px 22px">
+      <div style="font-size:0.8rem;color:var(--text3);margin-bottom:10px">Quem pediu: <b style="color:var(--text)">${nome}</b>. Escolha o cadastro certo — o pedido vai pra ficha, vira tarefa e o agendamento passa a ser desse cliente.</div>
+      <input id="vinc-busca" placeholder="Buscar pelo nome ou telefone..." oninput="filtrarVincular()" style="width:100%;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;outline:none">
+      <select id="vinc-cliente" size="8" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px;color:var(--text);font-family:inherit">${opts}</select>
+    </div>
+    <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-gold" onclick="confirmarVincularPedido(${pedidoId})">Vincular</button>
+    </div>`);
+  filtrarVincular();
+}
+function filtrarVincular() {
+  const q = (document.getElementById('vinc-busca')?.value || '').toLowerCase().trim();
+  const sel = document.getElementById('vinc-cliente');
+  if (!sel) return;
+  let primeiroVisivel = null;
+  [...sel.options].forEach(o => { const ok = !q || o.textContent.toLowerCase().includes(q); o.hidden = !ok; if (ok && !primeiroVisivel) primeiroVisivel = o; });
+  if (primeiroVisivel && (sel.selectedIndex < 0 || sel.options[sel.selectedIndex].hidden)) sel.value = primeiroVisivel.value;
+}
+async function confirmarVincularPedido(pedidoId) {
+  const cid = document.getElementById('vinc-cliente')?.value;
+  if (!cid) { showToast('Escolha o cliente', 'warning'); return; }
+  try {
+    const r = await apiFetch('/pedidos/' + pedidoId + '/vincular', { method:'POST', body: JSON.stringify({ cliente_id: parseInt(cid) }) });
+    closeModal();
+    showToast('Vinculado a ' + (r.cliente?.nome || 'cliente') + ' — tarefa criada na ficha', 'success');
+    await loadData();
+    carregarPedidosDashboard();
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
+}
+async function pedidoParaProspeccao(pedidoId) {
+  try { await confirmar('Essa pessoa não é cliente. Ela vai virar um lead na prospecção (Pipeline de Leads).', 'Não é cliente', '🎯', 'var(--gold)', 'Mandar pra prospecção'); } catch { return; }
+  try {
+    await apiFetch('/pedidos/' + pedidoId + '/prospeccao', { method:'POST' });
+    showToast('Virou lead na prospecção', 'success');
+    await loadData();
+    carregarPedidosDashboard();
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 // ══════════════════════════════════
@@ -4083,7 +4171,9 @@ async function carregarPedidosCliente(cid) {
   box.innerHTML = lista.map(p => {
     const aberto = p.status === 'aberto';
     const quando = p.created_at ? new Date(p.created_at).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
-    const ag = p.agendamento_id ? `📅 ${fmtDate(p.ag_data)} ${p.ag_hora || '(horário a definir)'}${p.ag_status === 'cancelado' ? ' — cancelado' : ''}` : 'Sem horário — pediu contato';
+    const ag = !p.agendamento_id ? 'Sem horário — pediu contato'
+      : !p.ag_data ? 'Agendamento removido'
+      : `📅 ${fmtDate(p.ag_data)} ${p.ag_hora || '(horário a definir)'}${p.ag_status === 'cancelado' ? ' — cancelado' : ''}`;
     return `<div style="background:var(--bg3);border:1px solid ${aberto ? 'rgba(201,168,76,0.4)' : 'var(--border)'};border-radius:10px;padding:12px 14px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
         <div style="font-weight:700;font-size:0.85rem">${esc(p.motivo_label)}${p.servico ? ` — <span style="color:var(--gold)">${esc(p.servico)}</span>` : ''}</div>
@@ -8958,7 +9048,7 @@ function renderLeadsTabela(listaTodos) {
             const telLink = l.tel ? `<a href="https://wa.me/${l.tel.replace(/\D/g,'')}" target="_blank" style="color:var(--green);font-size:0.78rem;text-decoration:none">📱 ${l.tel}</a>` : '—';
             const locStr = [l.pais, l.cidade, l.estado].filter(Boolean).join(' · ') || '—';
             return `<tr>
-              <td style="font-weight:600;color:var(--text)">${l.nome}${l.cliente_id ? ` <a href="#" onclick="openCliente(${l.cliente_id});return false" title="Este lead virou cliente — abrir cadastro" style="margin-left:6px;font-size:0.62rem;font-weight:700;color:var(--green);background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:10px;padding:1px 7px;text-decoration:none;white-space:nowrap">✓ virou cliente</a>` : ''}</td>
+              <td style="font-weight:600;color:var(--text)">${l.nome}${l.cliente_id ? ` <a href="#" onclick="openCliente(${l.cliente_id});return false" title="${l.upsell == 1 ? 'Já é cliente da WB' : 'Este lead virou cliente'} — abrir cadastro" style="margin-left:6px;font-size:0.62rem;font-weight:700;color:var(--green);background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:10px;padding:1px 7px;text-decoration:none;white-space:nowrap">${l.upsell == 1 ? '👤 já é cliente' : '✓ virou cliente'}</a>` : ''}</td>
               <td>${telLink}</td>
               <td style="font-size:0.75rem;color:var(--text3)">${locStr}</td>
               <td style="font-size:0.8rem;color:var(--text2)">${l.servico||'—'}</td>
