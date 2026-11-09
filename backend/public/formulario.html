@@ -82,6 +82,19 @@ select:disabled{opacity:.5}
 /* SPINNER */
 .spin{width:16px;height:16px;border:2px solid rgba(0,0,0,.25);border-top-color:#000;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* "JÁ É CLIENTE?" */
+.gate{background:#111111;border:1px solid #1a1a1a;border-radius:16px;padding:28px}
+.gate h2{font-size:18px;font-weight:700;color:#fff;margin-bottom:20px;text-align:center}
+.gate-op{display:block;width:100%;text-align:start;background:#1a1a1a;border:1px solid #333333;border-radius:12px;padding:16px 18px;margin-bottom:12px;cursor:pointer;color:#fff;font-family:inherit;transition:all .15s}
+.gate-op:hover{border-color:#c9a84c;background:rgba(201,168,76,.08)}
+.gate-op b{display:block;font-size:16px;margin-bottom:4px}
+.gate-op span{font-size:13px;color:#9ca3af}
+.trocar{background:none;border:none;color:#c9a84c;font-size:13px;cursor:pointer;font-family:inherit;padding:0;margin-bottom:14px}
+textarea{width:100%;background:#1a1a1a;border:1px solid #333333;border-radius:8px;padding:10px 12px;font-size:14px;color:#fff;outline:none;font-family:inherit;resize:vertical;min-height:70px}
+textarea:focus{border-color:#c9a84c;box-shadow:0 0 0 3px rgba(201,168,76,.1)}
+.modo-cliente .so-novo{display:none!important}
+.so-cliente{display:none}
+.modo-cliente .so-cliente{display:block}
 .empty{text-align:center;padding:60px 16px;color:#9ca3af}
 </style>
 </head>
@@ -108,8 +121,16 @@ select:disabled{opacity:.5}
     <p data-i18n="formNaoAchado">Formulário não encontrado. Confira o link com quem enviou.</p>
   </div>
 
+  <!-- Pergunta antes do formulário: já é cliente? -->
+  <div id="gate" class="gate" style="display:none">
+    <h2 data-i18n="gateTitulo">Você já é cliente da WB Assessoria Migratória?</h2>
+    <button type="button" class="gate-op" onclick="escolherModo('cliente')"><b data-i18n="gateSim">Sim, já sou cliente</b><span data-i18n="gateSimSub">Quero falar sobre meu processo ou marcar um atendimento</span></button>
+    <button type="button" class="gate-op" onclick="escolherModo('novo')"><b data-i18n="gateNao">Não, ainda não sou cliente</b><span data-i18n="gateNaoSub">Quero conhecer os serviços e ser atendido</span></button>
+  </div>
+
   <div id="formSection" class="card" style="display:none">
-    <h2 data-i18n="cardTitulo">Preencha seus dados para atendimento</h2>
+    <button type="button" class="trocar" onclick="trocarModo()" data-i18n="gateTrocar">← Trocar resposta</button>
+    <h2 id="cardTitulo">Preencha seus dados para atendimento</h2>
     <form id="fp-form" novalidate></form>
   </div>
 
@@ -246,6 +267,49 @@ function traduzir(cfg) {
   if (agendaDias.length) renderDias(); else renderHoras();
 }
 
+
+// ── "Já é cliente?" ── novo = formulário completo (vira lead);
+// cliente = formulário curto (não vira lead, liga ao cadastro)
+let modo = '';
+function escolherModo(m) {
+  modo = m;
+  document.getElementById('gate').style.display = 'none';
+  const sec = document.getElementById('formSection');
+  sec.style.display = 'block';
+  sec.classList.toggle('modo-cliente', m === 'cliente');
+  document.getElementById('cardTitulo').textContent = t(m === 'cliente' ? 'cliTitulo' : 'cardTitulo');
+  window.scrollTo({ top: document.getElementById('formSection').offsetTop - 20, behavior: 'smooth' });
+}
+function trocarModo() {
+  document.getElementById('formSection').style.display = 'none';
+  document.getElementById('gate').style.display = 'block';
+}
+async function enviarComoCliente({ nome, tel, email, idioma, agendamento, hp }) {
+  const res = await fetch('/api/agendamentos/publico/cliente', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome, tel, email, idioma, agendamento, assunto: document.getElementById('assunto').value.trim(), _hp: hp }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.erro || 'Erro ao enviar');
+  return data;
+}
+function mostrarSucesso(data, email, tituloPadrao, msgPadrao) {
+  if (data.agendado) {
+    document.getElementById('successTitle').textContent = t('agOkTitulo');
+    document.getElementById('successMsg').innerHTML =
+      t(data.agendamento.a_confirmar ? 'agOkSabado' : 'agOkMsg', { email: '<b id="okEmail"></b>' });
+    document.getElementById('okEmail').textContent = email;
+    document.getElementById('successAg').innerHTML =
+      `<div class="resumo-ag"><div class="l">${t('agData')}</div><div class="v">${WBI18N.dataLonga(data.agendamento.data)}</div><div class="l">${t('agHorario')}</div><div class="v" style="margin:0">${data.agendamento.hora || t('agPelaEquipe')}</div></div>`;
+  } else {
+    document.getElementById('successTitle').textContent = t(tituloPadrao);
+    document.getElementById('successMsg').textContent = data.horario_indisponivel ? t('agOcupado') : t(msgPadrao);
+  }
+  document.getElementById('formSection').style.display = 'none';
+  document.getElementById('successSection').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 async function init() {
   try {
     const resp = await fetch('/api/leads/formularios');
@@ -278,7 +342,7 @@ async function init() {
       </div>
 
       ${cfg.secoes.map((sec, i) => `
-        <div class="divider">
+        <div class="divider so-novo">
           <p class="divider-label" id="sec-${i}"></p>
           ${sec.perguntas.map(p => `
             <div class="field">
@@ -287,6 +351,12 @@ async function init() {
               ${campoHtml(p)}
             </div>`).join('')}
         </div>`).join('')}
+
+      <!-- Só para quem já é cliente -->
+      <div class="field so-cliente">
+        <label data-i18n="assunto">Sobre o que você quer falar?</label>
+        <textarea id="assunto" rows="3" data-i18n-ph="assuntoPh"></textarea>
+      </div>
 
       <!-- Agenda (só aparece se houver horários livres) -->
       <div class="divider" id="agendaWrap" style="display:none">
@@ -319,10 +389,10 @@ async function init() {
     `;
 
     document.getElementById('fp-loading').style.display = 'none';
-    document.getElementById('formSection').style.display = 'block';
+    document.getElementById('gate').style.display = 'block';
     ligarAgenda();
     traduzir(cfg);
-    WBI18N.seletor(() => traduzir(cfg));
+    WBI18N.seletor(() => { traduzir(cfg); if (modo) document.getElementById('cardTitulo').textContent = t(modo === 'cliente' ? 'cliTitulo' : 'cardTitulo'); });
     carregarAgenda();
 
     form.addEventListener('submit', async (e) => {
@@ -362,6 +432,19 @@ async function init() {
       btn.disabled = true;
       btn.innerHTML = `<div class="spin"></div> ${t('enviando')}`;
       document.getElementById('fp-alert-err').style.display = 'none';
+
+      const agendamentoEscolhido = querHorario ? { data: state.data, hora: state.aConfirmar ? null : state.hora, a_confirmar: state.aConfirmar } : null;
+      if (modo === 'cliente') {
+        try {
+          const data = await enviarComoCliente({ nome, tel, email, idioma: WBI18N.lang, agendamento: agendamentoEscolhido, hp: document.getElementById('fp-hp').value });
+          mostrarSucesso(data, email, 'cliOkTitulo', 'cliOkMsg');
+        } catch (err) {
+          const alertEl = document.getElementById('fp-alert-err');
+          alertEl.textContent = t('erroEnvio'); alertEl.style.display = 'block';
+          btn.disabled = false; btn.textContent = t('enviar');
+        }
+        return;
+      }
 
       try {
         const res = await fetch('/api/leads/formulario-publico/' + encodeURIComponent(chave), {

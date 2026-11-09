@@ -123,6 +123,8 @@ async function runMigrations() {
     // Compareceu/faltou — registrado pela equipe depois do horário
     ['agendamentos', 'presenca',      "VARCHAR(15)  DEFAULT NULL"],
     ['agendamentos', 'presenca_em',   "DATETIME     DEFAULT NULL"],
+    // Quem pediu: 1 = já é cliente da WB, 0 = novo contato, NULL = marcado pela equipe
+    ['agendamentos', 'ja_cliente',    "TINYINT(1)   DEFAULT NULL"],
   ];
   for (const [table, column, definition] of alterCols) {
     await addColumnIfNotExists(table, column, definition);

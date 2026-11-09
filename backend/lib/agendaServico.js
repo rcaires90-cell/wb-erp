@@ -118,6 +118,7 @@ const E = {
   assuntoLembrete:{ pt: '📅 Lembrete de Agendamento — WB Assessoria', es: '📅 Recordatorio de su cita — WB Assessoria', en: '📅 Appointment reminder — WB Assessoria', fr: '📅 Rappel de rendez-vous — WB Assessoria' },
   lembrete:    { pt: 'Este é um lembrete do seu agendamento de amanhã:', es: 'Este es un recordatorio de su cita de mañana:', en: 'This is a reminder of your appointment tomorrow:', fr: 'Ceci est un rappel de votre rendez-vous de demain :' },
   porFavorConfirme:{ pt: 'Por favor, <b>confirme sua presença</b>:', es: 'Por favor, <b>confirme su asistencia</b>:', en: 'Please <b>confirm your attendance</b>:', fr: 'Merci de <b>confirmer votre présence</b> :' },
+  'tipo:Atendimento cliente': {"pt":"Atendimento ao cliente","es":"Atención al cliente","en":"Client appointment","fr":"Rendez-vous client"},
   'tipo:Consulta inicial': { pt: 'Consulta inicial', es: 'Consulta inicial', en: 'Initial consultation', fr: 'Consultation initiale' },
 };
 // Persa e crioulo haitiano (bloco separado pra facilitar revisão)
@@ -186,6 +187,7 @@ const E_EXTRA = {
     "لطفاً <b>حضور خود را تأیید کنید</b>:",
     "Tanpri <b>konfime prezans ou</b>:"
   ],
+  "tipo:Atendimento cliente": ["نوبت مشتری", "Randevou kliyan"],
   "tipo:Consulta inicial": [
     "مشاوره اولیه",
     "Premye konsiltasyon"
@@ -287,23 +289,97 @@ async function agendarPeloFormulario(db, { agendamento, nome, email, tel, servic
   const tipo = 'Consulta inicial';
   const i = idiomaOk(idioma);
   const [ins] = await db.query(
-    `INSERT INTO agendamentos (cliente_nome, data, hora, tipo, obs, colaborador, status, token, lead_id, email, tel, origem, idioma)
-     VALUES (?, ?, ?, ?, ?, NULL, 'pendente', ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO agendamentos (cliente_nome, data, hora, tipo, obs, colaborador, status, token, lead_id, email, tel, origem, idioma, ja_cliente)
+     VALUES (?, ?, ?, ?, ?, NULL, 'pendente', ?, ?, ?, ?, ?, ?, 0)`,
     [nome, data, hora, tipo, servico || null, token, leadId || null, email, tel, origem, i]
   );
   sincronizarGoogle(db, ins.insertId);
   const ag = { nome, data, hora, tipo, token, email, tel, obs: servico || null, idioma: i };
   enviarPedidoConfirmacao(ag).catch(e => console.error('[agenda] e-mail confirmação:', e.message));
   avisarEquipe(
-    hora ? `📅 Novo agendamento (${origem}) — ${nome}` : `📅 Pedido para sábado (definir horário) — ${nome}`, ag,
+    hora ? `✨ Novo contato agendou (${origem}) — ${nome}` : `✨ Novo contato pediu sábado (definir horário) — ${nome}`, ag,
     hora ? ` marcou um atendimento pelo(a) ${escHtml(origem)} (aguardando confirmação).`
          : ' pediu atendimento no sábado. <b>Defina o horário na Agenda do sistema</b> — a pessoa recebe o e-mail para confirmar.')
     .catch(e => console.error('[agenda] aviso equipe:', e.message));
   return { agendado: true, agendamento: { data, hora, a_confirmar: !hora } };
 }
 
+// Procura no cadastro de clientes pelo e-mail (prioridade) ou pelo telefone
+// (últimos 9 dígitos, pra casar com ou sem +55/DDD formatado diferente).
+const digitos = (v) => String(v || '').replace(/\D/g, '');
+function casarCliente(clientes, { email, tel }) {
+  const em = String(email || '').trim().toLowerCase();
+  if (em) {
+    const c = clientes.find(x => String(x.email || '').trim().toLowerCase() === em);
+    if (c) return c;
+  }
+  const d = digitos(tel);
+  if (d.length >= 8) {
+    const fim = d.slice(-9);
+    const c = clientes.find(x => { const t = digitos(x.tel); return t.length >= 8 && t.slice(-9) === fim; });
+    if (c) return c;
+  }
+  return null;
+}
+async function acharCliente(db, dados) {
+  const [rows] = await db.query('SELECT id, nome, email, tel, arquivado FROM clientes ORDER BY arquivado ASC, id DESC');
+  return casarCliente(rows, dados);
+}
+
+// Pedido de quem diz que JÁ É CLIENTE: não vira lead; o agendamento é ligado
+// ao cadastro quando acha a pessoa. Sem horário escolhido → só avisa a equipe.
+async function agendarCliente(db, { agendamento, nome, email, tel, assunto, idioma }) {
+  const i = idiomaOk(idioma);
+  const cli = await acharCliente(db, { email, tel });
+  const obsCli = [assunto ? 'Assunto: ' + assunto : null, cli ? null : '⚠️ Disse que é cliente, mas não foi encontrado no cadastro'].filter(Boolean).join(' | ') || null;
+  const extraCadastro = cli
+    ? ` (cadastro: <b>${escHtml(cli.nome)}</b>, cliente #${cli.id})`
+    : ' — <b>⚠️ não encontrado no cadastro</b> pelo e-mail/telefone; confira quem é';
+  const ag = { nome, email, tel, idioma: i, tipo: 'Atendimento cliente', obs: obsCli };
+
+  if (!(agendamento?.data && (agendamento?.hora || agendamento?.a_confirmar))) {
+    await avisarEquipeSemHorario(ag, extraCadastro);
+    return { agendado: false, cliente_encontrado: !!cli };
+  }
+  const { data } = agendamento;
+  const hora = agendamento.a_confirmar ? null : agendamento.hora;
+  const valido = hora ? await verificarHorario(db, data, hora) : await verificarDiaAConfirmar(db, data);
+  if (!valido) {
+    await avisarEquipeSemHorario(ag, extraCadastro + ' — o horário escolhido foi ocupado; combine outro');
+    return { agendado: false, horario_indisponivel: true, cliente_encontrado: !!cli };
+  }
+  const token = novoToken();
+  const [ins] = await db.query(
+    `INSERT INTO agendamentos (cliente_id, cliente_nome, data, hora, tipo, obs, colaborador, status, token, email, tel, origem, idioma, ja_cliente)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, 'pendente', ?, ?, ?, 'Cliente (internet)', ?, 1)`,
+    [cli?.id || null, cli?.nome || nome, data, hora, ag.tipo, obsCli, token, email, tel, i]
+  );
+  sincronizarGoogle(db, ins.insertId);
+  Object.assign(ag, { data, hora, token });
+  enviarPedidoConfirmacao(ag).catch(e => console.error('[agenda] e-mail confirmação (cliente):', e.message));
+  avisarEquipe(hora ? `👤 Cliente pediu atendimento — ${nome}` : `👤 Cliente pediu sábado (definir horário) — ${nome}`, ag,
+    ` <b>já é cliente</b>${extraCadastro} e marcou um atendimento${hora ? ' (aguardando confirmação)' : ' no sábado — defina o horário na Agenda'}.`)
+    .catch(e => console.error('[agenda] aviso equipe (cliente):', e.message));
+  return { agendado: true, agendamento: { data, hora, a_confirmar: !hora }, cliente_encontrado: !!cli };
+}
+
+async function avisarEquipeSemHorario(ag, extra) {
+  const i = idiomaOk(ag.idioma);
+  await sendEmail(EQUIPE_EMAIL, `👤 Cliente pediu contato — ${ag.nome}`,
+    `<div style="font-family:Arial,sans-serif;max-width:600px;padding:24px;background:#f9f9f9;border-radius:8px">
+      <h2 style="color:#c9a84c;margin-top:0">WB Assessoria — Cliente pediu contato</h2>
+      <p><b>${escHtml(ag.nome)}</b> <b>já é cliente</b>${extra}. Pediu que a equipe entre em contato (não escolheu horário).</p>
+      <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:14px;margin:14px 0">
+        <div><b>WhatsApp:</b> ${escHtml(ag.tel || '—')}</div>
+        <div><b>E-mail:</b> ${escHtml(ag.email || '—')}</div>
+        ${i !== 'pt' ? `<div><b>Idioma:</b> ${NOME_IDIOMA[i]} — responda nesse idioma</div>` : ''}
+        ${ag.obs ? `<div><b>Obs:</b> ${escHtml(ag.obs)}</div>` : ''}
+      </div>
+    </div>`).catch(e => console.error('[agenda] aviso equipe (cliente sem horário):', e.message));
+}
+
 module.exports = {
-  agendarPeloFormulario, idiomaOk, NOME_IDIOMA, tx, dirAttr,
+  agendarPeloFormulario, agendarCliente, acharCliente, casarCliente, idiomaOk, NOME_IDIOMA, tx, dirAttr,
   PORTAL_URL, EQUIPE_EMAIL, WHATSAPP, linkAgendamento, novoToken,
   carregarConfig, carregarOcupados, verificarHorario, verificarDiaAConfirmar, sincronizarGoogle,
   blocoDataHora, botoesConfirmacao, rodape, enviarPedidoConfirmacao, avisarEquipe,

@@ -5217,8 +5217,30 @@ function agStatusBadge(a) {
     ? { label:'Definir horário', cor:'#fb923c', bg:'rgba(249,115,22,0.1)', bd:'rgba(249,115,22,0.3)' }
     : AG_STATUS[a.status || 'confirmado'] || AG_STATUS.confirmado;
   return `<span style="background:${s.bg};color:${s.cor};border:1px solid ${s.bd};border-radius:12px;padding:2px 9px;font-size:0.66rem;font-weight:700;white-space:nowrap">${s.label}</span>`
-    + (a.origem && a.origem !== 'Equipe' ? ` <span title="Marcado pelo próprio cliente — ${a.origem}" style="background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);border-radius:12px;padding:2px 8px;font-size:0.62rem;font-weight:700;white-space:nowrap">${a.origem === 'Landing Page' ? 'Landing' : 'Formulário'}</span>` : '');
+    + ' ' + agTipoPessoaBadge(a)
+    + (a.origem && a.origem !== 'Equipe' ? ` <span title="Marcado pela própria pessoa — ${a.origem}" style="background:rgba(139,92,246,0.1);color:#a78bfa;border:1px solid rgba(139,92,246,0.25);border-radius:12px;padding:2px 8px;font-size:0.62rem;font-weight:700;white-space:nowrap">${a.origem === 'Landing Page' ? 'Landing' : a.origem === 'Cliente (internet)' ? 'Internet' : 'Formulário'}</span>` : '');
 }
+// 'cliente' = já é cliente da WB; 'novo' = novo contato; '' = não dá pra saber (antigos sem cadastro)
+function agTipoPessoa(a) {
+  if (a.ja_cliente == 1) return 'cliente';
+  if (a.ja_cliente === 0 || a.ja_cliente === '0') return 'novo';
+  return a.cliente_id ? 'cliente' : '';
+}
+function agTipoPessoaBadge(a) {
+  const tp = agTipoPessoa(a);
+  const st = 'border-radius:12px;padding:2px 8px;font-size:0.62rem;font-weight:700;white-space:nowrap';
+  if (tp === 'cliente') {
+    const semCadastro = a.ja_cliente == 1 && !a.cliente_id;
+    return semCadastro
+      ? `<span title="Disse que já é cliente, mas não foi encontrado no cadastro pelo e-mail/telefone — confira" style="${st};background:rgba(234,179,8,0.1);color:#facc15;border:1px solid rgba(234,179,8,0.3)">👤 Cliente? (não achado)</span>`
+      : `<span title="Já é cliente da WB" style="${st};background:rgba(59,130,246,0.12);color:#93c5fd;border:1px solid rgba(59,130,246,0.3)">👤 Cliente WB</span>`;
+  }
+  if (tp === 'novo') return `<span title="Ainda não é cliente — veio pela landing/formulário (está no Pipeline de Leads)" style="${st};background:rgba(201,168,76,0.12);color:var(--gold);border:1px solid rgba(201,168,76,0.35)">✨ Novo contato</span>`;
+  return '';
+}
+let _agFiltroPessoa = 'todos';
+function setAgFiltroPessoa(f) { _agFiltroPessoa = f; renderPage('agendamentos'); }
+const agPassaFiltro = (a) => _agFiltroPessoa === 'todos' || agTipoPessoa(a) === _agFiltroPessoa;
 function agWhatsUrl(a) {
   const c = (clientes||[]).find(x => x.id===a.cliente_id);
   let tel = String(a.tel || c?.tel || '').replace(/\D/g, '');
@@ -5348,7 +5370,8 @@ async function carregarFunil() {
     if (i.sem_registro) extras.push(`<span style="color:#facc15">⚠️ <b>${i.sem_registro}</b> já passaram sem registro de presença (aba Lista)</span>`);
     const eq = (f.grupos||[]).find(g => g.grupo === 'Equipe');
     const td = 'padding:6px 10px;text-align:right';
-    const porOrigem = (f.grupos||[]).filter(g => g.grupo !== 'Equipe').map(g =>
+    const cli = (f.grupos||[]).find(g => g.grupo === 'Clientes (internet)');
+    const porOrigem = (f.grupos||[]).filter(g => g.grupo === 'Landing Page' || g.grupo === 'Formulários').map(g =>
       `<tr style="border-top:1px solid var(--border)"><td style="padding:6px 10px">${g.grupo}</td><td style="${td}">${g.agendaram}</td><td style="${td}">${g.confirmaram}</td><td style="${td}">${g.compareceram}</td><td style="${td}">${g.faltaram}</td><td style="${td}">${g.fecharam}</td></tr>`).join('');
     const th = 'padding:6px 10px;text-align:right;font-weight:600';
     box.innerHTML = `<div style="font-size:0.72rem;color:var(--text3);margin-bottom:8px">${p.nome} · % em relação à etapa anterior · passe o mouse numa etapa para ver o que ela conta</div>
@@ -5357,6 +5380,7 @@ async function carregarFunil() {
       ${porOrigem ? `<table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:0.76rem;color:var(--text2)">
         <thead><tr style="color:var(--text3);text-align:left"><th style="padding:6px 10px;font-weight:600">Origem</th><th style="${th}">Agendaram</th><th style="${th}">Confirmaram</th><th style="${th}">Compareceram</th><th style="${th}">Faltaram</th><th style="${th}">Fecharam</th></tr></thead>
         <tbody>${porOrigem}</tbody></table>` : ''}
+      ${cli ? `<div style="margin-top:12px;font-size:0.74rem;color:var(--text3)">👤 Clientes WB que pediram atendimento pela internet: <b>${cli.agendaram}</b> · compareceram <b>${cli.compareceram}</b> · faltaram <b>${cli.faltaram}</b> (fora do funil — já são clientes)</div>` : ''}
       ${eq ? `<div style="margin-top:12px;font-size:0.74rem;color:var(--text3)">Marcados pela equipe no período: <b>${eq.agendaram}</b> · compareceram <b>${eq.compareceram}</b> · faltaram <b>${eq.faltaram}</b></div>` : ''}`;
   } catch(e) { box.textContent = 'Erro ao carregar: ' + e.message; }
 }
@@ -5388,7 +5412,7 @@ function renderAgendamentos() {
 
   // Atendimentos dos últimos 30 dias que já passaram e ninguém marcou se a pessoa veio
   const lim = new Date(Date.now() - 30*864e5).toISOString().slice(0,10);
-  const semRegistro = (agendamentos||[]).filter(a => agPassou(a) && String(a.data).slice(0,10) >= lim && a.status !== 'cancelado' && !a.presenca)
+  const semRegistro = (agendamentos||[]).filter(a => agPassaFiltro(a) && agPassou(a) && String(a.data).slice(0,10) >= lim && a.status !== 'cancelado' && !a.presenca)
     .sort((a,b) => String(b.data).localeCompare(String(a.data)));
   const painelPresenca = semRegistro.length ? `<div class="panel" style="margin-bottom:16px;border-color:rgba(234,179,8,0.35)">
     <div class="panel-header" style="flex-wrap:wrap;gap:6px"><span class="panel-title">⚠️ Registrar presença (${semRegistro.length})</span><span style="font-size:0.72rem;color:var(--text3)">atendimentos que já passaram — a pessoa veio?</span></div>
@@ -5401,7 +5425,7 @@ function renderAgendamentos() {
       </div>`;
     }).join('')}
   </div>` : '';
-  const fut = (agendamentos||[]).filter(a => a.data >= hoje).sort((a,b) => a.data>b.data?1:a.data<b.data?-1:a.hora>b.hora?1:-1);
+  const fut = (agendamentos||[]).filter(a => a.data >= hoje && agPassaFiltro(a)).sort((a,b) => a.data>b.data?1:a.data<b.data?-1:a.hora>b.hora?1:-1);
   const rows = fut.map(a => {
     const c = (clientes||[]).find(x => x.id===a.cliente_id);
     const isHoje = a.data===hoje;
@@ -5416,7 +5440,13 @@ function renderAgendamentos() {
     </tr>`;
   }).join('');
   const pend = fut.filter(a => a.status === 'pendente').length;
-  return header + painelPresenca +
+  const cont = (f) => (agendamentos||[]).filter(a => a.data >= hoje && (f === 'todos' || agTipoPessoa(a) === f)).length;
+  const fb = (f, txt) => `<button onclick="setAgFiltroPessoa('${f}')" class="btn btn-sm ${_agFiltroPessoa===f?'btn-gold':'btn-ghost'}">${txt} (${cont(f)})</button>`;
+  const filtroPessoa = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+    <span style="font-size:0.72rem;color:var(--text3);margin-right:4px">Mostrar:</span>
+    ${fb('todos','Todos')}${fb('cliente','👤 Clientes WB')}${fb('novo','✨ Novos contatos')}
+  </div>`;
+  return header + filtroPessoa + painelPresenca +
     `<div class="panel"><div class="panel-header"><span class="panel-title">Próximos (${fut.length})</span>${pend?`<span style="font-size:0.72rem;color:#facc15;font-weight:700">${pend} aguardando confirmação</span>`:''}</div>
     <table style="width:100%;border-collapse:collapse"><thead><tr>
       <th style="text-align:left;padding:9px 14px;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">Data</th>

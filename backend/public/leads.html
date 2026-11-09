@@ -89,6 +89,20 @@ select:disabled{opacity:.5}
 .resumo-ag .l{font-size:12px;color:#808080;text-transform:uppercase;letter-spacing:.06em}
 .resumo-ag .v{font-size:17px;font-weight:700;color:#c9a84c;margin-bottom:6px}
 
+/* "JÁ É CLIENTE?" */
+.gate{background:#111111;border:1px solid #1a1a1a;border-radius:16px;padding:28px}
+.gate h2{font-size:18px;font-weight:700;color:#fff;margin-bottom:20px;text-align:center}
+.gate-op{display:block;width:100%;text-align:start;background:#1a1a1a;border:1px solid #333333;border-radius:12px;padding:16px 18px;margin-bottom:12px;cursor:pointer;color:#fff;font-family:inherit;transition:all .15s}
+.gate-op:hover{border-color:#c9a84c;background:rgba(201,168,76,.08)}
+.gate-op b{display:block;font-size:16px;margin-bottom:4px}
+.gate-op span{font-size:13px;color:#9ca3af}
+.trocar{background:none;border:none;color:#c9a84c;font-size:13px;cursor:pointer;font-family:inherit;padding:0;margin-bottom:14px}
+textarea{width:100%;background:#1a1a1a;border:1px solid #333333;border-radius:8px;padding:10px 12px;font-size:14px;color:#fff;outline:none;font-family:inherit;resize:vertical;min-height:70px}
+textarea:focus{border-color:#c9a84c;box-shadow:0 0 0 3px rgba(201,168,76,.1)}
+.modo-cliente .so-novo{display:none!important}
+.so-cliente{display:none}
+.modo-cliente .so-cliente{display:block}
+
 /* FOOTER */
 .footer{text-align:center;padding:24px 16px;border-top:1px solid #111111}
 .footer p{font-size:13px;color:#606060}
@@ -117,8 +131,16 @@ select:disabled{opacity:.5}
 
 <!-- FORM -->
 <div class="container">
-  <div id="formSection" class="card">
-    <h2 data-i18n="cardTitulo">Preencha seus dados para atendimento</h2>
+  <!-- Pergunta antes do formulário: já é cliente? -->
+  <div id="gate" class="gate">
+    <h2 data-i18n="gateTitulo">Você já é cliente da WB Assessoria Migratória?</h2>
+    <button type="button" class="gate-op" onclick="escolherModo('cliente')"><b data-i18n="gateSim">Sim, já sou cliente</b><span data-i18n="gateSimSub">Quero falar sobre meu processo ou marcar um atendimento</span></button>
+    <button type="button" class="gate-op" onclick="escolherModo('novo')"><b data-i18n="gateNao">Não, ainda não sou cliente</b><span data-i18n="gateNaoSub">Quero conhecer os serviços e ser atendido</span></button>
+  </div>
+
+  <div id="formSection" class="card" style="display:none">
+    <button type="button" class="trocar" onclick="trocarModo()" data-i18n="gateTrocar">← Trocar resposta</button>
+    <h2 id="cardTitulo">Preencha seus dados para atendimento</h2>
     <form id="leadForm" novalidate>
 
       <!-- Nome -->
@@ -128,6 +150,7 @@ select:disabled{opacity:.5}
         <div class="err-msg" id="err-nome"></div>
       </div>
 
+      <div class="so-novo">
       <!-- País (valor gravado sempre em português; o texto exibido muda com o idioma) -->
       <div class="field">
         <label><span data-i18n="pais">País de origem</span> <span class="req">*</span></label>
@@ -174,6 +197,8 @@ select:disabled{opacity:.5}
         <div class="err-msg" id="err-tempo"></div>
       </div>
 
+      </div>
+
       <!-- Contato -->
       <div class="divider">
         <p class="divider-label" data-i18n="contato">Dados de contato</p>
@@ -190,7 +215,7 @@ select:disabled{opacity:.5}
           <div class="err-msg" id="err-email"></div>
         </div>
 
-        <div class="grid-2">
+        <div class="grid-2 so-novo">
           <div class="field">
             <label><span data-i18n="cidade">Cidade</span> <span class="req">*</span></label>
             <input type="text" id="cidade" data-i18n-ph="cidadePh" placeholder="Sua cidade"/>
@@ -210,6 +235,12 @@ select:disabled{opacity:.5}
             <div class="err-msg" id="err-estado"></div>
           </div>
         </div>
+      </div>
+
+      <!-- Só para quem já é cliente -->
+      <div class="field so-cliente">
+        <label data-i18n="assunto">Sobre o que você quer falar?</label>
+        <textarea id="assunto" rows="3" data-i18n-ph="assuntoPh"></textarea>
       </div>
 
       <!-- Agenda (só aparece se houver horários livres) -->
@@ -347,8 +378,51 @@ document.getElementById('semHorario').addEventListener('change', (e) => {
   document.getElementById('err-agenda').textContent = '';
 });
 
+
+// ── "Já é cliente?" ── novo = formulário completo (vira lead);
+// cliente = formulário curto (não vira lead, liga ao cadastro)
+let modo = '';
+function escolherModo(m) {
+  modo = m;
+  document.getElementById('gate').style.display = 'none';
+  const sec = document.getElementById('formSection');
+  sec.style.display = 'block';
+  sec.classList.toggle('modo-cliente', m === 'cliente');
+  document.getElementById('cardTitulo').textContent = t(m === 'cliente' ? 'cliTitulo' : 'cardTitulo');
+  window.scrollTo({ top: document.getElementById('formSection').offsetTop - 20, behavior: 'smooth' });
+}
+function trocarModo() {
+  document.getElementById('formSection').style.display = 'none';
+  document.getElementById('gate').style.display = 'block';
+}
+async function enviarComoCliente({ nome, tel, email, idioma, agendamento, hp }) {
+  const res = await fetch('/api/agendamentos/publico/cliente', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome, tel, email, idioma, agendamento, assunto: document.getElementById('assunto').value.trim(), _hp: hp }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.erro || 'Erro ao enviar');
+  return data;
+}
+function mostrarSucesso(data, email, tituloPadrao, msgPadrao) {
+  if (data.agendado) {
+    document.getElementById('successTitle').textContent = t('agOkTitulo');
+    document.getElementById('successMsg').innerHTML =
+      t(data.agendamento.a_confirmar ? 'agOkSabado' : 'agOkMsg', { email: '<b id="okEmail"></b>' });
+    document.getElementById('okEmail').textContent = email;
+    document.getElementById('successAg').innerHTML =
+      `<div class="resumo-ag"><div class="l">${t('agData')}</div><div class="v">${WBI18N.dataLonga(data.agendamento.data)}</div><div class="l">${t('agHorario')}</div><div class="v" style="margin:0">${data.agendamento.hora || t('agPelaEquipe')}</div></div>`;
+  } else {
+    document.getElementById('successTitle').textContent = t(tituloPadrao);
+    document.getElementById('successMsg').textContent = data.horario_indisponivel ? t('agOcupado') : t(msgPadrao);
+  }
+  document.getElementById('formSection').style.display = 'none';
+  document.getElementById('successSection').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 // Idioma
-WBI18N.seletor(() => { renderPaises(); if (agendaDias.length) renderDias(); });
+WBI18N.seletor(() => { renderPaises(); if (agendaDias.length) renderDias(); if (modo) document.getElementById('cardTitulo').textContent = t(modo === 'cliente' ? 'cliTitulo' : 'cardTitulo'); });
 WBI18N.aplicar();
 renderPaises();
 renderHoras();
@@ -395,14 +469,15 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
   const estado  = document.getElementById('estado').value;
 
   if (!nome)    { setErr('nome',    t('errNome'));    valid = false; }
-  if (!pais)    { setErr('pais',    t('errPais'));    valid = false; }
-  if (!servico) { setErr('servico', t('errServico')); valid = false; }
-  if (!state.tempo) { document.getElementById('err-tempo').textContent = t('errTempo'); valid = false; }
+  const novo = modo !== 'cliente';
+  if (novo && !pais)    { setErr('pais',    t('errPais'));    valid = false; }
+  if (novo && !servico) { setErr('servico', t('errServico')); valid = false; }
+  if (novo && !state.tempo) { document.getElementById('err-tempo').textContent = t('errTempo'); valid = false; }
   if (!tel)     { setErr('tel',     t('errTel'));     valid = false; }
   if (!email)   { setErr('email',   t('errEmail'));   valid = false; }
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErr('email', t('errEmailInv')); valid = false; }
-  if (!cidade)  { setErr('cidade',  t('errCidade'));  valid = false; }
-  if (!estado)  { setErr('estado',  t('errEstado'));  valid = false; }
+  if (novo && !cidade)  { setErr('cidade',  t('errCidade'));  valid = false; }
+  if (novo && !estado)  { setErr('estado',  t('errEstado'));  valid = false; }
   const querHorario = agendaDias.length > 0 && !document.getElementById('semHorario').checked;
   document.getElementById('err-agenda').textContent = '';
   if (querHorario && !(state.data && (state.hora || state.aConfirmar))) {
@@ -416,6 +491,20 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
   btn.disabled = true;
   btn.innerHTML = `<div class="spin"></div> ${t('enviando')}`;
   document.getElementById('alertErr').style.display = 'none';
+
+  const agendamentoEscolhido = querHorario ? { data: state.data, hora: state.aConfirmar ? null : state.hora, a_confirmar: !!state.aConfirmar } : null;
+  if (!novo) {
+    // Já é cliente: não vira lead nem conta como conversão de anúncio
+    try {
+      const data = await enviarComoCliente({ nome, tel, email, idioma: WBI18N.lang, agendamento: agendamentoEscolhido, hp: document.getElementById('_hp').value });
+      mostrarSucesso(data, email, 'cliOkTitulo', 'cliOkMsg');
+    } catch (err) {
+      const alertEl = document.getElementById('alertErr');
+      alertEl.textContent = t('erroEnvio'); alertEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = t('solicitar');
+    }
+    return;
+  }
 
   try {
     const res = await fetch('/api/leads/publico', {

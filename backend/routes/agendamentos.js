@@ -125,6 +125,26 @@ router.post('/publico/:token/cancelar', limiterPublico, async (req, res) => {
 
 // POST /api/agendamentos/publico/:token/reagendar  { data, hora }
 // Já entra confirmado — a pessoa acabou de escolher o horário.
+// POST /api/agendamentos/publico/cliente — quem respondeu "já sou cliente".
+// Não cria lead; liga ao cadastro quando acha a pessoa pelo e-mail/telefone.
+// (Fica antes das rotas /publico/:token pra não ser confundida com um token.)
+router.post('/publico/cliente', limiterPublico, async (req, res) => {
+  try {
+    const { nome, tel, email, assunto, agendamento, idioma, _hp } = req.body || {};
+    if (_hp) return res.json({ ok: true }); // honeypot
+    const s = (v, max) => (v || '').toString().trim().slice(0, max) || null;
+    const nomeC = s(nome, 200), emailC = s(email, 200), telC = s(tel, 30), assuntoC = s(assunto, 1000);
+    if (!nomeC) return res.status(400).json({ erro: 'Nome inválido' });
+    if (emailC && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailC)) return res.status(400).json({ erro: 'E-mail inválido' });
+    if (!emailC && !telC) return res.status(400).json({ erro: 'Informe WhatsApp ou e-mail' });
+    const r = await agenda.agendarCliente(db, { agendamento, nome: nomeC, email: emailC, tel: telC, assunto: assuntoC, idioma });
+    res.json({ ok: true, ...r });
+  } catch (e) {
+    console.error('[agendamentos/publico/cliente]', e.message);
+    res.status(500).json({ erro: msgErro('falha', req) });
+  }
+});
+
 router.post('/publico/:token/reagendar', limiterPublico, async (req, res) => {
   try {
     const ag = await buscarPorToken(req.params.token);
@@ -183,7 +203,8 @@ router.get('/funil', async (req, res) => {
 
     // Pela internet = origem diferente de 'Equipe' (landing ou formulários)
     const [porOrigem] = await db.query(
-      `SELECT CASE WHEN a.origem IS NULL OR a.origem = 'Equipe' THEN 'Equipe'
+      `SELECT CASE WHEN a.ja_cliente = 1 THEN 'Clientes (internet)'
+                   WHEN a.origem IS NULL OR a.origem = 'Equipe' THEN 'Equipe'
                    WHEN a.origem = 'Landing Page' THEN 'Landing Page' ELSE 'Formulários' END AS grupo,
               COUNT(*) AS agendaram,
               SUM(a.status = 'confirmado' OR a.presenca = 'compareceu') AS confirmaram,
@@ -201,7 +222,8 @@ router.get('/funil', async (req, res) => {
       grupo: r.grupo, agendaram: n(r.agendaram), confirmaram: n(r.confirmaram), cancelaram: n(r.cancelaram),
       compareceram: n(r.compareceram), faltaram: n(r.faltaram), sem_registro: n(r.sem_registro), fecharam: n(r.fecharam),
     }));
-    const internet = grupos.filter(g => g.grupo !== 'Equipe').reduce((acc, g) => {
+    // Funil = só NOVOS contatos (clientes que já são da WB ficam à parte)
+    const internet = grupos.filter(g => g.grupo === 'Landing Page' || g.grupo === 'Formulários').reduce((acc, g) => {
       for (const k of Object.keys(acc)) acc[k] += g[k];
       return acc;
     }, { agendaram: 0, confirmaram: 0, cancelaram: 0, compareceram: 0, faltaram: 0, sem_registro: 0, fecharam: 0 });
