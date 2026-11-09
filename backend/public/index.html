@@ -3468,6 +3468,7 @@ async function openCliente(id) {
       <button class="modal-tab" onclick="switchModalTab(this,'tab-dados')">👤 Dados</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-notas');carregarNotas(${c.id})">📝 Notas</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-comunicacoes');carregarComunicacoes(${c.id})">📞 Contatos</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'tab-pedidos');carregarPedidosCliente(${c.id})">📨 Pedidos<span id="pedidos-badge-${c.id}"></span></button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-doc-gerados');carregarDocumentosGerados(${c.id})">📄 Contrato</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-ia')">🤖 IA</button>
     </div>
@@ -3852,6 +3853,12 @@ async function openCliente(id) {
       </div>
     </div>
 
+    <!-- ABA: PEDIDOS PELA INTERNET (cliente marcou "já sou cliente") -->
+    <div id="tab-pedidos" class="modal-tab-pane" style="display:none;padding:18px 22px">
+      <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:14px">Pedidos feitos pela internet</div>
+      <div id="pedidos-lista-${c.id}" style="color:var(--text3);font-size:0.8rem">Carregando...</div>
+    </div>
+
     <!-- ABA: COMUNICAÇÕES / CONTATOS -->
     <div id="tab-comunicacoes" class="modal-tab-pane" style="display:none;padding:18px 22px">
       <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin-bottom:14px">Histórico de Contatos</div>
@@ -3898,6 +3905,8 @@ async function openCliente(id) {
   `, true);
 
   // Restaura a aba que estava ativa se for o mesmo cliente sendo recarregado
+  // Conta pedidos em aberto já ao abrir a ficha (badge na aba 📨 Pedidos)
+  carregarPedidosCliente(id).catch(() => {});
   if (_tabToRestore) {
     const pane = document.getElementById(_tabToRestore);
     if (pane) {
@@ -4060,6 +4069,44 @@ async function salvarNovaTarefa(clienteId) {
 }
 
 // Tab switching
+// ── Pedidos pela internet (ficha do cliente) ──
+async function carregarPedidosCliente(cid) {
+  const box = document.getElementById('pedidos-lista-' + cid);
+  if (!box) return;
+  let lista = [];
+  try { lista = await apiFetch('/pedidos?cliente_id=' + cid); } catch(e) { box.textContent = 'Erro ao carregar: ' + e.message; return; }
+  const badge = document.getElementById('pedidos-badge-' + cid);
+  const abertos = (lista||[]).filter(p => p.status === 'aberto').length;
+  if (badge) badge.innerHTML = abertos ? ` <span style="background:var(--gold);color:#000;border-radius:9px;padding:0 6px;font-size:0.62rem;font-weight:800">${abertos}</span>` : '';
+  if (!lista.length) { box.innerHTML = '<div style="padding:12px 0">Nenhum pedido feito pela internet.</div>'; return; }
+  const esc = (v) => String(v ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  box.innerHTML = lista.map(p => {
+    const aberto = p.status === 'aberto';
+    const quando = p.created_at ? new Date(p.created_at).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+    const ag = p.agendamento_id ? `📅 ${fmtDate(p.ag_data)} ${p.ag_hora || '(horário a definir)'}${p.ag_status === 'cancelado' ? ' — cancelado' : ''}` : 'Sem horário — pediu contato';
+    return `<div style="background:var(--bg3);border:1px solid ${aberto ? 'rgba(201,168,76,0.4)' : 'var(--border)'};border-radius:10px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+        <div style="font-weight:700;font-size:0.85rem">${esc(p.motivo_label)}${p.servico ? ` — <span style="color:var(--gold)">${esc(p.servico)}</span>` : ''}</div>
+        <span style="font-size:0.66rem;font-weight:700;border-radius:10px;padding:2px 8px;${aberto ? 'background:rgba(234,179,8,0.12);color:#facc15;border:1px solid rgba(234,179,8,0.3)' : 'background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.25)'}">${aberto ? 'Aguardando resposta' : 'Respondido'}</span>
+      </div>
+      ${p.assunto ? `<div style="font-size:0.8rem;color:var(--text2);margin-top:6px;white-space:pre-wrap">${esc(p.assunto)}</div>` : ''}
+      <div style="font-size:0.72rem;color:var(--text3);margin-top:8px">${quando} · ${ag}${p.lead_id ? ' · 🔁 está no Pipeline (Clientes — novo serviço)' : ''}${!aberto && p.respondido_por ? ` · respondido por ${esc(p.respondido_por)}` : ''}</div>
+      <div style="margin-top:8px">
+        ${aberto
+          ? `<button class="btn btn-gold btn-sm" onclick="marcarPedido(${p.id}, 'respondido', ${cid})">✓ Marcar como respondido</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="marcarPedido(${p.id}, 'aberto', ${cid})">Reabrir</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+async function marcarPedido(id, status, cid) {
+  try {
+    await apiFetch('/pedidos/' + id, { method:'PATCH', body: JSON.stringify({ status }) });
+    showToast(status === 'respondido' ? 'Pedido respondido — tarefa concluída' : 'Pedido reaberto', 'success');
+    carregarPedidosCliente(cid);
+  } catch(e) { showToast('Erro: ' + e.message, 'error'); }
+}
+
 function switchModalTab(btn, tabId) {
   btn.closest('.modal').querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
   btn.closest('.modal').querySelectorAll('.modal-tab-pane').forEach(t => t.style.display = 'none');
@@ -8733,9 +8780,21 @@ async function carregarLeads() {
   renderLeadsTabela(lista);
 }
 
-function renderLeadsTabela(lista) {
+// Aba do Pipeline: 'prospeccao' = pessoas novas; 'upsell' = cliente que quer outro serviço
+let _leadsAba = 'prospeccao';
+function setLeadsAba(a) { _leadsAba = a; if (Array.isArray(_leadsCache)) renderLeadsTabela(_leadsCache); }
+
+function renderLeadsTabela(listaTodos) {
   const corpo = document.getElementById('leads-corpo');
   if (!corpo) return;
+  const nUpsell = listaTodos.filter(l => l.upsell == 1).length;
+  const lista = listaTodos.filter(l => _leadsAba === 'upsell' ? l.upsell == 1 : l.upsell != 1);
+  const abaBtn = (a, txt, n) => `<button onclick="setLeadsAba('${a}')" class="btn btn-sm ${_leadsAba===a?'btn-gold':'btn-ghost'}">${txt} (${n})</button>`;
+  const abas = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+      ${abaBtn('prospeccao', '🎯 Prospecção — pessoas novas', listaTodos.length - nUpsell)}
+      ${abaBtn('upsell', '🔁 Clientes — novo serviço', nUpsell)}
+      ${_leadsAba==='upsell' ? '<span style="font-size:0.72rem;color:var(--text3)">Clientes que pediram pela internet pra contratar outro serviço. Não entram na prospecção.</span>' : ''}
+    </div>`;
 
   const fmt = v => v ? `R$ ${(parseFloat(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '—';
 
@@ -8806,7 +8865,7 @@ function renderLeadsTabela(lista) {
   const origensOpts = [...new Set(lista.map(l=>l.origem).filter(Boolean))];
   const respOpts    = [...new Set(lista.map(l=>l.responsavel).filter(Boolean))];
 
-  corpo.innerHTML = `
+  corpo.innerHTML = abas + `
     <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
       <div class="stat-card"><div class="stat-label">Total de Leads</div><div class="stat-value">${lista.length}</div></div>
       <div class="stat-card"><div class="stat-label">Em Negociação</div><div class="stat-value" style="color:var(--gold)">${ativos.length}</div></div>

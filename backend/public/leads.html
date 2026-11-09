@@ -239,6 +239,15 @@ textarea:focus{border-color:#c9a84c;box-shadow:0 0 0 3px rgba(201,168,76,.1)}
 
       <!-- Só para quem já é cliente -->
       <div class="field so-cliente">
+        <label><span data-i18n="motivo">Qual o motivo do contato?</span> <span class="req">*</span></label>
+        <select id="motivo" onchange="document.getElementById('campoServicoNovo').style.display = this.value === 'novo_servico' ? 'block' : 'none'"></select>
+        <div class="err-msg" id="err-motivo"></div>
+      </div>
+      <div class="field" id="campoServicoNovo" style="display:none">
+        <label data-i18n="servicoNovo">Qual serviço?</label>
+        <select id="servicoNovo"></select>
+      </div>
+      <div class="field so-cliente">
         <label data-i18n="assunto">Sobre o que você quer falar?</label>
         <textarea id="assunto" rows="3" data-i18n-ph="assuntoPh"></textarea>
       </div>
@@ -379,6 +388,16 @@ document.getElementById('semHorario').addEventListener('change', (e) => {
 });
 
 
+// Motivo + serviço (cliente). Valores gravados em português; texto traduzido.
+function renderMotivos() {
+  const m = document.getElementById('motivo'), sv = document.getElementById('servicoNovo');
+  if (!m) return;
+  const mv = m.value, svv = sv.value;
+  m.innerHTML = `<option value="">${t('selecione')}</option>` + WBI18N.MOTIVOS.map(k => `<option value="${k}">${t('mot:' + k)}</option>`).join('');
+  sv.innerHTML = WBI18N.SERVICOS.map(k => `<option value="${k}">${t('srv:' + k)}</option>`).join('');
+  m.value = mv; if (svv) sv.value = svv;
+}
+
 // ── "Já é cliente?" ── novo = formulário completo (vira lead);
 // cliente = formulário curto (não vira lead, liga ao cadastro)
 let modo = '';
@@ -388,6 +407,7 @@ function escolherModo(m) {
   const sec = document.getElementById('formSection');
   sec.style.display = 'block';
   sec.classList.toggle('modo-cliente', m === 'cliente');
+  document.getElementById('campoServicoNovo').style.display = m === 'cliente' && document.getElementById('motivo').value === 'novo_servico' ? 'block' : 'none';
   document.getElementById('cardTitulo').textContent = t(m === 'cliente' ? 'cliTitulo' : 'cardTitulo');
   window.scrollTo({ top: document.getElementById('formSection').offsetTop - 20, behavior: 'smooth' });
 }
@@ -398,7 +418,8 @@ function trocarModo() {
 async function enviarComoCliente({ nome, tel, email, idioma, agendamento, hp }) {
   const res = await fetch('/api/agendamentos/publico/cliente', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, tel, email, idioma, agendamento, assunto: document.getElementById('assunto').value.trim(), _hp: hp }),
+    body: JSON.stringify({ nome, tel, email, idioma, agendamento, assunto: document.getElementById('assunto').value.trim(),
+      motivo: document.getElementById('motivo').value, servico: document.getElementById('motivo').value === 'novo_servico' ? document.getElementById('servicoNovo').value : null, _hp: hp }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.erro || 'Erro ao enviar');
@@ -422,9 +443,10 @@ function mostrarSucesso(data, email, tituloPadrao, msgPadrao) {
 }
 
 // Idioma
-WBI18N.seletor(() => { renderPaises(); if (agendaDias.length) renderDias(); if (modo) document.getElementById('cardTitulo').textContent = t(modo === 'cliente' ? 'cliTitulo' : 'cardTitulo'); });
+WBI18N.seletor(() => { renderMotivos(); renderPaises(); if (agendaDias.length) renderDias(); if (modo) document.getElementById('cardTitulo').textContent = t(modo === 'cliente' ? 'cliTitulo' : 'cardTitulo'); });
 WBI18N.aplicar();
 renderPaises();
+renderMotivos();
 renderHoras();
 carregarAgenda();
 
@@ -478,6 +500,8 @@ document.getElementById('leadForm').addEventListener('submit', async (e) => {
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErr('email', t('errEmailInv')); valid = false; }
   if (novo && !cidade)  { setErr('cidade',  t('errCidade'));  valid = false; }
   if (novo && !estado)  { setErr('estado',  t('errEstado'));  valid = false; }
+  document.getElementById('err-motivo').textContent = '';
+  if (!novo && !document.getElementById('motivo').value) { document.getElementById('err-motivo').textContent = t('errMotivo'); valid = false; }
   const querHorario = agendaDias.length > 0 && !document.getElementById('semHorario').checked;
   document.getElementById('err-agenda').textContent = '';
   if (querHorario && !(state.data && (state.hora || state.aConfirmar))) {

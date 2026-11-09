@@ -152,6 +152,14 @@
     cfNaoAchadoMsg: { pt: 'O link pode estar incompleto. Fale com a gente pelo WhatsApp que ajudamos você.', es: 'El enlace puede estar incompleto. Escríbanos por WhatsApp y le ayudamos.', en: 'The link may be incomplete. Contact us on WhatsApp and we will help.', fr: 'Le lien est peut-être incomplet. Contactez-nous sur WhatsApp, nous vous aiderons.' },
     cfDuvidas:   { pt: 'Dúvidas? Fale conosco pelo WhatsApp', es: '¿Dudas? Escríbanos por WhatsApp', en: 'Questions? Chat with us on WhatsApp', fr: 'Des questions ? Écrivez-nous sur WhatsApp' },
     // ── "Já é cliente?" ──
+    "motivo": {"pt":"Qual o motivo do contato?","es":"¿Cuál es el motivo del contacto?","en":"What is this about?","fr":"Quel est le motif de votre demande ?","ht":"Poukisa w ap kontakte nou?","fa":"موضوع تماس شما چیست؟"},
+    "mot:andamento": {"pt":"Andamento do meu processo","es":"Avance de mi proceso","en":"My case progress","fr":"Avancement de mon dossier","ht":"Kote dosye m rive","fa":"وضعیت پرونده من"},
+    "mot:documentos": {"pt":"Enviar documentos","es":"Enviar documentos","en":"Send documents","fr":"Envoyer des documents","ht":"Voye dokiman","fa":"ارسال مدارک"},
+    "mot:pagamento": {"pt":"Pagamento","es":"Pago","en":"Payment","fr":"Paiement","ht":"Peman","fa":"پرداخت"},
+    "mot:novo_servico": {"pt":"Quero contratar outro serviço","es":"Quiero contratar otro servicio","en":"I want to hire another service","fr":"Je veux souscrire un autre service","ht":"Mwen vle pran yon lòt sèvis","fa":"می‌خواهم خدمت دیگری بگیرم"},
+    "mot:outro": {"pt":"Outro assunto","es":"Otro asunto","en":"Something else","fr":"Autre sujet","ht":"Lòt bagay","fa":"موضوع دیگر"},
+    "servicoNovo": {"pt":"Qual serviço?","es":"¿Qué servicio?","en":"Which service?","fr":"Quel service ?","ht":"Ki sèvis?","fa":"کدام خدمت؟"},
+    "errMotivo": {"pt":"Escolha o motivo","es":"Elija el motivo","en":"Choose a reason","fr":"Choisissez le motif","ht":"Chwazi rezon an","fa":"موضوع را انتخاب کنید"},
     "gateTitulo": {"pt":"Você já é cliente da WB Assessoria Migratória?","es":"¿Ya es cliente de WB Assessoria Migratória?","en":"Are you already a WB Assessoria Migratória client?","fr":"Êtes-vous déjà client de WB Assessoria Migratória ?","ht":"Èske ou deja kliyan WB Assessoria Migratória?","fa":"آیا از قبل مشتری WB Assessoria Migratória هستید؟"},
     "gateSim": {"pt":"Sim, já sou cliente","es":"Sí, ya soy cliente","en":"Yes, I'm already a client","fr":"Oui, je suis déjà client","ht":"Wi, mwen deja kliyan","fa":"بله، مشتری هستم"},
     "gateSimSub": {"pt":"Quero falar sobre meu processo ou marcar um atendimento","es":"Quiero hablar de mi proceso o agendar una cita","en":"I want to talk about my case or book an appointment","fr":"Je veux parler de mon dossier ou prendre rendez-vous","ht":"Mwen vle pale de dosye m oswa pran yon randevou","fa":"می‌خواهم درباره پرونده‌ام صحبت کنم یا نوبت بگیرم"},
@@ -364,5 +372,8 @@
 
   const tipo = (x) => (T['tipo:' + x] ? t('tipo:' + x) : x);
 
-  window.WBI18N = { tipo, t, aplicar, seletor, dataLonga, dataCurta, nomePais, get lang() { return lang; } };
+  const MOTIVOS = ["andamento","documentos","pagamento","novo_servico","outro"];
+  const SERVICOS = ["Naturalização Brasileira","Naturalização Provisória (crianças/adolescentes)","Autorização de Residência (CPLP / Reunião Familiar / Mercosul)","Renovação de Autorização de Residência","Agendamento de Autorização de Residência","Visto Americano de Turismo"];
+
+  window.WBI18N = { MOTIVOS, SERVICOS, tipo, t, aplicar, seletor, dataLonga, dataCurta, nomePais, get lang() { return lang; } };
 })();

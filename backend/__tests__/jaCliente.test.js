@@ -24,7 +24,7 @@ describe('casarCliente — acha no cadastro', () => {
 });
 
 describe('agendarCliente — pedido de quem já é cliente', () => {
-  beforeEach(() => { mockQuery.mockReset(); sendEmail.mockClear(); });
+  beforeEach(() => { mockQuery.mockReset(); mockQuery.mockResolvedValue([{ insertId: 50 }]); sendEmail.mockClear(); });
 
   test('sem horário: não cria agendamento, só avisa a equipe', async () => {
     mockQuery.mockResolvedValueOnce([CLIENTES]); // busca no cadastro
@@ -39,6 +39,39 @@ describe('agendarCliente — pedido de quem já é cliente', () => {
     mockQuery.mockResolvedValueOnce([CLIENTES]);
     await agenda.agendarCliente({ query: mockQuery }, { nome: 'Fulano', email: 'novo@x.com', tel: '', agendamento: null });
     expect(sendEmail.mock.calls[0][2]).toMatch(/não encontrado no cadastro/);
+  });
+});
+
+describe('pedido de cliente: histórico, tarefa e venda nova', () => {
+  beforeEach(() => { mockQuery.mockReset(); mockQuery.mockResolvedValue([{ insertId: 50 }]); sendEmail.mockClear(); });
+  const sqls = () => mockQuery.mock.calls.map(c => c[0]);
+
+  test('cliente achado: grava o pedido e cria tarefa com prazo, sem lead', async () => {
+    mockQuery.mockResolvedValueOnce([CLIENTES]);
+    await agenda.agendarCliente({ query: mockQuery }, { nome: 'Rene', email: 'rene@example.com', motivo: 'documentos', assunto: 'mandar RNM' });
+    expect(sqls().some(q => /INSERT INTO tarefas_cliente/.test(q))).toBe(true);
+    const ped = mockQuery.mock.calls.find(c => /INSERT INTO pedidos_cliente/.test(c[0]));
+    expect(ped[1].slice(0, 5)).toEqual([7, 'Rene', 'rene@example.com', undefined, 'documentos']);
+    expect(sqls().some(q => /INSERT INTO leads/.test(q))).toBe(false);
+  });
+
+  test('quer outro serviço: vira lead "Clientes – novo serviço" (upsell), fora da prospecção', async () => {
+    mockQuery.mockResolvedValueOnce([CLIENTES]);
+    await agenda.agendarCliente({ query: mockQuery }, { nome: 'Rene', email: 'rene@example.com', motivo: 'novo_servico', servico: 'Visto Americano de Turismo' });
+    const lead = mockQuery.mock.calls.find(c => /INSERT INTO leads/.test(c[0]));
+    expect(lead[0]).toMatch(/'Cliente – novo serviço'/);
+    expect(lead[0]).toMatch(/upsell/);
+    expect(lead[1]).toEqual(['Rene Julien', undefined, 'rene@example.com', 'Visto Americano de Turismo', expect.any(String), 1600, 7]);
+    expect(sendEmail.mock.calls[0][2]).toMatch(/quer contratar outro serviço/);
+  });
+
+  test('motivo inválido vira "outro"; serviço inventado é ignorado', async () => {
+    mockQuery.mockResolvedValueOnce([CLIENTES]);
+    await agenda.agendarCliente({ query: mockQuery }, { nome: 'X', email: 'x@y.com', motivo: 'hackear', servico: 'Qualquer' });
+    const ped = mockQuery.mock.calls.find(c => /INSERT INTO pedidos_cliente/.test(c[0]));
+    expect(ped[1][4]).toBe('outro');
+    expect(ped[1][5]).toBeNull();
+    expect(sqls().some(q => /INSERT INTO tarefas_cliente/.test(q))).toBe(false); // sem cadastro, sem tarefa
   });
 });
 

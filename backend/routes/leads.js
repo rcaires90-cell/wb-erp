@@ -11,14 +11,7 @@ const { vincularLead, reconciliarLeads } = require('../lib/leadsClientes');
 const EQUIPE_EMAIL = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
 const PORTAL_URL   = 'https://sistema.wbassessoriamigratoria.com.br';
 
-const VALORES_SERVICO = {
-  'Naturalização Brasileira':                                       2790,
-  'Naturalização Provisória (crianças/adolescentes)':               1790,
-  'Autorização de Residência (CPLP / Reunião Familiar / Mercosul)': 1250,
-  'Renovação de Autorização de Residência':                          650,
-  'Agendamento de Autorização de Residência':                        200,
-  'Visto Americano de Turismo':                                     1600,
-};
+const { VALORES_SERVICO } = require('../lib/servicos');
 
 const SERVICOS_VALIDOS  = new Set(Object.keys(VALORES_SERVICO));
 const RNM_VALIDOS       = new Set(['nenhum','temporario','permanente','']);

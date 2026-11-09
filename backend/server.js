@@ -129,6 +129,8 @@ async function runMigrations() {
     // tira o lead da prospecção (era cliente antes de virar "lead")
     ['leads', 'cliente_id',     "INT        DEFAULT NULL"],
     ['leads', 'ja_era_cliente', "TINYINT(1) DEFAULT 0"],
+    // Cliente que quer contratar outro serviço (venda nova pra quem já é cliente)
+    ['leads', 'upsell',         "TINYINT(1) DEFAULT 0"],
   ];
   for (const [table, column, definition] of alterCols) {
     await addColumnIfNotExists(table, column, definition);
@@ -234,6 +236,26 @@ async function runMigrations() {
       servico_grupo VARCHAR(20) NOT NULL,
       prazo_dias    INT NOT NULL DEFAULT 30,
       updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS pedidos_cliente (
+      id             INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_id     INT DEFAULT NULL,
+      nome           VARCHAR(200),
+      email          VARCHAR(200),
+      tel            VARCHAR(30),
+      motivo         VARCHAR(30),
+      servico        VARCHAR(200),
+      assunto        TEXT,
+      agendamento_id INT DEFAULT NULL,
+      lead_id        INT DEFAULT NULL,
+      tarefa_id      INT DEFAULT NULL,
+      idioma         VARCHAR(5) DEFAULT 'pt',
+      status         VARCHAR(20) DEFAULT 'aberto',
+      respondido_em  DATETIME DEFAULT NULL,
+      respondido_por VARCHAR(200) DEFAULT NULL,
+      created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_cliente (cliente_id),
+      INDEX idx_status (status)
     )`,
     `CREATE TABLE IF NOT EXISTS tarefas_cliente (
       id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -399,6 +421,7 @@ app.use('/api/auth',         require('./routes/auth'));
 app.use('/api/clientes',     require('./routes/clientes'));
 app.use('/api/parcelas',     require('./routes/parcelas'));
 app.use('/api/agendamentos', require('./routes/agendamentos'));
+app.use('/api/pedidos',      require('./routes/pedidos'));
 app.use('/api/prints',       require('./routes/prints'));
 app.use('/api/dashboard',    require('./routes/dashboard'));
 app.use('/api/n8n',          require('./routes/n8n'));

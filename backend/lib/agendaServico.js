@@ -332,39 +332,82 @@ async function acharCliente(db, dados) {
 
 // Pedido de quem diz que JÁ É CLIENTE: não vira lead; o agendamento é ligado
 // ao cadastro quando acha a pessoa. Sem horário escolhido → só avisa a equipe.
-async function agendarCliente(db, { agendamento, nome, email, tel, assunto, idioma }) {
+async function agendarCliente(db, { agendamento, nome, email, tel, assunto, idioma, motivo, servico }) {
+  const { VALORES_SERVICO, MOTIVOS_CLIENTE } = require('./servicos');
   const i = idiomaOk(idioma);
+  const mot = MOTIVOS_CLIENTE[motivo] ? motivo : 'outro';
+  const srv = mot === 'novo_servico' && VALORES_SERVICO[servico] !== undefined ? servico : null;
   const cli = await acharCliente(db, { email, tel });
-  const obsCli = [assunto ? 'Assunto: ' + assunto : null, cli ? null : '⚠️ Disse que é cliente, mas não foi encontrado no cadastro'].filter(Boolean).join(' | ') || null;
+  const motivoTxt = MOTIVOS_CLIENTE[mot] + (srv ? ` — ${srv}` : '');
+  const obsCli = [`Motivo: ${motivoTxt}`, assunto ? 'Assunto: ' + assunto : null,
+    cli ? null : '⚠️ Disse que é cliente, mas não foi encontrado no cadastro'].filter(Boolean).join(' | ');
   const extraCadastro = cli
     ? ` (cadastro: <b>${escHtml(cli.nome)}</b>, cliente #${cli.id})`
     : ' — <b>⚠️ não encontrado no cadastro</b> pelo e-mail/telefone; confira quem é';
   const ag = { nome, email, tel, idioma: i, tipo: 'Atendimento cliente', obs: obsCli };
 
-  if (!(agendamento?.data && (agendamento?.hora || agendamento?.a_confirmar))) {
-    await avisarEquipeSemHorario(ag, extraCadastro);
-    return { agendado: false, cliente_encontrado: !!cli };
+  // Quer outro serviço = venda nova pra quem já é cliente → lead à parte no
+  // Pipeline ("Clientes – novo serviço"), sem misturar com a prospecção
+  let leadId = null;
+  if (mot === 'novo_servico') {
+    const [l] = await db.query(
+      `INSERT INTO leads (nome, tel, email, servico, origem, status, obs, valor_estimado, cliente_id, ja_era_cliente, upsell)
+       VALUES (?, ?, ?, ?, 'Cliente – novo serviço', 'novo', ?, ?, ?, 0, 1)`,
+      [cli?.nome || nome, tel, email, srv, obsCli, VALORES_SERVICO[srv] || 0, cli?.id || null]);
+    leadId = l.insertId;
   }
-  const { data } = agendamento;
-  const hora = agendamento.a_confirmar ? null : agendamento.hora;
-  const valido = hora ? await verificarHorario(db, data, hora) : await verificarDiaAConfirmar(db, data);
-  if (!valido) {
-    await avisarEquipeSemHorario(ag, extraCadastro + ' — o horário escolhido foi ocupado; combine outro');
-    return { agendado: false, horario_indisponivel: true, cliente_encontrado: !!cli };
+
+  // Agendamento (se escolheu horário e ele ainda está livre)
+  let agId = null, resultado;
+  const temHorario = agendamento?.data && (agendamento?.hora || agendamento?.a_confirmar);
+  if (temHorario) {
+    const { data } = agendamento;
+    const hora = agendamento.a_confirmar ? null : agendamento.hora;
+    const valido = hora ? await verificarHorario(db, data, hora) : await verificarDiaAConfirmar(db, data);
+    if (valido) {
+      const token = novoToken();
+      const [ins] = await db.query(
+        `INSERT INTO agendamentos (cliente_id, cliente_nome, data, hora, tipo, obs, colaborador, status, token, lead_id, email, tel, origem, idioma, ja_cliente)
+         VALUES (?, ?, ?, ?, ?, ?, NULL, 'pendente', ?, ?, ?, ?, 'Cliente (internet)', ?, 1)`,
+        [cli?.id || null, cli?.nome || nome, data, hora, ag.tipo, obsCli, token, leadId, email, tel, i]);
+      agId = ins.insertId;
+      sincronizarGoogle(db, agId);
+      Object.assign(ag, { data, hora, token });
+      enviarPedidoConfirmacao(ag).catch(e => console.error('[agenda] e-mail confirmação (cliente):', e.message));
+      resultado = { agendado: true, agendamento: { data, hora, a_confirmar: !hora } };
+    } else {
+      resultado = { agendado: false, horario_indisponivel: true };
+    }
+  } else {
+    resultado = { agendado: false };
   }
-  const token = novoToken();
-  const [ins] = await db.query(
-    `INSERT INTO agendamentos (cliente_id, cliente_nome, data, hora, tipo, obs, colaborador, status, token, email, tel, origem, idioma, ja_cliente)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, 'pendente', ?, ?, ?, 'Cliente (internet)', ?, 1)`,
-    [cli?.id || null, cli?.nome || nome, data, hora, ag.tipo, obsCli, token, email, tel, i]
-  );
-  sincronizarGoogle(db, ins.insertId);
-  Object.assign(ag, { data, hora, token });
-  enviarPedidoConfirmacao(ag).catch(e => console.error('[agenda] e-mail confirmação (cliente):', e.message));
-  avisarEquipe(hora ? `👤 Cliente pediu atendimento — ${nome}` : `👤 Cliente pediu sábado (definir horário) — ${nome}`, ag,
-    ` <b>já é cliente</b>${extraCadastro} e marcou um atendimento${hora ? ' (aguardando confirmação)' : ' no sábado — defina o horário na Agenda'}.`)
-    .catch(e => console.error('[agenda] aviso equipe (cliente):', e.message));
-  return { agendado: true, agendamento: { data, hora, a_confirmar: !hora }, cliente_encontrado: !!cli };
+
+  // Tarefa na ficha do cliente pra ninguém esquecer de responder (prazo: amanhã)
+  let tarefaId = null;
+  if (cli) {
+    const [t] = await db.query(
+      'INSERT INTO tarefas_cliente (cliente_id, fase_id, descricao, prazo_data) VALUES (?, NULL, ?, DATE_ADD(CURDATE(), INTERVAL 1 DAY))',
+      [cli.id, `Responder pedido pela internet: ${motivoTxt}`.slice(0, 300)]);
+    tarefaId = t.insertId;
+  }
+  // Histórico do pedido (aba "📨 Pedidos" na ficha do cliente)
+  await db.query(
+    `INSERT INTO pedidos_cliente (cliente_id, nome, email, tel, motivo, servico, assunto, agendamento_id, lead_id, tarefa_id, idioma)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [cli?.id || null, nome, email, tel, mot, srv, assunto || null, agId, leadId, tarefaId, i]);
+
+  // Aviso pra equipe
+  if (agId) {
+    avisarEquipe(ag.hora ? `👤 Cliente pediu atendimento — ${nome}` : `👤 Cliente pediu sábado (definir horário) — ${nome}`, ag,
+      ` <b>já é cliente</b>${extraCadastro} e marcou um atendimento${ag.hora ? ' (aguardando confirmação)' : ' no sábado — defina o horário na Agenda'}.`
+      + (leadId ? ' <b>Quer contratar outro serviço</b> — entrou no Pipeline em "Clientes – novo serviço".' : ''))
+      .catch(e => console.error('[agenda] aviso equipe (cliente):', e.message));
+  } else {
+    await avisarEquipeSemHorario(ag, extraCadastro
+      + (resultado.horario_indisponivel ? ' — o horário escolhido foi ocupado; combine outro' : '')
+      + (leadId ? ' — <b>quer contratar outro serviço</b> (está no Pipeline em "Clientes – novo serviço")' : ''));
+  }
+  return { ...resultado, cliente_encontrado: !!cli };
 }
 
 async function avisarEquipeSemHorario(ag, extra) {

@@ -130,14 +130,14 @@ router.post('/publico/:token/cancelar', limiterPublico, async (req, res) => {
 // (Fica antes das rotas /publico/:token pra não ser confundida com um token.)
 router.post('/publico/cliente', limiterPublico, async (req, res) => {
   try {
-    const { nome, tel, email, assunto, agendamento, idioma, _hp } = req.body || {};
+    const { nome, tel, email, assunto, agendamento, idioma, motivo, servico, _hp } = req.body || {};
     if (_hp) return res.json({ ok: true }); // honeypot
     const s = (v, max) => (v || '').toString().trim().slice(0, max) || null;
     const nomeC = s(nome, 200), emailC = s(email, 200), telC = s(tel, 30), assuntoC = s(assunto, 1000);
     if (!nomeC) return res.status(400).json({ erro: 'Nome inválido' });
     if (emailC && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailC)) return res.status(400).json({ erro: 'E-mail inválido' });
     if (!emailC && !telC) return res.status(400).json({ erro: 'Informe WhatsApp ou e-mail' });
-    const r = await agenda.agendarCliente(db, { agendamento, nome: nomeC, email: emailC, tel: telC, assunto: assuntoC, idioma });
+    const r = await agenda.agendarCliente(db, { agendamento, nome: nomeC, email: emailC, tel: telC, assunto: assuntoC, idioma, motivo, servico });
     res.json({ ok: true, ...r });
   } catch (e) {
     console.error('[agendamentos/publico/cliente]', e.message);

@@ -258,6 +258,8 @@ router.post('/', async (req, res) => {
     require('./documentos-cliente').gerarDocumentosCliente(result.insertId)
       .catch(e => console.error('[clientes] gerarDocumentosCliente:', e.message));
 
+    // Leads dessa pessoa passam a aparecer como "virou cliente" na hora
+    require('../lib/leadsClientes').reconciliarLeads(db).catch(e => console.error('[clientes] reconciliar leads:', e.message));
     res.status(201).json(novo[0]);
   } catch (err) {
     console.error('[clientes POST]', err);
@@ -348,6 +350,9 @@ router.patch('/:id', async (req, res) => {
         console.error('[clientes] acompanharAntecedenteCriminal:', e.message));
     }
 
+    if ('email' in req.body || 'tel' in req.body) {
+      require('../lib/leadsClientes').reconciliarLeads(db).catch(e => console.error('[clientes] reconciliar leads:', e.message));
+    }
     res.json(updated[0]);
   } catch (err) {
     console.error('[clientes PATCH]', err);
