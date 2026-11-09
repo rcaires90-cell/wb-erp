@@ -6,6 +6,7 @@ const { FORMULARIOS_CONFIG } = require('../lib/formularios');
 const { comTraducoes } = require('../lib/formulariosI18n');
 const { sendEmail } = require('../lib/email');
 const agenda = require('../lib/agendaServico');
+const { vincularLead, reconciliarLeads } = require('../lib/leadsClientes');
 
 const EQUIPE_EMAIL = process.env.EQUIPE_EMAIL || 'wbassessoria.contato@gmail.com';
 const PORTAL_URL   = 'https://sistema.wbassessoriamigratoria.com.br';
@@ -93,9 +94,14 @@ router.post('/publico', limiterPublico, async (req, res) => {
       leadId = r.insertId;
     }
 
+    // Já é cliente cadastrado? Então o lead não entra na prospecção
+    let vinc = null;
+    try { if (leadId) vinc = await vincularLead(db, leadId); } catch (e) { console.error('[leads/publico] vincular:', e.message); }
+
     // Horário escolhido na landing page (opcional)
     const ag = await agenda.agendarPeloFormulario(db, {
       agendamento, nome: nomeClean, email: emailClean, tel: telClean, servico, leadId, origem: 'Landing Page', idioma: idiomaCli,
+      clienteExistente: vinc?.ja_era_cliente ? vinc.cliente_id : null,
     });
     return res.json({ ok: true, ...ag });
   } catch(e) {
@@ -157,6 +163,9 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
       [nomeClean, telClean, emailClean, cfg.servico, obs || null, valor_estimado]
     );
 
+    let vinc = null;
+    try { vinc = await vincularLead(db, insLead.insertId); } catch (e) { console.error('[leads/formulario-publico] vincular:', e.message); }
+
     // Avisa a equipe na hora — antes disso ninguém sabia que um lead novo
     // chegou até abrir o Pipeline manualmente
     try {
@@ -170,6 +179,7 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
         `<div style="font-family:Arial,sans-serif;max-width:600px;padding:24px;background:#f9f9f9;border-radius:8px">
           <h2 style="color:#c9a84c">WB Assessoria — Novo Lead</h2>
           <p><b>${nomeClean}</b> preencheu o formulário de <b>${cfg.titulo}</b> agora mesmo.</p>
+          ${vinc?.ja_era_cliente ? `<p>👤 <b>Já é cliente</b> (cadastro #${vinc.cliente_id}) — ficou fora da prospecção, em "Já eram clientes".</p>` : ''}
           ${idiomaCli !== 'pt' ? `<p>🌐 Preencheu em <b>${agenda.NOME_IDIOMA[idiomaCli]}</b> — responda nesse idioma.</p>` : ''}
           <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:14px;margin:14px 0">
             <div><b>Telefone:</b> ${telClean || '—'}</div>
@@ -186,6 +196,7 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
     const ag = await agenda.agendarPeloFormulario(db, {
       agendamento, nome: nomeClean, email: emailClean, tel: telClean, servico: cfg.servico,
       leadId: insLead.insertId, origem: 'Formulário ' + cfg.titulo, idioma: idiomaCli,
+      clienteExistente: vinc?.ja_era_cliente ? vinc.cliente_id : null,
     });
     res.json({ ok: true, ...ag });
   } catch(e) {
@@ -210,7 +221,10 @@ const STATUS_LABELS = {
 // GET /api/leads
 router.get('/', async (req, res) => {
   try {
-    let sql = 'SELECT * FROM leads WHERE 1=1';
+    // Padrão = só prospecção. ?ja_clientes=1 = só os que já eram clientes.
+    let sql = req.query.ja_clientes === '1'
+      ? 'SELECT * FROM leads WHERE ja_era_cliente = 1'
+      : 'SELECT * FROM leads WHERE (ja_era_cliente IS NULL OR ja_era_cliente = 0)';
     const params = [];
     if (req.query.status) { sql += ' AND status=?'; params.push(req.query.status); }
     if (req.query.busca) {
@@ -237,9 +251,16 @@ router.post('/', async (req, res) => {
        status||'novo', responsavel||'Renato Caires',
        parseFloat(valor_estimado)||0, obs||null, req.user.nome]
     );
+    try { await vincularLead(db, r.insertId); } catch (e) { console.error('[leads POST] vincular:', e.message); }
     const [[novo]] = await db.query('SELECT * FROM leads WHERE id=?', [r.insertId]);
     res.status(201).json(novo);
   } catch(e) { res.status(500).json({ erro: e.message }); }
+});
+
+// POST /api/leads/reconciliar — revisa de novo quais leads já eram clientes
+router.post('/reconciliar', async (_req, res) => {
+  try { res.json({ ok: true, ...(await reconciliarLeads(db)) }); }
+  catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
 // POST /api/leads/formulario — formulário interno de fechamento (usado
@@ -264,6 +285,7 @@ router.post('/formulario', async (req, res) => {
       [nome.trim(), tel||null, email||null, servico, 'Formulário Interno',
        'novo', req.user.nome, valor_estimado, obs||null, req.user.nome]
     );
+    try { await vincularLead(db, r.insertId); } catch (e) { console.error('[leads POST /formulario] vincular:', e.message); }
     const [[novo]] = await db.query('SELECT * FROM leads WHERE id=?', [r.insertId]);
     res.status(201).json(novo);
   } catch(e) {
@@ -276,7 +298,7 @@ router.post('/formulario', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const ALLOWED = ['nome','tel','email','pais','servico','origem','status','responsavel','valor_estimado','obs'];
+    const ALLOWED = ['nome','tel','email','pais','servico','origem','status','responsavel','valor_estimado','obs','ja_era_cliente'];
     const sets = []; const params = [];
     for (const k of ALLOWED) {
       if (k in req.body) { sets.push(`${k}=?`); params.push(req.body[k]); }
@@ -309,7 +331,7 @@ router.post('/:id/converter', async (req, res) => {
        lead.responsavel, parseFloat(lead.valor_estimado)||0,
        'Pendente Documentação', new Date().toLocaleDateString('pt-BR'), '{}']
     );
-    await db.query('UPDATE leads SET status=? WHERE id=?', ['fechado', lead.id]);
+    await db.query('UPDATE leads SET status=?, cliente_id=?, ja_era_cliente=0 WHERE id=?', ['fechado', r.insertId, lead.id]);
     const [[novo]] = await db.query('SELECT * FROM clientes WHERE id=?', [r.insertId]);
     res.json({ ok: true, cliente: novo, lead_id: lead.id });
   } catch(e) { res.status(500).json({ erro: e.message }); }

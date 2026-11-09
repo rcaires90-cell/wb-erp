@@ -199,7 +199,8 @@ router.get('/funil', async (req, res) => {
 
     const [[leads]] = await db.query(
       `SELECT COUNT(*) AS total FROM leads
-       WHERE origem IN ('Landing Page', 'Formulário Público') AND DATE(created_at) BETWEEN ? AND ?`, [de, ate]);
+       WHERE origem IN ('Landing Page', 'Formulário Público') AND (ja_era_cliente IS NULL OR ja_era_cliente = 0)
+         AND DATE(created_at) BETWEEN ? AND ?`, [de, ate]);
 
     // Pela internet = origem diferente de 'Equipe' (landing ou formulários)
     const [porOrigem] = await db.query(

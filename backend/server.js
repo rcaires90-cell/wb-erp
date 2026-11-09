@@ -125,6 +125,10 @@ async function runMigrations() {
     ['agendamentos', 'presenca_em',   "DATETIME     DEFAULT NULL"],
     // Quem pediu: 1 = já é cliente da WB, 0 = novo contato, NULL = marcado pela equipe
     ['agendamentos', 'ja_cliente',    "TINYINT(1)   DEFAULT NULL"],
+    // Lead x cadastro de cliente: cliente_id liga ao cadastro; ja_era_cliente = 1
+    // tira o lead da prospecção (era cliente antes de virar "lead")
+    ['leads', 'cliente_id',     "INT        DEFAULT NULL"],
+    ['leads', 'ja_era_cliente', "TINYINT(1) DEFAULT 0"],
   ];
   for (const [table, column, definition] of alterCols) {
     await addColumnIfNotExists(table, column, definition);
@@ -310,6 +314,12 @@ async function runMigrations() {
   for (const sql of createTables) {
     try { await db.query(sql); } catch(e) { console.warn('[migration] table:', e.message.slice(0,80)); }
   }
+  // Leads de quem já era cliente saem da prospecção (não apaga nada)
+  try {
+    const r = await require('./lib/leadsClientes').reconciliarLeads(db);
+    if (r.ja_eram_clientes || r.viraram_clientes) console.log('[migration] leads x clientes:', JSON.stringify(r));
+  } catch (e) { console.warn('[migration] leads x clientes:', e.message.slice(0, 80)); }
+
   // Seed de configurações padrão (não sobrescreve se já existir)
   try {
     await db.query(

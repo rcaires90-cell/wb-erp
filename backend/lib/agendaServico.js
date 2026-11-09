@@ -277,7 +277,9 @@ async function avisarEquipe(assunto, ag, extra = '') {
 // Cria o agendamento pedido por um formulário público (landing page ou
 // formulários por serviço). Devolve o pedaço da resposta JSON pra página.
 // Se o horário foi ocupado no meio tempo, o lead fica salvo e a equipe liga.
-async function agendarPeloFormulario(db, { agendamento, nome, email, tel, servico, leadId, origem, idioma }) {
+// clienteExistente: id do cadastro quando quem respondeu "não sou cliente" já
+// era cliente (achado pelo e-mail/telefone) — o agendamento sai como cliente.
+async function agendarPeloFormulario(db, { agendamento, nome, email, tel, servico, leadId, origem, idioma, clienteExistente }) {
   if (!(agendamento?.data && (agendamento?.hora || agendamento?.a_confirmar))) return {};
   const { data } = agendamento;
   // Sábado: a pessoa só escolhe o dia, a equipe define o horário depois
@@ -289,15 +291,17 @@ async function agendarPeloFormulario(db, { agendamento, nome, email, tel, servic
   const tipo = 'Consulta inicial';
   const i = idiomaOk(idioma);
   const [ins] = await db.query(
-    `INSERT INTO agendamentos (cliente_nome, data, hora, tipo, obs, colaborador, status, token, lead_id, email, tel, origem, idioma, ja_cliente)
-     VALUES (?, ?, ?, ?, ?, NULL, 'pendente', ?, ?, ?, ?, ?, ?, 0)`,
-    [nome, data, hora, tipo, servico || null, token, leadId || null, email, tel, origem, i]
+    `INSERT INTO agendamentos (cliente_id, cliente_nome, data, hora, tipo, obs, colaborador, status, token, lead_id, email, tel, origem, idioma, ja_cliente)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, 'pendente', ?, ?, ?, ?, ?, ?, ?)`,
+    [clienteExistente || null, nome, data, hora, tipo, servico || null, token, leadId || null, email, tel, origem, i, clienteExistente ? 1 : 0]
   );
   sincronizarGoogle(db, ins.insertId);
   const ag = { nome, data, hora, tipo, token, email, tel, obs: servico || null, idioma: i };
   enviarPedidoConfirmacao(ag).catch(e => console.error('[agenda] e-mail confirmação:', e.message));
   avisarEquipe(
-    hora ? `✨ Novo contato agendou (${origem}) — ${nome}` : `✨ Novo contato pediu sábado (definir horário) — ${nome}`, ag,
+    clienteExistente
+      ? `👤 Cliente pediu atendimento (${origem}) — ${nome}`
+      : hora ? `✨ Novo contato agendou (${origem}) — ${nome}` : `✨ Novo contato pediu sábado (definir horário) — ${nome}`, ag,
     hora ? ` marcou um atendimento pelo(a) ${escHtml(origem)} (aguardando confirmação).`
          : ' pediu atendimento no sábado. <b>Defina o horário na Agenda do sistema</b> — a pessoa recebe o e-mail para confirmar.')
     .catch(e => console.error('[agenda] aviso equipe:', e.message));

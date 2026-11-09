@@ -8899,7 +8899,7 @@ function renderLeadsTabela(lista) {
             const telLink = l.tel ? `<a href="https://wa.me/${l.tel.replace(/\D/g,'')}" target="_blank" style="color:var(--green);font-size:0.78rem;text-decoration:none">📱 ${l.tel}</a>` : '—';
             const locStr = [l.pais, l.cidade, l.estado].filter(Boolean).join(' · ') || '—';
             return `<tr>
-              <td style="font-weight:600;color:var(--text)">${l.nome}</td>
+              <td style="font-weight:600;color:var(--text)">${l.nome}${l.cliente_id ? ` <a href="#" onclick="openCliente(${l.cliente_id});return false" title="Este lead virou cliente — abrir cadastro" style="margin-left:6px;font-size:0.62rem;font-weight:700;color:var(--green);background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:10px;padding:1px 7px;text-decoration:none;white-space:nowrap">✓ virou cliente</a>` : ''}</td>
               <td>${telLink}</td>
               <td style="font-size:0.75rem;color:var(--text3)">${locStr}</td>
               <td style="font-size:0.8rem;color:var(--text2)">${l.servico||'—'}</td>
@@ -8913,7 +8913,7 @@ function renderLeadsTabela(lista) {
               <td>
                 <div style="display:flex;gap:5px">
                   <button onclick="abrirDetalheLead(${l.id})" class="btn btn-outline btn-sm" style="font-size:0.7rem">👁️ Ver</button>
-                  ${l.status!=='fechado'?`<button onclick="converterLead(${l.id},'${(l.nome||'').replace(/'/g,"\\'")}');" class="btn btn-sm" style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);font-size:0.7rem">✓ Converter</button>`:''}
+                  ${l.status!=='fechado' && !l.cliente_id?`<button onclick="converterLead(${l.id},'${(l.nome||'').replace(/'/g,"\\'")}');" class="btn btn-sm" style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);font-size:0.7rem">✓ Converter</button>`:''}
                   ${currentRole !== 'colaborador' ? `<button onclick="deletarLead(${l.id})" class="btn btn-danger btn-sm">×</button>` : ''}
                 </div>
               </td>
@@ -8921,7 +8921,56 @@ function renderLeadsTabela(lista) {
           }).join('')}
         </tbody>
       </table>
+    </div>
+    <div id="leads-ja-clientes" style="margin-top:20px"></div>`;
+  carregarLeadsJaClientes();
+}
+
+// ── Leads de quem JÁ ERA cliente: ficam fora da prospecção ──
+let _leadsJaClientesAberto = false;
+async function carregarLeadsJaClientes() {
+  const box = document.getElementById('leads-ja-clientes');
+  if (!box) return;
+  let lista = [];
+  try { lista = await apiFetch('/leads?ja_clientes=1'); } catch(e) { return; }
+  if (!Array.isArray(lista)) return;
+  const cab = `<div class="panel-header" style="cursor:pointer;flex-wrap:wrap;gap:8px" onclick="_leadsJaClientesAberto=!_leadsJaClientesAberto;carregarLeadsJaClientes()">
+      <span class="panel-title">👤 Já eram clientes (${lista.length}) <span style="font-weight:400;color:var(--text3);font-size:0.72rem">— fora da prospecção ${_leadsJaClientesAberto?'▾':'▸'}</span></span>
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();reconciliarLeadsClientes(this)">🔄 Verificar de novo</button>
     </div>`;
+  const info = `<div style="padding:10px 16px;font-size:0.76rem;color:var(--text3);border-bottom:1px solid var(--border)">Pessoas que já tinham cadastro de cliente quando entraram como lead (ex.: cliente que preencheu a landing de novo). Não contam no Pipeline, no funil nem na taxa de conversão. Se algum for uma venda nova de verdade, use "Voltar para prospecção".</div>`;
+  const linhas = lista.map(l => `<tr>
+      <td style="font-weight:600">${l.nome}</td>
+      <td style="font-size:0.78rem;color:var(--text3)">${l.tel||'—'}</td>
+      <td style="font-size:0.78rem;color:var(--text3)">${l.email||'—'}</td>
+      <td style="font-size:0.78rem;color:var(--text3)">${l.origem||'—'}</td>
+      <td style="font-size:0.78rem;color:var(--text3)">${l.created_at ? fmtDate(String(l.created_at).slice(0,10)) : '—'}</td>
+      <td><div style="display:flex;gap:5px;flex-wrap:wrap">
+        ${l.cliente_id ? `<button class="btn btn-outline btn-sm" style="font-size:0.7rem" onclick="openCliente(${l.cliente_id})">👤 Abrir cliente</button>` : ''}
+        <button class="btn btn-outline btn-sm" style="font-size:0.7rem" onclick="abrirDetalheLead(${l.id})">👁️ Ver</button>
+        <button class="btn btn-ghost btn-sm" style="font-size:0.7rem" onclick="voltarLeadProspeccao(${l.id})" title="É uma venda nova (ex.: outro serviço) — volta pro Pipeline">↩ Voltar para prospecção</button>
+        ${currentRole !== 'colaborador' ? `<button onclick="deletarLead(${l.id})" class="btn btn-danger btn-sm">×</button>` : ''}
+      </div></td>
+    </tr>`).join('');
+  box.innerHTML = `<div class="panel">${cab}${_leadsJaClientesAberto ? info + (lista.length
+      ? `<table class="tbl"><thead><tr><th>Nome</th><th>WhatsApp</th><th>E-mail</th><th>Origem</th><th>Entrou em</th><th></th></tr></thead><tbody>${linhas}</tbody></table>`
+      : '<div style="padding:16px;color:var(--text3);font-size:0.8rem">Nenhum.</div>') : ''}</div>`;
+}
+async function voltarLeadProspeccao(id) {
+  try {
+    await apiFetch('/leads/'+id, { method:'PATCH', body: JSON.stringify({ ja_era_cliente: 0 }) });
+    showToast('Lead voltou para a prospecção', 'success');
+    carregarLeads();
+  } catch(e) { showToast('Erro: '+e.message, 'error'); }
+}
+async function reconciliarLeadsClientes(btn) {
+  btn.disabled = true; btn.textContent = 'Verificando...';
+  try {
+    const r = await apiFetch('/leads/reconciliar', { method:'POST' });
+    showToast(`Verificado: ${r.ja_eram_clientes} já eram clientes, ${r.viraram_clientes} viraram clientes`, 'success');
+    _leadsJaClientesAberto = true;
+    carregarLeads();
+  } catch(e) { showToast('Erro: '+e.message, 'error'); btn.disabled = false; btn.textContent = '🔄 Verificar de novo'; }
 }
 
 function abrirDetalheLead(id) {
