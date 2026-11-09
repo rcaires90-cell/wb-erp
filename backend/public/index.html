@@ -2239,7 +2239,7 @@ async function carregarFormulario(chave) {
         <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;color:var(--gold);text-transform:uppercase;margin:20px 0 10px;padding-top:14px;border-top:1px solid var(--border)">${sec.titulo}</div>
         <div style="display:flex;flex-direction:column;gap:14px">
           ${sec.perguntas.map(p => `
-            <div class="form-group" style="margin:0">
+            <div class="form-group" style="margin:0" id="fm-campo-${chave}-${p.id}">
               <label style="text-transform:uppercase">${p.label}</label>
               ${p.dica ? `<div style="font-size:0.7rem;color:var(--text3);margin-bottom:6px">💡 ${p.dica}</div>` : ''}
               ${campoHtml(p)}
@@ -2251,6 +2251,20 @@ async function carregarFormulario(chave) {
       <div id="fm-${chave}-status" style="margin-top:10px;font-size:0.8rem"></div>
      </div>
     </div>`;
+  container.addEventListener('change', () => aplicarCondicionaisFm(chave, cfg));
+  aplicarCondicionaisFm(chave, cfg);
+}
+
+// Pergunta que só aparece quando outra tem certa resposta (ex.: tipo de RNM
+// só se "Você tem RNM?" = Sim). Escondida = valor apagado.
+function aplicarCondicionaisFm(chave, cfg) {
+  cfg.secoes.forEach(sec => sec.perguntas.forEach(p => {
+    if (!p.mostrarSe) return;
+    const ok = document.getElementById(`fm-${chave}-${p.mostrarSe.id}`)?.value === p.mostrarSe.valor;
+    const campo = document.getElementById(`fm-campo-${chave}-${p.id}`);
+    if (campo) campo.style.display = ok ? '' : 'none';
+    if (!ok) { const el = document.getElementById(`fm-${chave}-${p.id}`); if (el) el.value = ''; }
+  }));
 }
 
 async function salvarFormularioLead(chave) {
@@ -2283,6 +2297,7 @@ async function salvarFormularioLead(chave) {
     cfg.secoes.forEach(sec => sec.perguntas.forEach(p => {
       const el = document.getElementById(`fm-${chave}-${p.id}`); if (el) el.value = '';
     }));
+    aplicarCondicionaisFm(chave, cfg);
   } catch(e) {
     showToast('Erro ao salvar: ' + e.message, 'error');
   }

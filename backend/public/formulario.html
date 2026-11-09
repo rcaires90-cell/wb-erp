@@ -358,7 +358,7 @@ async function init() {
         <div class="divider so-novo">
           <p class="divider-label" id="sec-${i}"></p>
           ${sec.perguntas.map(p => `
-            <div class="field">
+            <div class="field" id="campo-${p.id}">
               <label for="fp-q-${p.id}" id="lbl-${p.id}"></label>
               ${p.dica ? `<div class="dica" id="dica-${p.id}"></div>` : ''}
               ${campoHtml(p)}
@@ -413,6 +413,17 @@ async function init() {
     document.getElementById('fp-loading').style.display = 'none';
     document.getElementById('gate').style.display = 'block';
     ligarAgenda();
+    // Pergunta condicional: só aparece quando outra tem a resposta certa
+    // (escondida = valor apagado, não vai nas respostas)
+    const aplicarCondicionais = () => cfg.secoes.forEach(sec => sec.perguntas.forEach(p => {
+      if (!p.mostrarSe) return;
+      const ok = document.getElementById('fp-q-' + p.mostrarSe.id)?.value === p.mostrarSe.valor;
+      const campo = document.getElementById('campo-' + p.id);
+      if (campo) campo.style.display = ok ? '' : 'none';
+      if (!ok) { const el = document.getElementById('fp-q-' + p.id); if (el) el.value = ''; }
+    }));
+    form.addEventListener('change', aplicarCondicionais);
+    aplicarCondicionais();
     renderMotivos();
     traduzir(cfg);
     WBI18N.seletor(() => { traduzir(cfg); if (modo) document.getElementById('cardTitulo').textContent = t(modo === 'cliente' ? 'cliTitulo' : 'cardTitulo'); });

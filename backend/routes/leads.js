@@ -2,7 +2,7 @@ const router   = require('express').Router();
 const db       = require('../db');
 const auth     = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
-const { FORMULARIOS_CONFIG } = require('../lib/formularios');
+const { FORMULARIOS_CONFIG, servicoPelasRespostas } = require('../lib/formularios');
 const { comTraducoes } = require('../lib/formulariosI18n');
 const { sendEmail } = require('../lib/email');
 const agenda = require('../lib/agendaServico');
@@ -148,12 +148,13 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
         .map(([pergunta, resposta]) => `${pergunta}: ${String(resposta).trim()}`),
     ].filter(Boolean).join('\n');
 
-    const valor_estimado = VALORES_SERVICO[cfg.servico] || 0;
+    const servicoLead = servicoPelasRespostas(cfg.servico, respostas);
+    const valor_estimado = VALORES_SERVICO[servicoLead] || 0;
 
     const [insLead] = await db.query(
       `INSERT INTO leads (nome, tel, email, servico, origem, status, obs, valor_estimado)
        VALUES (?, ?, ?, ?, 'Formulário Público', 'novo', ?, ?)`,
-      [nomeClean, telClean, emailClean, cfg.servico, obs || null, valor_estimado]
+      [nomeClean, telClean, emailClean, servicoLead, obs || null, valor_estimado]
     );
 
     let vinc = null;
@@ -187,7 +188,7 @@ router.post('/formulario-publico/:chave', limiterPublico, async (req, res) => {
 
     // Dia/horário escolhido no formulário (opcional) — mesma agenda da landing
     const ag = await agenda.agendarPeloFormulario(db, {
-      agendamento, nome: nomeClean, email: emailClean, tel: telClean, servico: cfg.servico,
+      agendamento, nome: nomeClean, email: emailClean, tel: telClean, servico: servicoLead,
       leadId: insLead.insertId, origem: 'Formulário ' + cfg.titulo, idioma: idiomaCli,
       clienteExistente: vinc?.ja_era_cliente ? vinc.cliente_id : null,
     });
@@ -270,12 +271,13 @@ router.post('/formulario', async (req, res) => {
       .map(([pergunta, resposta]) => `${pergunta}: ${resposta}`)
       .join('\n');
 
-    const valor_estimado = VALORES_SERVICO[servico] || 0;
+    const servicoLead = servicoPelasRespostas(servico, respostas);
+    const valor_estimado = VALORES_SERVICO[servicoLead] || 0;
 
     const [r] = await db.query(
       `INSERT INTO leads (nome,tel,email,servico,origem,status,responsavel,valor_estimado,obs,criado_por)
        VALUES (?,?,?,?,?,?,?,?,?,?)`,
-      [nome.trim(), tel||null, email||null, servico, 'Formulário Interno',
+      [nome.trim(), tel||null, email||null, servicoLead, 'Formulário Interno',
        'novo', req.user.nome, valor_estimado, obs||null, req.user.nome]
     );
     try { await vincularLead(db, r.insertId); } catch (e) { console.error('[leads POST /formulario] vincular:', e.message); }

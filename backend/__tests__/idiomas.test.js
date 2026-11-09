@@ -106,3 +106,20 @@ describe('e-mail em persa e crioulo', () => {
     expect(sendEmail.mock.calls[1][2]).not.toMatch(/dir="rtl"/);
   });
 });
+
+describe('ficha de Autorização de Residência', () => {
+  const { servicoPelasRespostas } = require('../lib/formularios');
+  const res = FORMULARIOS_CONFIG.residencia;
+  const perg = (id) => res.secoes.flatMap(s => s.perguntas).find(p => p.id === id);
+
+  test('tipo de RNM só aparece se tiver RNM', () => {
+    expect(perg('rnm_tipo').mostrarSe).toEqual({ id: 'tem_rnm', valor: 'Sim' });
+    expect(perg('rnm_tipo').opcoes).toEqual(['Provisório', 'Temporário', 'Permanente']);
+  });
+  test('quem precisa renovar vira lead de Renovação; primeiro RNM continua Autorização', () => {
+    const l = perg('renovacao').label;
+    expect(servicoPelasRespostas(res.servico, { [l]: 'Preciso renovar o RNM' })).toBe('Renovação de Autorização de Residência');
+    expect(servicoPelasRespostas(res.servico, { [l]: 'É o primeiro RNM no Brasil' })).toBe(res.servico);
+    expect(servicoPelasRespostas('Visto Americano de Turismo', { [l]: 'Preciso renovar o RNM' })).toBe('Visto Americano de Turismo');
+  });
+});

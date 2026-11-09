@@ -31,19 +31,26 @@ const FORMULARIOS_CONFIG = {
     titulo: 'Autorização de Residência',
     icon: '🪪',
     intro: 'Perguntas-chave pra qualificar o cliente e já deixar tudo pronto pro Pipeline de Leads.',
+    // Ficha da WB ditada pelo Renato (2026-11-09). "mostrarSe" = pergunta que
+    // só aparece quando outra tem aquela resposta.
     secoes: [
-      { titulo: '01 · Dados Pessoais', perguntas: [
-        { id: 'nacionalidade', label: 'Nacionalidade / país de origem', tipo: 'text' },
-        { id: 'visto',         label: 'Qual visto você possui?',        tipo: 'text' },
-        { id: 'data_entrada',  label: 'Data de entrada no Brasil',      tipo: 'date' },
+      { titulo: '01 · Documento (RNM/RNE)', perguntas: [
+        { id: 'tem_rnm',  label: 'Você tem RNM/RNE?', tipo: 'select', opcoes: ['Sim', 'Não'] },
+        { id: 'rnm_tipo', label: 'Seu RNM/RNE é provisório, temporário ou permanente?', tipo: 'select',
+          opcoes: ['Provisório', 'Temporário', 'Permanente'], mostrarSe: { id: 'tem_rnm', valor: 'Sim' } },
       ] },
-      { titulo: '02 · Vínculo e Situação', perguntas: [
-        { id: 'vinculo_brasileiro', label: 'Tem filho(a) brasileiro(a) ou é casado(a) com brasileiro(a)?', tipo: 'select', opcoes: ['Sim', 'Não'] },
-        { id: 'base_legal',        label: 'Qual a base legal pretendida?', tipo: 'select', opcoes: ['CPLP', 'Reunião Familiar', 'Mercosul', 'Não sei — preciso de orientação'] },
+      { titulo: '02 · Dados Pessoais', perguntas: [
+        { id: 'pais_origem',  label: 'País de origem', tipo: 'text' },
+        { id: 'data_entrada', label: 'Data de entrada no Brasil (aproximadamente)', tipo: 'date',
+          dica: 'Se não lembrar o dia exato, coloque uma data aproximada.' },
       ] },
-      { titulo: '03 · Localização e Prazo', perguntas: [
-        { id: 'localizacao', label: 'Cidade/Estado onde pretende residir', tipo: 'text' },
-        { id: 'urgencia',    label: 'Prazo/urgência desejada', tipo: 'text' },
+      { titulo: '03 · Vínculo com Brasileiros', perguntas: [
+        { id: 'filhos_brasileiros',   label: 'Tem filhos brasileiros?', tipo: 'select', opcoes: ['Sim', 'Não'] },
+        { id: 'casamento_brasileiro', label: 'Tem casamento ou união estável com brasileira(o)?', tipo: 'select', opcoes: ['Sim', 'Não'] },
+      ] },
+      { titulo: '04 · Pedido', perguntas: [
+        { id: 'renovacao', label: 'Precisa renovar o RNM ou é o primeiro RNM no Brasil?', tipo: 'select',
+          opcoes: ['Preciso renovar o RNM', 'É o primeiro RNM no Brasil'] },
       ] },
     ],
   },
@@ -109,4 +116,15 @@ const FORMULARIOS_CONFIG = {
   },
 };
 
-module.exports = { FORMULARIOS_CONFIG };
+// Serviço do lead a partir das respostas: na Residência, quem precisa
+// renovar o RNM é "Renovação" (preço diferente), não autorização nova.
+function servicoPelasRespostas(servico, respostas = {}) {
+  const res = FORMULARIOS_CONFIG.residencia;
+  if (servico === res.servico) {
+    const p = res.secoes.flatMap(s => s.perguntas).find(x => x.id === 'renovacao');
+    if (p && respostas[p.label] === 'Preciso renovar o RNM') return 'Renovação de Autorização de Residência';
+  }
+  return servico;
+}
+
+module.exports = { FORMULARIOS_CONFIG, servicoPelasRespostas };
